@@ -1,7 +1,10 @@
-import { Sparkles, Clock, Phone } from "lucide-react";
+import { Sparkles, Clock, Phone, Camera, MessageCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import CustomerCalendar from "@/components/CustomerCalendar";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // ดึงข้อมูล services จาก Supabase (Server Component)
 async function getServices(): Promise<Service[]> {
@@ -32,6 +35,8 @@ const CATEGORY_EMOJI: Record<string, string> = {
 export default async function Home() {
   const [services, settings] = await Promise.all([getServices(), getSettings()]);
 
+  console.log("SERVER FETCHED SETTINGS:", settings); // <--- DEBUG LOG
+
   // จัดกลุ่มบริการตาม category
   const servicesByCategory: Record<string, Service[]> = {};
   services.forEach((s) => {
@@ -39,6 +44,11 @@ export default async function Home() {
     if (!servicesByCategory[cat]) servicesByCategory[cat] = [];
     servicesByCategory[cat].push(s);
   });
+
+  const hasLine = settings.shop_line_id && settings.shop_line_id.trim() !== "";
+  const hasFb = settings.shop_fb && settings.shop_fb.trim() !== "";
+  const hasIg = settings.shop_ig && settings.shop_ig.trim() !== "";
+  const hasPhone = settings.shop_phone && settings.shop_phone.trim() !== "";
 
   return (
     <div className="min-h-screen bg-[#FDF2F8]">
@@ -56,17 +66,50 @@ export default async function Home() {
               </p>
             </div>
           </div>
-          {settings.shop_line_id && (
-            <a
-              href={`https://line.me/R/ti/p/~${settings.shop_line_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-rose-400 to-pink-500 text-white text-xs font-semibold rounded-lg shadow-sm hover:shadow-md transition-all"
-            >
-              <Phone size={12} />
-              Line
-            </a>
-          )}
+          <div className="flex gap-2">
+            {hasLine && (
+              <a
+                href={`https://line.me/R/ti/p/~${settings.shop_line_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm hover:scale-110 transition-transform"
+                title="Line"
+              >
+                <MessageCircle size={14} />
+              </a>
+            )}
+            {hasFb && (
+              <a
+                href={settings.shop_fb.startsWith("http") ? settings.shop_fb : `https://${settings.shop_fb}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110 active:scale-95"
+                title="Messenger"
+              >
+                <MessageCircle size={14} />
+              </a>
+            )}
+            {hasIg && (
+              <a
+                href={`https://instagram.com/${settings.shop_ig.replace("@", "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-500 flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110 active:scale-95"
+                title="Instagram"
+              >
+                <Camera size={14} />
+              </a>
+            )}
+            {hasPhone && (
+              <a
+                href={`tel:${settings.shop_phone}`}
+                className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110 active:scale-95"
+                title="โทรสอบถาม"
+              >
+                <Phone size={14} />
+              </a>
+            )}
+          </div>
         </div>
       </header>
 
@@ -121,18 +164,53 @@ export default async function Home() {
           <CustomerCalendar />
         </section>
 
-        {/* Contact CTA เล็กๆ */}
+        {/* Contact CTA */}
         <section className="text-center py-6">
-          <p className="text-sm text-slate-400 mb-2">สนใจจองคิว?</p>
-          <a
-            href={settings.shop_line_id ? `https://line.me/R/ti/p/~${settings.shop_line_id}` : "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-rose-400 to-pink-500 text-white text-sm font-semibold rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all"
-          >
-            <Phone size={15} />
-            ติดต่อทาง Line
-          </a>
+          <p className="text-sm font-bold text-brand-dark mb-4">สนใจจองคิว 💅</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {hasLine && (
+              <a
+                href={`https://line.me/R/ti/p/~${settings.shop_line_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-green-500 text-white text-sm font-semibold rounded-xl shadow-md transition-all hover:bg-green-600 active:scale-95"
+              >
+                <MessageCircle size={16} />
+                Line
+              </a>
+            )}
+            {hasFb && (
+              <a
+                href={settings.shop_fb.startsWith("http") ? settings.shop_fb : `https://${settings.shop_fb}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-blue-500 text-white text-sm font-semibold rounded-xl shadow-md transition-all hover:bg-blue-600 active:scale-95"
+              >
+                <MessageCircle size={16} />
+                Messenger
+              </a>
+            )}
+            {hasIg && (
+              <a
+                href={`https://instagram.com/${settings.shop_ig.replace("@", "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white text-sm font-semibold rounded-xl shadow-md transition-all hover:opacity-90 active:scale-95"
+              >
+                <Camera size={16} />
+                Instagram
+              </a>
+            )}
+            {hasPhone && (
+              <a
+                href={`tel:${settings.shop_phone}`}
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-xl shadow-md transition-all hover:bg-slate-900 active:scale-95"
+              >
+                <Phone size={16} />
+                โทรสอบถาม
+              </a>
+            )}
+          </div>
         </section>
       </main>
 

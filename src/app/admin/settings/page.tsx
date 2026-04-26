@@ -309,6 +309,24 @@ export default function SettingsPage() {
                   placeholder="08X-XXX-XXXX"
                 />
               </div>
+              <div>
+                <label className="form-label">Instagram</label>
+                <input
+                  className="input-field"
+                  value={shopSettings.shop_ig}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, shop_ig: e.target.value }))}
+                  placeholder="praewanail"
+                />
+              </div>
+              <div>
+                <label className="form-label">Facebook (Messenger Link หรือชื่อเพจ)</label>
+                <input
+                  className="input-field"
+                  value={shopSettings.shop_fb}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, shop_fb: e.target.value }))}
+                  placeholder="m.me/praewanail"
+                />
+              </div>
             </div>
           </div>
 

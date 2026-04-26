@@ -77,4 +77,6 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   shop_name: "Praewa Nail Studio",
   shop_phone: "",
   shop_line_id: "",
+  shop_ig: "",
+  shop_fb: "",
 };
