@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,6 +15,8 @@ import {
   Receipt,
   Tag,
   Wand2,
+  Menu,
+  X,
 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
@@ -37,16 +40,51 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   const isActive = (href: string, exact: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
 
   return (
-    <div className="flex h-screen bg-brand-pink overflow-hidden">
+    <div className="flex h-screen bg-brand-pink overflow-hidden flex-col md:flex-row">
+      {/* Mobile Header */}
+      <div className="md:hidden flex items-center justify-between bg-white p-4 border-b border-pink-100 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center shadow-sm">
+            <Sparkles size={16} className="text-white" />
+          </div>
+          <p className="font-bold text-brand-dark leading-none">Antonette Nail</p>
+        </div>
+        <button 
+          onClick={() => setMobileMenuOpen(true)}
+          className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-60 bg-white border-r border-pink-100 flex flex-col shrink-0" style={{ boxShadow: "var(--shadow-sidebar)" }}>
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-pink-100 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:relative md:w-60 md:translate-x-0 ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`} 
+        style={{ boxShadow: "var(--shadow-sidebar)" }}
+      >
         {/* Logo */}
-        <div className="p-5 border-b border-pink-100">
+        <div className="p-5 border-b border-pink-100 flex justify-between items-center">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center shadow-sm">
               <Sparkles size={16} className="text-white" />
@@ -56,6 +94,12 @@ export default function AdminLayout({
               <p className="text-[10px] text-brand-slate mt-0.5">Studio Management</p>
             </div>
           </div>
+          <button 
+            className="md:hidden p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Nav */}
@@ -91,7 +135,7 @@ export default function AdminLayout({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto w-full relative">
         <Toaster
           position="top-right"
           toastOptions={{
@@ -102,7 +146,7 @@ export default function AdminLayout({
             },
           }}
         />
-        <div className="p-8 max-w-6xl mx-auto animate-fade-in">
+        <div className="p-4 md:p-8 max-w-6xl mx-auto animate-fade-in pb-20">
           {children}
         </div>
       </main>

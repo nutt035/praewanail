@@ -21,6 +21,7 @@ const emptyForm = {
   name: "",
   price: 0,
   price_per_finger: null as number | null,
+  unit_name: "นิ้ว",
   duration: 60,
   category: "ทำเล็บมือ",
   isPerFinger: false,
@@ -74,6 +75,7 @@ export default function SettingsPage() {
       name: service.name,
       price: service.price,
       price_per_finger: service.price_per_finger ?? null,
+      unit_name: service.unit_name || "นิ้ว",
       duration: service.duration,
       category: service.category || "อื่นๆ",
       isPerFinger,
@@ -94,6 +96,7 @@ export default function SettingsPage() {
       name: form.name,
       price: form.isPerFinger ? 0 : form.price,
       price_per_finger: form.isPerFinger ? form.price_per_finger : null,
+      unit_name: form.isPerFinger ? form.unit_name : null,
       duration: form.duration,
       category: form.category,
     };
@@ -274,11 +277,6 @@ export default function SettingsPage() {
                       <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${CATEGORY_COLORS[service.category || "อื่นๆ"] || CATEGORY_COLORS["อื่นๆ"]}`}>
                         {service.category || "อื่นๆ"}
                       </span>
-                      {service.price_per_finger != null && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 flex items-center gap-1">
-                          <Fingerprint size={10} /> ต่อนิ้ว
-                        </span>
-                      )}
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openEdit(service)} className="w-7 h-7 rounded-lg bg-slate-50 text-slate-400 hover:bg-slate-100 flex items-center justify-center">
@@ -297,7 +295,11 @@ export default function SettingsPage() {
                       <Clock size={13} />
                       <span className="text-xs">{service.duration} นาที</span>
                     </div>
-                    <p className="text-lg font-bold gradient-text">{displayPrice(service)}</p>
+                    <p className="text-lg font-bold gradient-text">
+                      {service.price_per_finger != null 
+                        ? `฿${service.price_per_finger.toLocaleString()} / ${service.unit_name || "นิ้ว"}` 
+                        : `฿${service.price.toLocaleString()}`}
+                    </p>
                   </div>
                 </div>
               ))
@@ -474,24 +476,36 @@ export default function SettingsPage() {
                       : "bg-white text-slate-500 border-pink-100 hover:border-violet-300"
                     }`}
                   >
-                    <Fingerprint size={14} /> ต่อนิ้ว
+                    <Fingerprint size={14} /> คิดตามหน่วย
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {form.isPerFinger ? (
-                  <div>
-                    <label className="form-label">ราคาต่อนิ้ว (บาท) *</label>
-                    <input
-                      type="number"
-                      className="input-field"
-                      value={form.price_per_finger ?? ""}
-                      min={0}
-                      onChange={(e) => setForm((f) => ({ ...f, price_per_finger: Number(e.target.value) }))}
-                      placeholder="เช่น 30"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">เช่น ลาย 1 นิ้ว = 30฿</p>
+                  <div className="space-y-4 col-span-1 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="form-label">ราคาต่อหน่วย (บาท) *</label>
+                      <input
+                        type="number"
+                        className="input-field"
+                        value={form.price_per_finger ?? ""}
+                        min={0}
+                        onChange={(e) => setForm((f) => ({ ...f, price_per_finger: Number(e.target.value) }))}
+                        placeholder="เช่น 30"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">ตัวอย่าง: ลาย 1 นิ้ว / อะไหล่ 1 ชิ้น = 30฿</p>
+                    </div>
+                    <div>
+                      <label className="form-label">ชื่อหน่วย (นิ้ว/ชิ้น/ฯลฯ)</label>
+                      <input
+                        type="text"
+                        className="input-field"
+                        value={form.unit_name}
+                        onChange={(e) => setForm((f) => ({ ...f, unit_name: e.target.value }))}
+                        placeholder="นิ้ว"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div>

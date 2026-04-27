@@ -211,9 +211,10 @@ export default function InventoryPage() {
 
       {/* สต็อกทั้งหมด */}
       <div className="card overflow-hidden">
-        <table className="data-table">
-          <thead>
-            <tr>
+        <div className="overflow-x-auto">
+          <table className="data-table min-w-[700px]">
+            <thead>
+              <tr>
               <th>ชื่อสินค้า</th>
               <th>หมวด</th>
               <th>จำนวน</th>
@@ -300,7 +301,8 @@ export default function InventoryPage() {
               })
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       {/* Modal: Add / Edit */}

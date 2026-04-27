@@ -214,14 +214,14 @@ export default async function Home() {
                             </span>
                             {service.price_per_finger != null && (
                               <span className="flex items-center gap-0.5 text-violet-400">
-                                <Fingerprint size={11} /> ต่อนิ้ว
+                                <Fingerprint size={11} /> ต่อ{service.unit_name || "นิ้ว"}
                               </span>
                             )}
                           </div>
                         </div>
                         <p className="text-base font-bold gradient-text shrink-0">
                           {service.price_per_finger != null
-                            ? `฿${service.price_per_finger.toLocaleString()}/นิ้ว`
+                            ? `฿${service.price_per_finger.toLocaleString()}/${service.unit_name || "หน่วย"}`
                             : `฿${service.price.toLocaleString()}`
                           }
                         </p>

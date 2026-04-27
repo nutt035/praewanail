@@ -6,8 +6,9 @@ export interface Service {
   id: string;
   name: string;
   price: number;
-  price_per_finger: number | null; // null = ราคาเหมา, มีค่า = คิดต่อนิ้ว
-  duration: number; // นาที
+  duration: number; // minutes
+  price_per_finger: number | null; 
+  unit_name: string | null; // e.g., "นิ้ว", "ชิ้น"
   category: string | null;
   created_at: string;
 }

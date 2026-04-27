@@ -112,7 +112,7 @@ export default function BookingPage() {
   function addServiceItem() {
     const service = services.find((s) => s.id === addServiceId);
     if (!service) return;
-    const fingerCount = service.price_per_finger != null ? 10 : null; // default 10 นิ้ว
+    const fingerCount = service.price_per_finger != null ? 1 : null; // default 1 หน่วย
     const lineTotal = calcLineTotal(service, fingerCount);
     setSelectedItems((prev) => [
       ...prev,
@@ -365,19 +365,18 @@ export default function BookingPage() {
                       <p className="text-xs text-slate-400">{item.service.duration} นาที</p>
                     </div>
 
-                    {/* จำนวนนิ้ว (ถ้าเป็น per-finger) */}
+                    {/* จำนวน (ถ้าเป็น per-finger / per-unit) */}
                     {item.service.price_per_finger != null && (
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Fingerprint size={13} className="text-violet-400" />
                         <input
                           type="number"
                           className="w-14 text-center text-sm font-semibold border border-violet-200 rounded-lg py-1 bg-white"
-                          value={item.fingerCount ?? 10}
+                          value={item.fingerCount ?? 1}
                           min={1}
-                          max={20}
                           onChange={(e) => updateFingerCount(item.tempId, Number(e.target.value))}
                         />
-                        <span className="text-xs text-slate-400">นิ้ว</span>
+                        <span className="text-xs text-slate-400">{item.service.unit_name || "หน่วย"}</span>
                       </div>
                     )}
 
@@ -410,7 +409,7 @@ export default function BookingPage() {
                     <option key={s.id} value={s.id}>
                       {s.name}
                       {s.price_per_finger != null
-                        ? ` — ฿${s.price_per_finger}/นิ้ว`
+                        ? ` — ฿${s.price_per_finger} / ${s.unit_name || "หน่วย"}`
                         : ` — ฿${s.price.toLocaleString()}`}
                       {" "}({s.duration} นาที)
                     </option>
