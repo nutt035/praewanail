@@ -51,6 +51,7 @@ export default function BookingPage() {
   const [formData, setFormData] = useState({
     customerName: "",
     phone: "",
+    lineId: "",
     date: new Date().toISOString().split("T")[0],
     startTime: "10:00",
     deposit: "",
@@ -95,10 +96,11 @@ export default function BookingPage() {
   }
 
   async function fetchCustomers() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("customers")
       .select("*")
-      .order("last_visit_date", { ascending: false, nullsFirst: false });
+      .order("created_at", { ascending: false });
+    if (error) console.error("Error fetching customers:", error);
     setCustomers((data as Customer[]) || []);
   }
 
@@ -130,7 +132,7 @@ export default function BookingPage() {
 
   function selectCustomer(cust: Customer) {
     setExistingCustomer(cust);
-    setFormData(prev => ({ ...prev, customerName: cust.name, phone: cust.phone || "" }));
+    setFormData(prev => ({ ...prev, customerName: cust.name, phone: cust.phone || "", lineId: cust.line_id || "" }));
     setActiveSearchField(null);
   }
 
@@ -206,7 +208,7 @@ export default function BookingPage() {
 
   function resetForm() {
     setFormData({
-      customerName: "", phone: "",
+      customerName: "", phone: "", lineId: "",
       date: new Date().toISOString().split("T")[0],
       startTime: "10:00", deposit: "", paymentMethod: "cash", notes: "",
     });
@@ -230,12 +232,24 @@ export default function BookingPage() {
     try {
       // 1. หา/สร้าง customer
       let customerId: string | null = null;
-      if (existingCustomer) {
-        customerId = existingCustomer.id;
+      
+      // Safety check: double check match directly before submit
+      const manualMatch = customers.find(c => 
+        c.name.trim().toLowerCase() === formData.customerName.trim().toLowerCase() && 
+        (c.phone || "").trim() === (formData.phone || "").trim()
+      );
+      const finalCustomer = existingCustomer || manualMatch;
+
+      if (finalCustomer) {
+        customerId = finalCustomer.id;
       } else {
         const { data: newCustomer, error } = await supabase
           .from("customers")
-          .insert([{ name: formData.customerName, phone: formData.phone || null }])
+          .insert([{ 
+            name: formData.customerName, 
+            phone: formData.phone || null,
+            line_id: formData.lineId || null 
+          }])
           .select()
           .single();
         if (error) throw error;
@@ -451,6 +465,25 @@ export default function BookingPage() {
                 </div>
               )}
             </div>
+
+            {/* ช่องทางการติดต่อเพิ่มเติม (แสดงเมื่อเป็นลูกค้าใหม่เท่านั้น) */}
+            {!existingCustomer && (
+              <div className="md:col-span-2 pt-4 mt-2 border-t border-rose-100 animate-slide-up">
+                <label className="form-label text-emerald-600">ช่องทางการติดต่ออื่น (IG / FB / Line) <span className="text-slate-400 font-normal text-xs">(ไม่บังคับ)</span></label>
+                <input
+                  type="text"
+                  name="lineId"
+                  value={formData.lineId}
+                  onChange={handleChange}
+                  placeholder="เช่น IG: ploy.ploy, Line: ploy123"
+                  className="input-field border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400 bg-emerald-50/30"
+                />
+                <p className="text-xs text-emerald-500 mt-1.5 flex items-center gap-1">
+                  ✨ บันทึกไว้เผื่อติดต่อลูกค้าส่งโปรโมชั่นในอนาคต
+                </p>
+              </div>
+            )}
+            
           </div>
         </div>
 
