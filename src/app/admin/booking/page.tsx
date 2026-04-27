@@ -6,7 +6,7 @@ import {
   FileText, ChevronDown, Banknote, Plus, Trash2, Fingerprint, Tag, Heart,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Service, Customer, calcLineTotal, calcDiscountBaht } from "@/lib/types";
+import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht } from "@/lib/types";
 import toast from "react-hot-toast";
 
 const paymentMethods = [
@@ -25,7 +25,12 @@ interface ServiceItem {
 
 export default function BookingPage() {
   const [services, setServices] = useState<Service[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  
   const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneSearching, setPhoneSearching] = useState(false);
 
@@ -37,6 +42,7 @@ export default function BookingPage() {
   const [hasDiscount, setHasDiscount] = useState(false);
   const [discountValue, setDiscountValue] = useState(0);
   const [discountType, setDiscountType] = useState<"amount" | "percent">("amount");
+  const [selectedPromotionId, setSelectedPromotionId] = useState("custom");
 
   // ── หุ่นลอง ──
   const [isPracticeModel, setIsPracticeModel] = useState(false);
@@ -73,7 +79,11 @@ export default function BookingPage() {
   const isFormValid = formData.customerName && formData.date && formData.startTime &&
     (isPracticeModel || selectedItems.length > 0);
 
-  useEffect(() => { fetchServices(); }, []);
+  useEffect(() => { 
+    fetchServices(); 
+    fetchCustomers();
+    fetchPromotions();
+  }, []);
 
   async function fetchServices() {
     const { data } = await supabase
@@ -84,29 +94,55 @@ export default function BookingPage() {
     setServices(data || []);
   }
 
-  // ค้นหาลูกค้าจากเบอร์โทร
+  async function fetchCustomers() {
+    const { data } = await supabase
+      .from("customers")
+      .select("*")
+      .order("last_visit_date", { ascending: false, nullsFirst: false });
+    setCustomers((data as Customer[]) || []);
+  }
+
+  async function fetchPromotions() {
+    const { data } = await supabase
+      .from("promotions")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    setPromotions((data as Promotion[]) || []);
+  }
+
+  // สร้างรายชื่อที่ตรงกับการค้นหา (โทร หรือ ชื่อ)
+  const filteredCustomers = customers.filter(c => {
+    const search = (formData.phone || formData.customerName || "").toLowerCase();
+    if (!search || search.length < 2) return false;
+    return (c.phone && c.phone.includes(search)) || (c.name.toLowerCase().includes(search));
+  }).slice(0, 5); // เอาแค่ 5 คนแรก
+
+  function selectCustomer(cust: Customer) {
+    setExistingCustomer(cust);
+    setFormData(prev => ({ ...prev, customerName: cust.name, phone: cust.phone || "" }));
+    setShowCustomerDropdown(false);
+  }
+
+  // ค้นหาลูกค้าเดิมเมื่อปล่อยพิมพ์ (fallback ถ้าไม่กดเลือกจาก dropdown)
   useEffect(() => {
     if (!formData.phone || formData.phone.length < 9) {
-      setExistingCustomer(null);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setPhoneSearching(true);
-      const { data } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("phone", formData.phone)
-        .maybeSingle();
-      if (data) {
-        setExistingCustomer(data);
-        setFormData((prev) => ({ ...prev, customerName: data.name }));
-      } else {
+      if (existingCustomer && formData.phone !== existingCustomer.phone) {
         setExistingCustomer(null);
       }
-      setPhoneSearching(false);
-    }, 500);
+      return;
+    }
+    const timer = setTimeout(() => {
+      const match = customers.find(c => c.phone === formData.phone);
+      if (match) {
+        setExistingCustomer(match);
+        if (!formData.customerName) {
+           setFormData(prev => ({ ...prev, customerName: match.name }));
+        }
+      }
+    }, 300);
     return () => clearTimeout(timer);
-  }, [formData.phone]);
+  }, [formData.phone, customers, formData.customerName]);
 
   // ──── เพิ่มบริการเข้า list ────
   function addServiceItem() {
@@ -155,6 +191,7 @@ export default function BookingPage() {
     setHasDiscount(false);
     setDiscountValue(0);
     setDiscountType("amount");
+    setSelectedPromotionId("custom");
     setIsPracticeModel(false);
     setMaterialCost(50);
     setExistingCustomer(null);
@@ -205,6 +242,7 @@ export default function BookingPage() {
           notes: bookingNotes,
           discount_amount: hasDiscount ? discountValue : 0,
           discount_type: discountType,
+          promotion_id: selectedPromotionId !== "custom" && selectedPromotionId ? selectedPromotionId : null,
           is_practice_model: isPracticeModel,
           material_cost: isPracticeModel ? materialCost : 0,
         }])
@@ -307,26 +345,47 @@ export default function BookingPage() {
             ข้อมูลลูกค้า
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="form-label">เบอร์ติดต่อ</label>
+            <div className="relative">
+              <label className="form-label">เบอร์ติดต่อ / ค้นหาลูกค้าเก่า</label>
               <div className="relative">
                 <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="tel"
+                  type="text"
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="08X-XXX-XXXX"
+                  onFocus={() => setShowCustomerDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                  placeholder="08X-XXX-XXXX หรือพิมพ์ชื่อ"
                   className="input-field pl-9"
+                  autoComplete="off"
                 />
-                {phoneSearching && (
-                  <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-rose-400 animate-spin" />
-                )}
               </div>
               {existingCustomer && (
                 <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  ✓ พบลูกค้า: <strong>{existingCustomer.name}</strong>
+                  ✓ เลือกลูกค้าอ้างอิง: <strong>{existingCustomer.name}</strong>
                 </p>
+              )}
+              
+              {/* Dropdown ลูกค้าเก่า */}
+              {showCustomerDropdown && (formData.phone.length > 1 || formData.customerName.length > 1) && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-pink-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {filteredCustomers.length > 0 ? (
+                    filteredCustomers.map(cust => (
+                      <button
+                        key={cust.id}
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 hover:bg-pink-50 transition-colors border-b border-pink-50 last:border-0 flex justify-between items-center"
+                        onClick={() => selectCustomer(cust)}
+                      >
+                        <span className="font-medium text-sm text-brand-dark">{cust.name}</span>
+                        <span className="text-xs text-slate-400">{cust.phone}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-3 text-sm text-slate-400 text-center">ไม่พบลูกค้าเก่า (เพิ่มชื่อใหม่ข้างๆเลย)</div>
+                  )}
+                </div>
               )}
             </div>
             <div>
@@ -495,37 +554,77 @@ export default function BookingPage() {
 
             {hasDiscount && (
               <div className="mt-4 pt-4 border-t border-pink-100 animate-fade-in">
-                <div className="flex gap-2 mb-3">
-                  <button
-                    type="button"
-                    onClick={() => setDiscountType("amount")}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${discountType === "amount"
-                      ? "bg-emerald-500 text-white border-transparent"
-                      : "bg-white text-slate-500 border-pink-100 hover:border-emerald-300"
-                    }`}
-                  >
-                    ฿ ลดเป็นบาท
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDiscountType("percent")}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${discountType === "percent"
-                      ? "bg-emerald-500 text-white border-transparent"
-                      : "bg-white text-slate-500 border-pink-100 hover:border-emerald-300"
-                    }`}
-                  >
-                    % ลดเป็นเปอร์เซ็นต์
-                  </button>
-                </div>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={discountValue}
-                  min={0}
-                  max={discountType === "percent" ? 100 : undefined}
-                  onChange={(e) => setDiscountValue(Number(e.target.value))}
-                  placeholder={discountType === "percent" ? "เช่น 10 (= 10%)" : "เช่น 50 (= 50 บาท)"}
-                />
+                
+                {promotions.length > 0 && (
+                  <div className="mb-4">
+                    <label className="form-label text-sm text-brand-dark mb-1">เลือกจากโปรโมชั่น</label>
+                    <select
+                      className="input-field bg-emerald-50 border-emerald-200 text-emerald-900"
+                      value={selectedPromotionId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedPromotionId(val);
+                        if (val !== "custom") {
+                          const promo = promotions.find(p => p.id === val);
+                          if (promo && promo.discount_type !== "announcement") {
+                            setDiscountType(promo.discount_type === "amount" ? "amount" : "percent");
+                            setDiscountValue(promo.discount_value);
+                          }
+                        }
+                      }}
+                    >
+                      <option value="custom">-- พิมพ์ส่วนลดเอง (Custom) --</option>
+                      {promotions.filter(p => p.discount_type !== 'announcement').map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.title} (ลด {p.discount_type === 'percent' ? p.discount_value + '%' : p.discount_value + ' บ.'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {selectedPromotionId === "custom" ? (
+                  <>
+                    <div className="flex gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setDiscountType("amount")}
+                        className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${discountType === "amount"
+                          ? "bg-emerald-500 text-white border-transparent"
+                          : "bg-white text-slate-500 border-pink-100 hover:border-emerald-300"
+                        }`}
+                      >
+                        ฿ ลดเป็นบาท
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDiscountType("percent")}
+                        className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${discountType === "percent"
+                          ? "bg-emerald-500 text-white border-transparent"
+                          : "bg-white text-slate-500 border-pink-100 hover:border-emerald-300"
+                        }`}
+                      >
+                        % ลดเป็นเปอร์เซ็นต์
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      className="input-field border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400"
+                      value={discountValue}
+                      min={0}
+                      max={discountType === "percent" ? 100 : undefined}
+                      onChange={(e) => setDiscountValue(Number(e.target.value))}
+                      placeholder={discountType === "percent" ? "เช่น 10 (= 10%)" : "เช่น 50 (= 50 บาท)"}
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100">
+                    <Tag size={16} />
+                    <span className="font-medium text-sm">
+                      ใช้งานโปรโมชั่น: ลด {discountType === 'percent' ? `${discountValue}%` : `${discountValue} บาท`}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
