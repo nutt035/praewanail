@@ -12,6 +12,7 @@ import {
   Sparkles,
   DollarSign,
   Receipt,
+  Tag,
 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
@@ -21,10 +22,12 @@ const navItems = [
   { href: "/admin/calendar", label: "ตารางคิว", icon: CalendarDays, exact: false },
   { href: "/admin/finance", label: "รายรับ-รายจ่าย", icon: DollarSign, exact: false },
   { href: "/admin/receipts", label: "ประวัติบิล", icon: Receipt, exact: false },
+  { href: "/admin/promotions", label: "โปรโมชั่น", icon: Tag, exact: false },
   { href: "/admin/inventory", label: "จัดการสต็อก", icon: PackageSearch, exact: false },
   { href: "/admin/customers", label: "ประวัติลูกค้า", icon: Users, exact: false },
   { href: "/admin/settings", label: "ตั้งค่าร้าน", icon: Settings, exact: false },
 ];
+
 
 export default function AdminLayout({
   children,

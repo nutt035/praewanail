@@ -1,6 +1,6 @@
-import { Sparkles, Clock, Phone, Camera, MessageCircle, Fingerprint } from "lucide-react";
+import { Sparkles, Clock, Phone, Camera, MessageCircle, Fingerprint, Tag, Percent, Banknote, Megaphone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { Service, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import CustomerCalendar from "@/components/CustomerCalendar";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,19 @@ async function getSettings(): Promise<Record<string, string>> {
   return DEFAULT_SETTINGS;
 }
 
+// ดึงโปรโมชั่นที่ active อยู่
+async function getActivePromotions(): Promise<Promotion[]> {
+  const today = new Date().toISOString().split("T")[0];
+  const { data } = await supabase
+    .from("promotions")
+    .select("*")
+    .eq("is_active", true)
+    .or(`valid_from.is.null,valid_from.lte.${today}`)
+    .or(`valid_to.is.null,valid_to.gte.${today}`)
+    .order("created_at", { ascending: false });
+  return (data as Promotion[]) || [];
+}
+
 const CATEGORY_EMOJI: Record<string, string> = {
   "ทำเล็บมือ": "💅",
   "ทำเล็บเท้า": "🦶",
@@ -33,9 +46,11 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 export default async function Home() {
-  const [services, settings] = await Promise.all([getServices(), getSettings()]);
-
-  console.log("SERVER FETCHED SETTINGS:", settings); // <--- DEBUG LOG
+  const [services, settings, promotions] = await Promise.all([
+    getServices(),
+    getSettings(),
+    getActivePromotions(),
+  ]);
 
   // จัดกลุ่มบริการตาม category
   const servicesByCategory: Record<string, Service[]> = {};
@@ -114,6 +129,58 @@ export default async function Home() {
       </header>
 
       <main className="max-w-2xl mx-auto px-5 py-8 space-y-10">
+
+        {/* โปรโมชั่น */}
+        {promotions.length > 0 && (
+          <section id="promotions">
+            <h2 className="text-xl font-bold text-brand-dark mb-1">โปรโมชั่นพิเศษ 🎉</h2>
+            <p className="text-sm text-slate-400 mb-4">ข้อเสนอสุดพิเศษจากร้านเรา</p>
+            <div className="space-y-3">
+              {promotions.map((promo) => (
+                <div
+                  key={promo.id}
+                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-400 via-pink-500 to-fuchsia-500 p-px shadow-md"
+                >
+                  <div className="bg-white rounded-[15px] px-4 py-3.5 flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      promo.discount_type === "percent" ? "bg-violet-50" :
+                      promo.discount_type === "amount" ? "bg-emerald-50" : "bg-rose-50"
+                    }`}>
+                      {promo.discount_type === "percent" && <Percent size={16} className="text-violet-500" />}
+                      {promo.discount_type === "amount" && <Banknote size={16} className="text-emerald-500" />}
+                      {promo.discount_type === "announcement" && <Megaphone size={16} className="text-rose-400" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-bold text-sm text-brand-dark">{promo.title}</p>
+                        {promo.discount_type === "percent" && promo.discount_value > 0 && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">
+                            ลด {promo.discount_value}%
+                          </span>
+                        )}
+                        {promo.discount_type === "amount" && promo.discount_value > 0 && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600">
+                            ลด ฿{promo.discount_value}
+                          </span>
+                        )}
+                      </div>
+                      {promo.description && (
+                        <p className="text-xs text-slate-500 mt-0.5">{promo.description}</p>
+                      )}
+                      {promo.valid_to && (
+                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                          <Tag size={10} />
+                          หมดเขต {new Date(promo.valid_to).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "2-digit" })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* บริการ */}
         <section id="services">
           <h2 className="text-xl font-bold text-brand-dark mb-1">บริการของเรา 💅</h2>

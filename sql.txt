@@ -101,3 +101,26 @@ ALTER TABLE bookings
 
 -- [M4] Index สำหรับ query เร็วขึ้น
 CREATE INDEX IF NOT EXISTS idx_booking_services_booking_id ON booking_services(booking_id);
+
+-- ============================================================
+-- MIGRATION: Promotions + Inventory Category
+-- ============================================================
+
+-- [M5] สร้างตาราง promotions (โปรโมชั่น)
+CREATE TABLE IF NOT EXISTS promotions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,                          -- ชื่อโปร เช่น "เปิดร้านใหม่ลด 20%"
+    description TEXT,                             -- รายละเอียดเพิ่มเติม
+    discount_type TEXT DEFAULT 'announcement',    -- 'percent' | 'amount' | 'announcement'
+    discount_value NUMERIC DEFAULT 0,             -- ค่าส่วนลด (0 ถ้าเป็นแค่ประกาศ)
+    valid_from DATE DEFAULT NULL,                 -- null = เริ่มทันที
+    valid_to DATE DEFAULT NULL,                   -- null = ไม่มีกำหนดหมด
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+);
+
+-- [M6] เพิ่มหมวดหมู่สินค้าในตาราง inventory
+ALTER TABLE inventory
+    ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'สีเจล/เนื้อเจล';
+    -- 'สีเจล/เนื้อเจล' | 'วัสดุสิ้นเปลือง' | 'ของใช้หลัก'
+

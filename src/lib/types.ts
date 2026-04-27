@@ -62,6 +62,7 @@ export interface InventoryItem {
   item_name: string;
   quantity: number;
   unit: string | null;
+  category: string | null; // 'สีเจล/เนื้อเจล' | 'วัสดุสิ้นเปลือง' | 'ของใช้หลัก'
   min_threshold: number;
   created_at: string;
 }
@@ -75,6 +76,18 @@ export interface Transaction {
   created_at: string;
   // relations
   bookings?: Booking | null;
+}
+
+export interface Promotion {
+  id: string;
+  title: string;
+  description: string | null;
+  discount_type: "percent" | "amount" | "announcement";
+  discount_value: number;
+  valid_from: string | null;  // DATE string
+  valid_to: string | null;    // DATE string
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface ShopSettings {
