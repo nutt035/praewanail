@@ -90,6 +90,18 @@ export interface Promotion {
   created_at: string;
 }
 
+export interface EstimationHistory {
+  id: string;
+  image_url: string;
+  storage_path: string;
+  base_price: number;
+  add_ons: { item: string; cost: number }[];
+  estimated_total_price: number;
+  complexity: string | null;
+  note: string | null;
+  created_at: string;
+}
+
 export interface ShopSettings {
   key: string;
   value: string;
@@ -112,6 +124,7 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   shop_line_id: "",
   shop_ig: "",
   shop_fb: "",
+  ai_pricing_rules: "ทาสีเจลพื้นฐาน (สีพื้น/ลูกแก้ว/แฟลช): 250 บาท\nงานเพ้นท์ลาย (Hand-drawn): เริ่มต้นนิ้วละ 30 - 50 บาท (ตามความยาก)\nงานปั้นนูน 3D / ขัดผง: นิ้วละ 50 บาท\nติดอะไหล่/เพชร: ชิ้นเล็ก 10 บาท, ชิ้นใหญ่/อะไหล่พรีเมียม 30 - 50 บาท",
 };
 
 // ────────────── Helpers ──────────────

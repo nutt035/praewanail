@@ -13,6 +13,7 @@ import {
   DollarSign,
   Receipt,
   Tag,
+  Wand2,
 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/admin/promotions", label: "โปรโมชั่น", icon: Tag, exact: false },
   { href: "/admin/inventory", label: "จัดการสต็อก", icon: PackageSearch, exact: false },
   { href: "/admin/customers", label: "ประวัติลูกค้า", icon: Users, exact: false },
+  { href: "/admin/estimator", label: "AI ประเมินราคา", icon: Wand2, exact: false },
   { href: "/admin/settings", label: "ตั้งค่าร้าน", icon: Settings, exact: false },
 ];
 
