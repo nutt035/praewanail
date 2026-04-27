@@ -29,7 +29,7 @@ export default function BookingPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   
   const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
-  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [activeSearchField, setActiveSearchField] = useState<"phone" | "name" | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [phoneSearching, setPhoneSearching] = useState(false);
@@ -113,15 +113,25 @@ export default function BookingPage() {
 
   // สร้างรายชื่อที่ตรงกับการค้นหา (โทร หรือ ชื่อ)
   const filteredCustomers = customers.filter(c => {
-    const search = (formData.phone || formData.customerName || "").toLowerCase();
+    if (!activeSearchField) return false;
+    
+    const search = activeSearchField === "name" 
+      ? formData.customerName.toLowerCase() 
+      : (formData.phone || "").toLowerCase();
+      
     if (!search || search.length < 2) return false;
-    return (c.phone && c.phone.includes(search)) || (c.name.toLowerCase().includes(search));
+    
+    if (activeSearchField === "name") {
+      return c.name.toLowerCase().includes(search) || (c.phone && c.phone.includes(search));
+    } else {
+      return (c.phone && c.phone.includes(search)) || c.name.toLowerCase().includes(search);
+    }
   }).slice(0, 5); // เอาแค่ 5 คนแรก
 
   function selectCustomer(cust: Customer) {
     setExistingCustomer(cust);
     setFormData(prev => ({ ...prev, customerName: cust.name, phone: cust.phone || "" }));
-    setShowCustomerDropdown(false);
+    setActiveSearchField(null);
   }
 
   // ค้นหาลูกค้าเดิมเมื่อปล่อยพิมพ์ (fallback ถ้าไม่กดเลือกจาก dropdown)
@@ -354,8 +364,8 @@ export default function BookingPage() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  onFocus={() => setShowCustomerDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                  onFocus={() => setActiveSearchField("phone")}
+                  onBlur={() => setTimeout(() => setActiveSearchField(null), 200)}
                   placeholder="08X-XXX-XXXX หรือพิมพ์ชื่อ"
                   className="input-field pl-9"
                   autoComplete="off"
@@ -367,8 +377,8 @@ export default function BookingPage() {
                 </p>
               )}
               
-              {/* Dropdown ลูกค้าเก่า */}
-              {showCustomerDropdown && (formData.phone.length > 1 || formData.customerName.length > 1) && (
+              {/* Dropdown ลูกค้าเก่า (ค้นหาจากเบอร์) */}
+              {activeSearchField === "phone" && (formData.phone.length > 1) && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-pink-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
                   {filteredCustomers.length > 0 ? (
                     filteredCustomers.map(cust => (
@@ -379,16 +389,16 @@ export default function BookingPage() {
                         onClick={() => selectCustomer(cust)}
                       >
                         <span className="font-medium text-sm text-brand-dark">{cust.name}</span>
-                        <span className="text-xs text-slate-400">{cust.phone}</span>
+                        <span className="text-xs text-slate-400">{cust.phone || "ไม่มีเบอร์"}</span>
                       </button>
                     ))
                   ) : (
-                    <div className="px-4 py-3 text-sm text-slate-400 text-center">ไม่พบลูกค้าเก่า (เพิ่มชื่อใหม่ข้างๆเลย)</div>
+                    <div className="px-4 py-3 text-sm text-slate-400 text-center">ไม่พบลูกค้าเก่า (เพิ่มชื่อใหม่ได้เลย)</div>
                   )}
                 </div>
               )}
             </div>
-            <div>
+            <div className="relative">
               <label className="form-label">ชื่อลูกค้า <span className="text-rose-400">*</span></label>
               <div className="relative">
                 <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -397,11 +407,35 @@ export default function BookingPage() {
                   name="customerName"
                   value={formData.customerName}
                   onChange={handleChange}
+                  onFocus={() => setActiveSearchField("name")}
+                  onBlur={() => setTimeout(() => setActiveSearchField(null), 200)}
                   placeholder="เช่น คุณพลอย"
                   required
+                  autoComplete="off"
                   className="input-field pl-9"
                 />
               </div>
+              
+              {/* Dropdown ลูกค้าเก่า (ค้นหาจากชื่อ) */}
+              {activeSearchField === "name" && (formData.customerName.length > 1) && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-pink-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {filteredCustomers.length > 0 ? (
+                    filteredCustomers.map(cust => (
+                      <button
+                        key={cust.id}
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 hover:bg-pink-50 transition-colors border-b border-pink-50 last:border-0 flex justify-between items-center"
+                        onClick={() => selectCustomer(cust)}
+                      >
+                        <span className="font-medium text-sm text-brand-dark">{cust.name}</span>
+                        <span className="text-xs text-slate-400">{cust.phone || "ไม่มีเบอร์"}</span>
+                      </button>
+                    ))
+                  ) : (
+                     <div className="px-4 py-3 text-sm text-emerald-600 text-center">เป็นลูกค้าใหม่ใช่ไหม? ยินดีต้อนรับครับ 😊</div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
