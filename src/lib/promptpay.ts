@@ -27,7 +27,7 @@ export function generatePromptPayPayload(id: string, amount?: number): string {
   const data = [
     f("00", "01"), // Payload Format Indicator
     f("01", "11"), // Point of Initiation Method (11: Static, 12: Dynamic)
-    f("29", f("00", "A000000677010111") + target), // Merchant Account Information (PromptPay)
+    f("29", f("00", "0677010111") + target), // Merchant Account Information (PromptPay)
     f("53", "764"), // Transaction Currency (764: THB)
     amount ? f("54", amount.toFixed(2)) : "", // Transaction Amount
     f("58", "TH"), // Country Code
