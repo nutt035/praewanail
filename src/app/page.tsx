@@ -1,4 +1,4 @@
-import { Sparkles, Clock, Phone, Camera, MessageCircle } from "lucide-react";
+import { Sparkles, Clock, Phone, Camera, MessageCircle, Fingerprint } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import CustomerCalendar from "@/components/CustomerCalendar";
@@ -140,13 +140,23 @@ export default async function Home() {
                       >
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm text-brand-dark">{service.name}</p>
-                          <div className="flex items-center gap-1 mt-0.5 text-slate-400 text-xs">
-                            <Clock size={11} />
-                            <span>{service.duration} นาที</span>
+                          <div className="flex items-center gap-2 mt-0.5 text-slate-400 text-xs">
+                            <span className="flex items-center gap-0.5">
+                              <Clock size={11} />
+                              {service.duration} นาที
+                            </span>
+                            {service.price_per_finger != null && (
+                              <span className="flex items-center gap-0.5 text-violet-400">
+                                <Fingerprint size={11} /> ต่อนิ้ว
+                              </span>
+                            )}
                           </div>
                         </div>
                         <p className="text-base font-bold gradient-text shrink-0">
-                          ฿{service.price.toLocaleString()}
+                          {service.price_per_finger != null
+                            ? `฿${service.price_per_finger.toLocaleString()}/นิ้ว`
+                            : `฿${service.price.toLocaleString()}`
+                          }
                         </p>
                       </div>
                     ))}
