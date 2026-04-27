@@ -88,7 +88,31 @@ export default function CalendarPage() {
     })();
   }, [fetchBookings]);
 
-  // ... (keep the other parts unchanged until confirmComplete)
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const dayBookings = selectedDate
+    ? bookings.filter((b) => {
+        const d = new Date(b.start_time);
+        return d.getFullYear() === selectedDate.getFullYear() &&
+          d.getMonth() === selectedDate.getMonth() &&
+          d.getDate() === selectedDate.getDate();
+      })
+    : [];
+
+  const bookingsByDay: Record<number, string[]> = {};
+  bookings.forEach((b) => {
+    const d = new Date(b.start_time).getDate();
+    if (!bookingsByDay[d]) bookingsByDay[d] = [];
+    bookingsByDay[d].push(b.status);
+  });
+
+  // เปิด complete dialog (เลือกวิธีชำระก่อน)
+  function openCompleteDialog(booking: Booking) {
+    setSelectedBooking(null);
+    setShowCompleteDialog(booking);
+    setCompletePaymentMethod("cash");
+  }
 
   // ยืนยันจบงาน
   async function confirmComplete() {
