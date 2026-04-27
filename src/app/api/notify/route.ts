@@ -8,7 +8,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing LINE configuration" }, { status: 400 });
     }
 
-    const messages: any[] = [
+    const messages: { type: string; text?: string; originalContentUrl?: string; previewImageUrl?: string }[] = [
       {
         type: "text",
         text: message,

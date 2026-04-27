@@ -143,9 +143,10 @@ export default function EstimatorPage() {
       setHistory(prev => [insertedData as EstimationHistory, ...prev]);
       toast.success("ประเมินราคาสำเร็จ! 🎉", { id: "estimating" });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error(error.message || "เกิดข้อผิดพลาด", { id: "estimating" });
+      const msg = error instanceof Error ? error.message : "เกิดข้อผิดพลาด";
+      toast.error(msg, { id: "estimating" });
     } finally {
       setIsProcessing(false);
       setPreviewImage(null);
