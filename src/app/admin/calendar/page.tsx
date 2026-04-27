@@ -190,7 +190,7 @@ export default function CalendarPage() {
     if (!printWindow) return;
     printWindow.document.write(`
       <!DOCTYPE html><html><head>
-        <title>ใบเสร็จ - ${shopName}</title>
+        <title>ใบเสร็จ - ${shopSettings.shop_name}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
           * { margin: 0; padding: 0; box-sizing: border-box; }

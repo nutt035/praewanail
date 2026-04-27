@@ -29,8 +29,6 @@ export default function ReceiptsPage() {
   const [query, setQuery] = useState("");
   const [showReceipt, setShowReceipt] = useState<Booking | null>(null);
   const [shopSettings, setShopSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
-  const [shopName, setShopName] = useState("Praewa Nail Studio");
-  const [shopPhone, setShopPhone] = useState("");
   const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,10 +61,7 @@ export default function ReceiptsPage() {
   async function fetchShopSettings() {
     const { data } = await supabase.from("shop_settings").select("*");
     if (data && data.length > 0) {
-      const cfg = settingsToMap(data as ShopSettings[]);
-      setShopSettings({ ...DEFAULT_SETTINGS, ...cfg });
-      setShopName(cfg.shop_name || DEFAULT_SETTINGS.shop_name);
-      setShopPhone(cfg.shop_phone || "");
+      setShopSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) });
     }
   }
 
@@ -76,7 +71,7 @@ export default function ReceiptsPage() {
     if (!printWindow) return;
     printWindow.document.write(`
       <!DOCTYPE html><html><head>
-        <title>ใบเสร็จ - ${shopName}</title>
+        <title>ใบเสร็จ - ${shopSettings.shop_name}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
           * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -219,8 +214,8 @@ export default function ReceiptsPage() {
 
             <div className="p-6" ref={receiptRef}>
               <div style={{ textAlign: "center", marginBottom: "16px" }}>
-                <h2 style={{ fontSize: "16px", fontWeight: 700 }}>✨ {shopName}</h2>
-                {shopPhone && <p style={{ fontSize: "11px", color: "#94a3b8" }}>โทร: {shopPhone}</p>}
+                <h2 style={{ fontSize: "16px", fontWeight: 700 }}>✨ {shopSettings.shop_name}</h2>
+                {shopSettings.shop_phone && <p style={{ fontSize: "11px", color: "#94a3b8" }}>โทร: {shopSettings.shop_phone}</p>}
                 <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: "4px" }}>เลขที่: {showReceipt.id.slice(0, 8).toUpperCase()}</p>
               </div>
               <div style={{ borderTop: "1px dashed #e2e8f0", margin: "12px 0" }} />
