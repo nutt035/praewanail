@@ -134,25 +134,39 @@ export default function BookingPage() {
     setActiveSearchField(null);
   }
 
-  // ค้นหาลูกค้าเดิมเมื่อปล่อยพิมพ์ (fallback ถ้าไม่กดเลือกจาก dropdown)
+  // ตรวจสอบและ auto-match ข้อมูลลูกค้าที่พิมพ์
   useEffect(() => {
-    if (!formData.phone || formData.phone.length < 9) {
-      if (existingCustomer && formData.phone !== existingCustomer.phone) {
-        setExistingCustomer(null);
-      }
-      return;
-    }
     const timer = setTimeout(() => {
-      const match = customers.find(c => c.phone === formData.phone);
-      if (match) {
-        setExistingCustomer(match);
-        if (!formData.customerName) {
-           setFormData(prev => ({ ...prev, customerName: match.name }));
+      const currentName = formData.customerName.trim();
+      const currentPhone = formData.phone.trim();
+
+      // ถ้าระบุเบอร์ครบแต่ไม่ระบุชื่อ -> ดึงชื่อมาให้ (Auto-fill)
+      if (currentPhone.length >= 9 && currentName === "") {
+        const phoneMatch = customers.find(c => c.phone === currentPhone);
+        if (phoneMatch) {
+          setExistingCustomer(phoneMatch);
+          setFormData(prev => ({ ...prev, customerName: phoneMatch.name }));
+          return;
         }
+      }
+
+      // ตรวจสอบว่าตรงเป๊ะกับประวัติลูกค้าที่เรียนรู้ไหม
+      if (currentName !== "") {
+        const exactMatch = customers.find(c => 
+          c.name.trim().toLowerCase() === currentName.toLowerCase() && 
+          (c.phone || "").trim() === currentPhone
+        );
+        if (exactMatch) {
+          setExistingCustomer(exactMatch);
+        } else {
+          setExistingCustomer(null);
+        }
+      } else {
+        setExistingCustomer(null);
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [formData.phone, customers, formData.customerName]);
+  }, [formData.phone, formData.customerName, customers]);
 
   // ──── เพิ่มบริการเข้า list ────
   function addServiceItem() {
@@ -285,6 +299,7 @@ export default function BookingPage() {
 
       toast.success("บันทึกคิวเรียบร้อยแล้ว! 🎉", { id: toastId });
       resetForm();
+      fetchCustomers(); // อัปเดต dropdown ให้มีลูกค้าใหม่ทันที
     } catch (error) {
       console.error("Error:", error);
       toast.error("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่", { id: toastId });
