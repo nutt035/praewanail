@@ -252,7 +252,6 @@ export default function BookingPage() {
           notes: bookingNotes,
           discount_amount: hasDiscount ? discountValue : 0,
           discount_type: discountType,
-          promotion_id: selectedPromotionId !== "custom" && selectedPromotionId ? selectedPromotionId : null,
           is_practice_model: isPracticeModel,
           material_cost: isPracticeModel ? materialCost : 0,
         }])
