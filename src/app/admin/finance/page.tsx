@@ -248,7 +248,8 @@ export default function FinancePage() {
                 <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `฿${val >= 1000 ? val / 1000 + "k" : val}`} />
                 <Tooltip 
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                  formatter={(val: number | string | undefined) => [`฿${Number(val || 0).toLocaleString()}`, '']}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  formatter={(val: any) => [`฿${Number(val || 0).toLocaleString()}`, '']}
                 />
                 <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} name="รายรับ" />
                 <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} strokeDasharray="5 5" dot={false} name="รายจ่าย" />
@@ -307,7 +308,8 @@ export default function FinancePage() {
               <BarChart data={categoryStats} layout="vertical">
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" fontSize={11} width={80} tickLine={false} axisLine={false} />
-                <Tooltip formatter={(val: number | string | undefined) => `฿${Number(val || 0).toLocaleString()}`} />
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                <Tooltip formatter={(val: any) => `฿${Number(val || 0).toLocaleString()}`} />
                 <Bar dataKey="value" fill="#fb7185" radius={[0, 4, 4, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
