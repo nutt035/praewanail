@@ -174,4 +174,7 @@ INSERT INTO shop_settings (key, value) VALUES
     ('admin_line_uid', '')
 ON CONFLICT (key) DO NOTHING;
 
+-- [M12] เพิ่มระบบสะสมแต้ม
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0;
+
 

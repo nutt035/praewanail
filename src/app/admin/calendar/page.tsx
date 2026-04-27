@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote } from "lucide-react";
 import toast from "react-hot-toast";
+import PromptPayQR from "@/components/PromptPayQR";
 
 const STATUS_LABELS = {
   pending: { label: "รอยืนยัน", class: "badge-pending" },
@@ -59,8 +61,7 @@ export default function CalendarPage() {
   // Receipt
   const [showReceipt, setShowReceipt] = useState<Booking | null>(null);
   const [receiptPaymentMethod, setReceiptPaymentMethod] = useState("cash");
-  const [shopName, setShopName] = useState("Praewa Nail Studio");
-  const [shopPhone, setShopPhone] = useState("");
+  const [shopSettings, setShopSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
   const receiptRef = useRef<HTMLDivElement>(null);
 
   const fetchBookings = useCallback(async () => {
@@ -69,7 +70,7 @@ export default function CalendarPage() {
     const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
     const { data } = await supabase
       .from("bookings")
-      .select("*, customers(name, phone), services(name, price, duration)")
+      .select("*, customers(*), services(name, price, duration)")
       .gte("start_time", start)
       .lte("start_time", end)
       .order("start_time", { ascending: true });
@@ -82,38 +83,12 @@ export default function CalendarPage() {
     (async () => {
       const { data } = await supabase.from("shop_settings").select("*");
       if (data && data.length > 0) {
-        const cfg = settingsToMap(data as ShopSettings[]);
-        setShopName(cfg.shop_name || DEFAULT_SETTINGS.shop_name);
-        setShopPhone(cfg.shop_phone || "");
+        setShopSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) });
       }
     })();
   }, [fetchBookings]);
 
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const dayBookings = selectedDate
-    ? bookings.filter((b) => {
-        const d = new Date(b.start_time);
-        return d.getFullYear() === selectedDate.getFullYear() &&
-          d.getMonth() === selectedDate.getMonth() &&
-          d.getDate() === selectedDate.getDate();
-      })
-    : [];
-
-  const bookingsByDay: Record<number, string[]> = {};
-  bookings.forEach((b) => {
-    const d = new Date(b.start_time).getDate();
-    if (!bookingsByDay[d]) bookingsByDay[d] = [];
-    bookingsByDay[d].push(b.status);
-  });
-
-  // เปิด complete dialog (เลือกวิธีชำระก่อน)
-  function openCompleteDialog(booking: Booking) {
-    setSelectedBooking(null);
-    setShowCompleteDialog(booking);
-    setCompletePaymentMethod("cash");
-  }
+  // ... (keep the other parts unchanged until confirmComplete)
 
   // ยืนยันจบงาน
   async function confirmComplete() {
@@ -122,36 +97,80 @@ export default function CalendarPage() {
     const booking = showCompleteDialog;
     const toastId = toast.loading("กำลังบันทึก...");
 
-    // 1. อัพเดตสถานะ + payment_method
-    const { error } = await supabase
-      .from("bookings")
-      .update({ status: "completed", payment_method: completePaymentMethod })
-      .eq("id", booking.id);
-    if (error) { toast.error("เกิดข้อผิดพลาด", { id: toastId }); setCompleting(false); return; }
+    try {
+      // 1. อัพเดตสถานะ + payment_method
+      const { error: updateError } = await supabase
+        .from("bookings")
+        .update({ status: "completed", payment_method: completePaymentMethod })
+        .eq("id", booking.id);
+      if (updateError) throw updateError;
 
-    // 2. บันทึก transaction รายรับ (ยอดที่เหลือหลังหักมัดจำ)
-    const totalPrice = booking.total_price || booking.services?.price || 0;
-    const deposit = booking.deposit || 0;
-    const remaining = totalPrice - deposit;
+      // 2. บันทึก transaction รายรับ (ยอดที่เหลือหลังหักมัดจำ)
+      const totalPrice = booking.total_price || booking.services?.price || 0;
+      const deposit = booking.deposit || 0;
+      const remaining = totalPrice - deposit;
 
-    if (remaining > 0) {
-      await supabase.from("transactions").insert([{
-        type: "income",
-        amount: remaining,
-        category: "รายได้ทำเล็บ",
-        booking_id: booking.id,
-      }]);
+      if (remaining > 0) {
+        await supabase.from("transactions").insert([{
+          type: "income",
+          amount: remaining,
+          category: "รายได้ทำเล็บ",
+          booking_id: booking.id,
+        }]);
+      }
+
+      // 3. ระบบสะสมแต้ม
+      let currentPoints = 0;
+      let newPoints = 1;
+      const pointsPerBooking = Number(shopSettings.points_per_booking || 1);
+
+      if (booking.customer_id) {
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("points, name")
+          .eq("id", booking.customer_id)
+          .single();
+        
+        if (customer) {
+          currentPoints = customer.points || 0;
+          newPoints = currentPoints + pointsPerBooking;
+          await supabase
+            .from("customers")
+            .update({ points: newPoints })
+            .eq("id", booking.customer_id);
+        }
+      }
+
+      const payLabel = PAYMENT_OPTIONS.find((p) => p.value === completePaymentMethod)?.label || completePaymentMethod;
+      toast.success(`จบงานเรียบร้อย! ได้รับ ${pointsPerBooking} แต้ม (รวม ${newPoints} แต้ม)`, { id: toastId });
+
+      // 4. ส่งการแจ้งเตือน LINE พร้อม Link ใบเสร็จ
+      if (shopSettings.line_channel_token && shopSettings.admin_line_uid) {
+        const receiptUrl = `${window.location.origin}/receipt/${booking.id}`;
+        const message = `✅ จบงานแล้ว!\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม! (ตอนนี้มีทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่:\n${receiptUrl}`;
+        
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            channelToken: shopSettings.line_channel_token,
+            adminUid: shopSettings.admin_line_uid,
+            message,
+          }),
+        }).catch(err => console.error("LINE Notify Error:", err));
+      }
+
+      // 5. แสดงใบเสร็จ
+      setShowCompleteDialog(null);
+      setCompleting(false);
+      setReceiptPaymentMethod(completePaymentMethod);
+      setShowReceipt({ ...booking, status: "completed", payment_method: completePaymentMethod });
+      fetchBookings();
+    } catch (err) {
+      console.error(err);
+      toast.error("เกิดข้อผิดพลาด", { id: toastId });
+      setCompleting(false);
     }
-
-    const payLabel = PAYMENT_OPTIONS.find((p) => p.value === completePaymentMethod)?.label || completePaymentMethod;
-    toast.success(`จบงานเรียบร้อย! ยอดรับ ฿${totalPrice.toLocaleString()} (${payLabel})`, { id: toastId });
-
-    // 3. แสดงใบเสร็จ
-    setShowCompleteDialog(null);
-    setCompleting(false);
-    setReceiptPaymentMethod(completePaymentMethod);
-    setShowReceipt({ ...booking, status: "completed", payment_method: completePaymentMethod });
-    fetchBookings();
   }
 
   async function updateStatus(bookingId: string, status: string) {
@@ -357,12 +376,20 @@ export default function CalendarPage() {
 
             <div className="px-6 pb-5 flex flex-wrap gap-2">
               {selectedBooking.status !== "completed" && (
-                <button
-                  onClick={() => openCompleteDialog(selectedBooking)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition-colors border border-emerald-200"
-                >
-                  <CheckCircle2 size={15} /> จบงาน + ชำระเงิน
-                </button>
+                <>
+                  <button
+                    onClick={() => openCompleteDialog(selectedBooking)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition-colors border border-emerald-200"
+                  >
+                    <CheckCircle2 size={15} /> จบงาน + ชำระเงิน
+                  </button>
+                  <Link
+                    href={`/admin/booking?edit=${selectedBooking.id}`}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-50 text-slate-700 text-sm font-medium hover:bg-slate-100 transition-colors border border-slate-200"
+                  >
+                    <Scissors size={15} /> แก้ไขคิว
+                  </Link>
+                </>
               )}
               {selectedBooking.status === "completed" && (
                 <button
@@ -446,6 +473,17 @@ export default function CalendarPage() {
                   ))}
                 </div>
               </div>
+
+              {/* PromptPay QR */}
+              {completePaymentMethod === "promptpay" && shopSettings.promptpay_id && (
+                <div className="animate-fade-in pt-2">
+                  <PromptPayQR 
+                    id={shopSettings.promptpay_id} 
+                    amount={Math.max(0, (showCompleteDialog.total_price || showCompleteDialog.services?.price || 0) - (showCompleteDialog.deposit || 0))} 
+                    label="สแกนเพื่อชำระเงิน"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="px-6 pb-5 flex gap-2">
@@ -474,8 +512,8 @@ export default function CalendarPage() {
 
             <div className="p-6" ref={receiptRef}>
               <div style={{ textAlign: "center", marginBottom: "16px" }}>
-                <h2 style={{ fontSize: "16px", fontWeight: 700 }}>✨ {shopName}</h2>
-                {shopPhone && <p style={{ fontSize: "11px", color: "#94a3b8" }}>โทร: {shopPhone}</p>}
+                <h2 style={{ fontSize: "16px", fontWeight: 700 }}>✨ {shopSettings.shop_name}</h2>
+                {shopSettings.shop_phone && <p style={{ fontSize: "11px", color: "#94a3b8" }}>โทร: {shopSettings.shop_phone}</p>}
                 <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: "4px" }}>เลขที่: {showReceipt.id.slice(0, 8).toUpperCase()}</p>
               </div>
               <div style={{ borderTop: "1px dashed #e2e8f0", margin: "12px 0" }} />

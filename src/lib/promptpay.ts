@@ -19,10 +19,16 @@ function f(id: string, value: string): string {
 
 export function generatePromptPayPayload(id: string, amount?: number): string {
   const sanitizedId = id.replace(/[- ]/g, "");
-  const target =
-    sanitizedId.length >= 13
-      ? f("01", sanitizedId) // ID Card
-      : f("02", sanitizedId.padStart(13, "0")); // Phone number
+  let target = "";
+  
+  if (sanitizedId.length >= 13) {
+    // ID Card / Tax ID
+    target = f("01", sanitizedId);
+  } else {
+    // Phone number: convert 08x-xxx-xxxx to 00668xxxxxxxx
+    const mobileNumber = sanitizedId.replace(/^0/, "66");
+    target = f("02", mobileNumber.padStart(13, "0"));
+  }
 
   const data = [
     f("00", "01"), // Payload Format Indicator

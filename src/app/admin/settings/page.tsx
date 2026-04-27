@@ -407,6 +407,49 @@ export default function SettingsPage() {
             </p>
           </div>
 
+          {/* ระบบสะสมแต้ม */}
+          <div className="card p-6 border-yellow-100 bg-yellow-50/30">
+            <h3 className="text-sm font-semibold text-yellow-700 mb-4 flex items-center gap-2">
+              <Sparkles size={16} className="text-yellow-500" />
+              ตั้งค่าระบบสะสมแต้ม
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="form-label text-yellow-700">แต้มที่จะได้รับ (ต่อคิว)</label>
+                <input
+                  type="number"
+                  className="input-field border-yellow-200 focus:border-yellow-400 focus:ring-yellow-400"
+                  value={shopSettings.points_per_booking}
+                  min={0}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, points_per_booking: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="form-label text-yellow-700">มูลค่าส่วนลด (ใช้ 5 แต้ม)</label>
+                <input
+                  type="number"
+                  className="input-field border-yellow-200 focus:border-yellow-400 focus:ring-yellow-400"
+                  value={shopSettings.redeem_5_points_value}
+                  min={0}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, redeem_5_points_value: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="form-label text-yellow-700">มูลค่าส่วนลด (ใช้ 10 แต้ม)</label>
+                <input
+                  type="number"
+                  className="input-field border-yellow-200 focus:border-yellow-400 focus:ring-yellow-400"
+                  value={shopSettings.redeem_10_points_value}
+                  min={0}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, redeem_10_points_value: e.target.value }))}
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-yellow-600 mt-3 italic">
+              * เมื่อแอดมินกดจบงาน ระบบจะเพิ่มแต้มให้ลูกค้าอัตโนมัติตามค่าที่ตั้งไว้
+            </p>
+          </div>
+
           {/* การชำระเงินและแจ้งเตือน */}
           <div className="card p-6">
             <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2">

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Customer, Booking } from "@/lib/types";
-import { Users, Search, Phone, StickyNote, ChevronRight, X, Clock, Scissors, CalendarDays } from "lucide-react";
+import { Users, Search, Phone, StickyNote, ChevronRight, X, Clock, Scissors, CalendarDays, Trophy, Plus, Minus, Save, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("th-TH", {
@@ -29,6 +30,8 @@ export default function CustomersPage() {
   const [selected, setSelected] = useState<Customer | null>(null);
   const [customerBookings, setCustomerBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
+  const [editingPoints, setEditingPoints] = useState(0);
+  const [isSavingPoints, setIsSavingPoints] = useState(false);
 
   useEffect(() => { fetchCustomers(); }, []);
   useEffect(() => {
@@ -51,6 +54,7 @@ export default function CustomersPage() {
 
   async function selectCustomer(customer: Customer) {
     setSelected(customer);
+    setEditingPoints(customer.points || 0);
     setLoadingBookings(true);
     const { data } = await supabase
       .from("bookings")
@@ -59,6 +63,28 @@ export default function CustomersPage() {
       .order("start_time", { ascending: false });
     setCustomerBookings((data as Booking[]) || []);
     setLoadingBookings(false);
+  }
+
+  async function saveManualPoints() {
+    if (!selected) return;
+    setIsSavingPoints(true);
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({ points: editingPoints })
+        .eq("id", selected.id);
+      
+      if (error) throw error;
+      
+      toast.success("อัพเดตแต้มเรียบร้อย");
+      setSelected({ ...selected, points: editingPoints });
+      // Update customers list too
+      setCustomers(customers.map(c => c.id === selected.id ? { ...c, points: editingPoints } : c));
+    } catch (err) {
+      toast.error("ไม่สามารถอัพเดตแต้มได้");
+    } finally {
+      setIsSavingPoints(false);
+    }
   }
 
   const totalSpent = customerBookings
@@ -176,8 +202,52 @@ export default function CustomersPage() {
                   </div>
                 </div>
 
+                {/* Manual Point Adjustment */}
+                <div className="mt-6 pt-5 border-t border-pink-50">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <Trophy size={12} className="text-yellow-500" /> 
+                    จัดการแต้มสะสม
+                  </p>
+                  <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div className="flex-1">
+                      <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">แต้มปัจจุบัน</p>
+                      <p className="text-2xl font-black text-brand-dark leading-none">{selected.points || 0}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setEditingPoints(prev => Math.max(0, prev - 1))}
+                        className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-red-50 hover:text-red-500 hover:border-red-100 flex items-center justify-center transition-all shadow-sm"
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <input 
+                        type="number"
+                        className="w-16 text-center text-xl font-bold bg-white border border-slate-200 rounded-xl py-1 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                        value={editingPoints}
+                        onChange={(e) => setEditingPoints(Number(e.target.value))}
+                      />
+                      <button 
+                        onClick={() => setEditingPoints(prev => prev + 1)}
+                        className="w-9 h-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:bg-emerald-50 hover:text-emerald-500 hover:border-emerald-100 flex items-center justify-center transition-all shadow-sm"
+                      >
+                        <Plus size={16} />
+                      </button>
+                      
+                      {editingPoints !== (selected.points || 0) && (
+                        <button 
+                          onClick={saveManualPoints}
+                          disabled={isSavingPoints}
+                          className="ml-2 w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-200 animate-in fade-in zoom-in"
+                        >
+                          {isSavingPoints ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Stats */}
-                <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-pink-50">
+                <div className="grid grid-cols-3 gap-3 mt-6 pt-5 border-t border-pink-50">
                   <div className="text-center">
                     <p className="text-lg font-bold text-brand-dark">{customerBookings.length}</p>
                     <p className="text-xs text-slate-400">ครั้งทั้งหมด</p>
