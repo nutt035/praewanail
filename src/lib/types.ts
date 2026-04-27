@@ -6,6 +6,7 @@ export interface Service {
   id: string;
   name: string;
   price: number;
+  price_per_finger: number | null; // null = ราคาเหมา, มีค่า = คิดต่อนิ้ว
   duration: number; // นาที
   category: string | null;
   created_at: string;
@@ -20,10 +21,24 @@ export interface Customer {
   created_at: string;
 }
 
+// รายการบริการย่อยภายใน 1 คิว (many-to-many)
+export interface BookingService {
+  id: string;
+  booking_id: string;
+  service_id: string | null;
+  service_name: string;        // snapshot ชื่อบริการ ณ ตอนจอง
+  finger_count: number | null; // null = ราคาเหมา
+  unit_price: number;          // ราคาต่อหน่วย (ต่อนิ้ว หรือ ราคาเหมา)
+  line_total: number;          // ยอดรวมของรายการนี้
+  created_at: string;
+  // relations
+  services?: Service | null;
+}
+
 export interface Booking {
   id: string;
   customer_id: string | null;
-  service_id: string | null;
+  service_id: string | null;      // เดิม (keep ไว้สำหรับ backward compat)
   start_time: string;
   end_time: string;
   status: "pending" | "confirmed" | "completed" | "cancelled";
@@ -31,10 +46,15 @@ export interface Booking {
   deposit: number;
   payment_method: string | null;
   notes: string | null;
+  discount_amount: number;         // ส่วนลด
+  discount_type: "amount" | "percent"; // ประเภทส่วนลด
+  is_practice_model: boolean;      // โหมดหุ่นลอง
+  material_cost: number;           // ค่าอุปกรณ์ (สำหรับหุ่นลอง)
   created_at: string;
   // relations (joined)
   customers?: Customer | null;
   services?: Service | null;
+  booking_services?: BookingService[];
 }
 
 export interface InventoryItem {
@@ -80,3 +100,21 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   shop_ig: "",
   shop_fb: "",
 };
+
+// ────────────── Helpers ──────────────
+
+/** คำนวณราคาของ booking service item */
+export function calcLineTotal(service: Service, fingerCount: number | null): number {
+  if (service.price_per_finger != null && fingerCount != null) {
+    return service.price_per_finger * fingerCount;
+  }
+  return service.price;
+}
+
+/** คำนวณส่วนลดเป็นบาท */
+export function calcDiscountBaht(subtotal: number, discountAmount: number, discountType: "amount" | "percent"): number {
+  if (discountType === "percent") {
+    return Math.round(subtotal * discountAmount / 100);
+  }
+  return discountAmount;
+}

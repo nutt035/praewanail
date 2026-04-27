@@ -1,0 +1,103 @@
+-- 1. สร้างตาราง shop_settings
+CREATE TABLE shop_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+-- 2. ใส่ข้อมูลตั้งค่าเริ่มต้นให้ร้าน
+INSERT INTO shop_settings (key, value) VALUES
+    ('open_time', '09:00'),
+    ('close_time', '20:00'),
+    ('max_bookings_per_day', '8'),
+    ('shop_name', 'Praewa Nail Studio'),
+    ('shop_phone', ''),
+    ('shop_line_id', ''),
+    ('shop_ig', ''),
+    ('shop_fb', '');
+
+-- 1. สร้างตาราง services (รายการบริการ)
+CREATE TABLE services (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    price NUMERIC NOT NULL,
+    duration INTEGER NOT NULL, -- ระยะเวลา (นาที) เพื่อใช้คำนวณในปฏิทิน
+    category TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+);
+
+-- 2. สร้างตาราง customers (ข้อมูลลูกค้า)
+CREATE TABLE customers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    phone TEXT,
+    line_id TEXT,
+    notes TEXT, -- บันทึกเพิ่มเติม เช่น ทรงเล็บที่ชอบ
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+);
+
+-- 3. สร้างตาราง bookings (การจองคิว)
+CREATE TABLE bookings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
+    service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    status TEXT DEFAULT 'pending', -- สถานะ: pending, confirmed, completed, cancelled
+    total_price NUMERIC,
+    deposit NUMERIC DEFAULT 0,
+    payment_method TEXT,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+);
+
+-- 4. สร้างตาราง inventory (ระบบสต็อก)
+CREATE TABLE inventory (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    item_name TEXT NOT NULL,
+    quantity INTEGER DEFAULT 0,
+    unit TEXT, -- เช่น ขวด, กระปุก, ห่อ
+    min_threshold INTEGER DEFAULT 5, -- จุดแจ้งเตือนเมื่อของเหลือน้อย
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+);
+
+-- 5. สร้างตาราง transactions (บัญชีรายรับ-รายจ่าย)
+CREATE TABLE transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type TEXT NOT NULL, -- ประเภท: 'income' หรือ 'expense'
+    amount NUMERIC NOT NULL,
+    category TEXT, -- หมวดหมู่ เช่น ค่าอุปกรณ์, รายได้ทำเล็บ
+    booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL, -- เชื่อมกับคิวงาน (เพื่อดูว่ารายได้มาจากคิวไหน)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+);
+
+-- ============================================================
+-- MIGRATION: Multi-service, Per-finger pricing, Discount, Practice Model
+-- รันใน Supabase SQL Editor (Dashboard → SQL Editor → New query)
+-- ============================================================
+
+-- [M1] เพิ่มราคาต่อนิ้วในตาราง services
+-- null = คิดราคาเหมา, มีค่า = คิดต่อนิ้ว
+ALTER TABLE services
+    ADD COLUMN IF NOT EXISTS price_per_finger NUMERIC DEFAULT NULL;
+
+-- [M2] สร้างตาราง booking_services (เก็บบริการหลายอย่างต่อ 1 คิว)
+CREATE TABLE IF NOT EXISTS booking_services (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+    service_name TEXT NOT NULL,           -- snapshot ชื่อบริการ ณ ตอนจอง
+    finger_count INTEGER DEFAULT NULL,    -- จำนวนนิ้ว (null = ไม่ได้คิดต่อนิ้ว)
+    unit_price NUMERIC NOT NULL,          -- ราคาต่อหน่วย (ต่อนิ้ว หรือ ราคาเหมา)
+    line_total NUMERIC NOT NULL,          -- ยอดรวมของรายการนี้
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
+);
+
+-- [M3] เพิ่ม field ใหม่ในตาราง bookings
+ALTER TABLE bookings
+    ADD COLUMN IF NOT EXISTS discount_amount NUMERIC DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS discount_type TEXT DEFAULT 'amount',  -- 'amount' | 'percent'
+    ADD COLUMN IF NOT EXISTS is_practice_model BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS material_cost NUMERIC DEFAULT 0;      -- ค่าอุปกรณ์สำหรับหุ่นลอง
+
+-- [M4] Index สำหรับ query เร็วขึ้น
+CREATE INDEX IF NOT EXISTS idx_booking_services_booking_id ON booking_services(booking_id);

@@ -47,7 +47,7 @@ export default function AdminLayout({
               <Sparkles size={16} className="text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-brand-dark leading-none">Praewa Nail</p>
+              <p className="text-sm font-bold text-brand-dark leading-none">Antonette Nail</p>
               <p className="text-[10px] text-brand-slate mt-0.5">Studio Management</p>
             </div>
           </div>

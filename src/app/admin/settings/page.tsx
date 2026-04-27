@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint } from "lucide-react";
 import toast from "react-hot-toast";
 
 const CATEGORIES = ["ทำเล็บมือ", "ทำเล็บเท้า", "ต่อเล็บ", "สปา", "ถอดเล็บ", "อื่นๆ"];
@@ -17,7 +17,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   "อื่นๆ": "bg-slate-50 text-slate-600",
 };
 
-const emptyForm = { name: "", price: 0, duration: 60, category: "ทำเล็บมือ" };
+const emptyForm = {
+  name: "",
+  price: 0,
+  price_per_finger: null as number | null,
+  duration: 60,
+  category: "ทำเล็บมือ",
+  isPerFinger: false,
+};
 
 type Tab = "services" | "shop";
 
@@ -62,26 +69,41 @@ export default function SettingsPage() {
 
   function openEdit(service: Service) {
     setEditingService(service);
+    const isPerFinger = service.price_per_finger != null;
     setForm({
       name: service.name,
       price: service.price,
+      price_per_finger: service.price_per_finger ?? null,
       duration: service.duration,
       category: service.category || "อื่นๆ",
+      isPerFinger,
     });
     setShowModal(true);
   }
 
   async function saveService() {
     if (!form.name.trim()) { toast.error("กรุณาใส่ชื่อบริการ"); return; }
-    if (form.price <= 0) { toast.error("กรุณาใส่ราคา"); return; }
+    if (form.isPerFinger) {
+      if (!form.price_per_finger || form.price_per_finger <= 0) { toast.error("กรุณาใส่ราคาต่อนิ้ว"); return; }
+    } else {
+      if (form.price <= 0) { toast.error("กรุณาใส่ราคา"); return; }
+    }
     setSaving(true);
 
+    const payload = {
+      name: form.name,
+      price: form.isPerFinger ? 0 : form.price,
+      price_per_finger: form.isPerFinger ? form.price_per_finger : null,
+      duration: form.duration,
+      category: form.category,
+    };
+
     if (editingService) {
-      const { error } = await supabase.from("services").update(form).eq("id", editingService.id);
+      const { error } = await supabase.from("services").update(payload).eq("id", editingService.id);
       if (error) { toast.error("แก้ไขไม่สำเร็จ"); setSaving(false); return; }
       toast.success("แก้ไขบริการเรียบร้อย ✓");
     } else {
-      const { error } = await supabase.from("services").insert([form]);
+      const { error } = await supabase.from("services").insert([payload]);
       if (error) { toast.error("เพิ่มไม่สำเร็จ"); setSaving(false); return; }
       toast.success("เพิ่มบริการใหม่เรียบร้อย 🎉");
     }
@@ -110,7 +132,6 @@ export default function SettingsPage() {
   async function saveShopSettings() {
     setSavingShop(true);
     const entries = Object.entries(shopSettings);
-    // Upsert ทีละ key
     for (const [key, value] of entries) {
       await supabase.from("shop_settings").upsert({ key, value }, { onConflict: "key" });
     }
@@ -122,6 +143,12 @@ export default function SettingsPage() {
   const displayedServices = activeCategory === "ทั้งหมด"
     ? services
     : services.filter((s) => (s.category || "อื่นๆ") === activeCategory);
+
+  // ────────────── Helper แสดงราคา ──────────────
+  function displayPrice(service: Service) {
+    if (service.price_per_finger != null) return `฿${service.price_per_finger}/นิ้ว`;
+    return `฿${service.price.toLocaleString()}`;
+  }
 
   return (
     <div className="space-y-6">
@@ -180,13 +207,13 @@ export default function SettingsPage() {
             </div>
             <div className="stat-card">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
-                  <Tag size={18} className="text-emerald-500" />
+                <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
+                  <Fingerprint size={18} className="text-purple-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-slate-400">ราคาเฉลี่ย</p>
+                  <p className="text-xs text-slate-400">คิดราคาต่อนิ้ว</p>
                   <p className="text-xl font-bold text-brand-dark">
-                    ฿{services.length ? Math.round(services.reduce((s, v) => s + v.price, 0) / services.length).toLocaleString() : 0}
+                    {services.filter((s) => s.price_per_finger != null).length} รายการ
                   </p>
                 </div>
               </div>
@@ -243,9 +270,16 @@ export default function SettingsPage() {
               displayedServices.map((service) => (
                 <div key={service.id} className="card p-5 group hover:border-rose-200 transition-colors">
                   <div className="flex items-start justify-between mb-3">
-                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${CATEGORY_COLORS[service.category || "อื่นๆ"] || CATEGORY_COLORS["อื่นๆ"]}`}>
-                      {service.category || "อื่นๆ"}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${CATEGORY_COLORS[service.category || "อื่นๆ"] || CATEGORY_COLORS["อื่นๆ"]}`}>
+                        {service.category || "อื่นๆ"}
+                      </span>
+                      {service.price_per_finger != null && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 flex items-center gap-1">
+                          <Fingerprint size={10} /> ต่อนิ้ว
+                        </span>
+                      )}
+                    </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => openEdit(service)} className="w-7 h-7 rounded-lg bg-slate-50 text-slate-400 hover:bg-slate-100 flex items-center justify-center">
                         <Pencil size={13} />
@@ -263,7 +297,7 @@ export default function SettingsPage() {
                       <Clock size={13} />
                       <span className="text-xs">{service.duration} นาที</span>
                     </div>
-                    <p className="text-lg font-bold gradient-text">฿{service.price.toLocaleString()}</p>
+                    <p className="text-lg font-bold gradient-text">{displayPrice(service)}</p>
                   </div>
                 </div>
               ))
@@ -417,18 +451,61 @@ export default function SettingsPage() {
                   placeholder="เช่น ทาสีเจลมือ + ลายเล็บ"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">ราคา (บาท) *</label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    value={form.price}
-                    min={0}
-                    onChange={(e) => setForm((f) => ({ ...f, price: Number(e.target.value) }))}
-                    placeholder="0"
-                  />
+
+              {/* Toggle: ราคาเหมา vs ต่อนิ้ว */}
+              <div>
+                <label className="form-label">รูปแบบราคา</label>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, isPerFinger: false }))}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${!form.isPerFinger
+                      ? "bg-rose-400 text-white border-transparent"
+                      : "bg-white text-slate-500 border-pink-100 hover:border-rose-300"
+                    }`}
+                  >
+                    💸 ราคาเหมา
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, isPerFinger: true }))}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all flex items-center justify-center gap-1.5 ${form.isPerFinger
+                      ? "bg-violet-500 text-white border-transparent"
+                      : "bg-white text-slate-500 border-pink-100 hover:border-violet-300"
+                    }`}
+                  >
+                    <Fingerprint size={14} /> ต่อนิ้ว
+                  </button>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {form.isPerFinger ? (
+                  <div>
+                    <label className="form-label">ราคาต่อนิ้ว (บาท) *</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={form.price_per_finger ?? ""}
+                      min={0}
+                      onChange={(e) => setForm((f) => ({ ...f, price_per_finger: Number(e.target.value) }))}
+                      placeholder="เช่น 30"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">เช่น ลาย 1 นิ้ว = 30฿</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="form-label">ราคา (บาท) *</label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={form.price}
+                      min={0}
+                      onChange={(e) => setForm((f) => ({ ...f, price: Number(e.target.value) }))}
+                      placeholder="0"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="form-label">ระยะเวลา (นาที) *</label>
                   <input
@@ -441,6 +518,7 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
+
               <div>
                 <label className="form-label">หมวดหมู่</label>
                 <div className="flex flex-wrap gap-2 mt-1">
