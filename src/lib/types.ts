@@ -125,6 +125,9 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   shop_line_id: "",
   shop_ig: "",
   shop_fb: "",
+  promptpay_id: "",
+  line_channel_token: "",
+  admin_line_uid: "",
   ai_pricing_rules: "ทาสีเจลพื้นฐาน (สีพื้น/ลูกแก้ว/แฟลช): 250 บาท\nงานเพ้นท์ลาย (Hand-drawn): เริ่มต้นนิ้วละ 30 - 50 บาท (ตามความยาก)\nงานปั้นนูน 3D / ขัดผง: นิ้วละ 50 บาท\nติดอะไหล่/เพชร: ชิ้นเล็ก 10 บาท, ชิ้นใหญ่/อะไหล่พรีเมียม 30 - 50 บาท",
 };
 

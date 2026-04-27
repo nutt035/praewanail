@@ -167,4 +167,11 @@ ON CONFLICT (key) DO NOTHING;
 -- [M10] เพิ่มหน่วยบริการลงใน services ('นิ้ว' หรือ 'ชิ้น')
 ALTER TABLE services ADD COLUMN IF NOT EXISTS unit_name TEXT DEFAULT 'นิ้ว';
 
+-- [M11] เพิ่มการตั้งค่า PromptPay และ LINE OA
+INSERT INTO shop_settings (key, value) VALUES
+    ('promptpay_id', ''),
+    ('line_channel_token', ''),
+    ('admin_line_uid', '')
+ON CONFLICT (key) DO NOTHING;
+
 

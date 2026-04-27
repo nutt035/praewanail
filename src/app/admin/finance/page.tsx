@@ -1,12 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-import { Transaction } from "@/lib/types";
-import { TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight, Filter, Calendar } from "lucide-react";
+import { Transaction, BookingService } from "@/lib/types";
+import { TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight, Filter, Calendar, BarChart3, PieChart as PieIcon } from "lucide-react";
 import toast from "react-hot-toast";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+} from "recharts";
 
 type Period = "today" | "week" | "month" | "all";
+
+const COLORS = ["#fb7185", "#f472b6", "#e879f9", "#c084fc", "#818cf8", "#60a5fa", "#34d399", "#fbbf24"];
 
 function getDateRange(period: Period) {
   const now = new Date();
@@ -35,6 +51,7 @@ function formatTime(iso: string) {
 
 export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [bookingServices, setBookingServices] = useState<BookingService[]>([]);
   const [period, setPeriod] = useState<Period>("month");
   const [loading, setLoading] = useState(true);
   const [showAddExpense, setShowAddExpense] = useState(false);
@@ -43,19 +60,82 @@ export default function FinancePage() {
 
   const EXPENSE_CATEGORIES = ["ค่าอุปกรณ์", "ค่าสี/เจล", "ค่าน้ำค่าไฟ", "ค่าเช่า", "ค่าขนส่ง", "อื่นๆ"];
 
-  useEffect(() => { fetchTransactions(); }, [period]);
+  useEffect(() => { fetchDashboardData(); }, [period]);
 
-  async function fetchTransactions() {
+  async function fetchDashboardData() {
     setLoading(true);
     const range = getDateRange(period);
-    let query = supabase.from("transactions").select("*").order("created_at", { ascending: false });
+    
+    // 1. ดึง Transactions
+    let tQuery = supabase.from("transactions").select("*").order("created_at", { ascending: true });
     if (period !== "all") {
-      query = query.gte("created_at", range.start).lt("created_at", range.end);
+      tQuery = tQuery.gte("created_at", range.start).lt("created_at", range.end);
     }
-    const { data } = await query;
-    setTransactions((data as Transaction[]) || []);
+    const { data: tData } = await tQuery;
+
+    // 2. ดึง Booking Services (เพื่อดูบริการยอดฮิต)
+    let bsQuery = supabase.from("booking_services").select("*, services(category)");
+    if (period !== "all") {
+      bsQuery = bsQuery.gte("created_at", range.start).lt("created_at", range.end);
+    }
+    const { data: bsData } = await bsQuery;
+
+    setTransactions((tData as Transaction[]) || []);
+    setBookingServices((bsData as BookingService[]) || []);
     setLoading(false);
   }
+
+  // --- คำนวณข้อมูลสำหรับกราฟ ---
+  
+  // 1. รายรับ-รายจ่ายตามเวลา (Revenue Trend)
+  const chartData = useMemo(() => {
+    const dataMap: Record<string, { date: string; income: number; expense: number }> = {};
+    
+    transactions.forEach(t => {
+      const dateKey = new Date(t.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+      if (!dataMap[dateKey]) {
+        dataMap[dateKey] = { date: dateKey, income: 0, expense: 0 };
+      }
+      if (t.type === "income") dataMap[dateKey].income += t.amount;
+      else dataMap[dateKey].expense += t.amount;
+    });
+
+    return Object.values(dataMap);
+  }, [transactions]);
+
+  // 2. สัดส่วนบริการยอดฮิต (Service Popularity)
+  const serviceStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    bookingServices.forEach(bs => {
+      stats[bs.service_name] = (stats[bs.service_name] || 0) + 1;
+    });
+    return Object.entries(stats)
+      .map(([name, count]) => ({ name, value: count }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  }, [bookingServices]);
+
+  // 3. รายรับแยกตามหมวดหมู่บริการ
+  const categoryStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    bookingServices.forEach(bs => {
+      const cat = (bs.services as any)?.category || "อื่นๆ";
+      stats[cat] = (stats[cat] || 0) + bs.line_total;
+    });
+    return Object.entries(stats).map(([name, value]) => ({ name, value }));
+  }, [bookingServices]);
+
+  const income = transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+  const expense = transactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+  const profit = income - expense;
+  const rangeLabel = getDateRange(period).label;
+
+  // จัดกลุ่มรายจ่ายตาม category
+  const expenseByCategory: Record<string, number> = {};
+  transactions.filter((t) => t.type === "expense").forEach((t) => {
+    const cat = t.category || "อื่นๆ";
+    expenseByCategory[cat] = (expenseByCategory[cat] || 0) + t.amount;
+  });
 
   async function addExpense() {
     if (expenseForm.amount <= 0) { toast.error("กรุณาใส่จำนวนเงิน"); return; }
@@ -70,28 +150,16 @@ export default function FinancePage() {
     setSaving(false);
     setShowAddExpense(false);
     setExpenseForm({ amount: 0, category: "ค่าอุปกรณ์" });
-    fetchTransactions();
+    fetchDashboardData();
   }
-
-  const income = transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
-  const expense = transactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
-  const profit = income - expense;
-  const rangeLabel = getDateRange(period).label;
-
-  // จัดกลุ่มรายจ่ายตาม category
-  const expenseByCategory: Record<string, number> = {};
-  transactions.filter((t) => t.type === "expense").forEach((t) => {
-    const cat = t.category || "อื่นๆ";
-    expenseByCategory[cat] = (expenseByCategory[cat] || 0) + t.amount;
-  });
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="page-title">สรุปรายรับ-รายจ่าย 💰</h2>
-          <p className="page-subtitle">ภาพรวมทางการเงินของร้าน</p>
+          <h2 className="page-title">วิเคราะห์การเงิน ✨</h2>
+          <p className="page-subtitle">สถิติและรายรับ-รายจ่ายของร้าน</p>
         </div>
         <button onClick={() => setShowAddExpense(true)} className="btn-primary">
           <ArrowDownRight size={16} /> บันทึกรายจ่าย
@@ -122,7 +190,6 @@ export default function FinancePage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* รายรับ */}
         <div className="stat-card">
           <div className="flex items-start justify-between">
             <div>
@@ -136,7 +203,6 @@ export default function FinancePage() {
           </div>
         </div>
 
-        {/* รายจ่าย */}
         <div className="stat-card">
           <div className="flex items-start justify-between">
             <div>
@@ -150,7 +216,6 @@ export default function FinancePage() {
           </div>
         </div>
 
-        {/* กำไร */}
         <div className="stat-card" style={{ borderColor: profit >= 0 ? "#d1fae5" : "#fee2e2" }}>
           <div className="flex items-start justify-between">
             <div>
@@ -167,27 +232,110 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {/* Expense breakdown */}
-      {Object.keys(expenseByCategory).length > 0 && (
-        <div className="card p-5">
-          <h3 className="font-semibold text-brand-dark text-sm mb-3">สัดส่วนรายจ่าย</h3>
-          <div className="space-y-2">
-            {Object.entries(expenseByCategory).sort((a, b) => b[1] - a[1]).map(([cat, amount]) => {
+      {/* Analytics Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* กราฟแนวโน้มรายได้ */}
+        <div className="card p-6">
+          <h3 className="font-semibold text-brand-dark flex items-center gap-2 mb-6">
+            <BarChart3 size={18} className="text-rose-400" />
+            แนวโน้มรายรับ-รายจ่าย
+          </h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `฿${val >= 1000 ? val / 1000 + "k" : val}`} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                  formatter={(val: number) => [`฿${val.toLocaleString()}`, '']}
+                />
+                <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} name="รายรับ" />
+                <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} strokeDasharray="5 5" dot={false} name="รายจ่าย" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* บริการยอดนิยม */}
+        <div className="card p-6">
+          <h3 className="font-semibold text-brand-dark flex items-center gap-2 mb-6">
+            <PieIcon size={18} className="text-rose-400" />
+            5 อันดับบริการยอดฮิต
+          </h3>
+          <div className="h-[300px] w-full flex flex-col md:flex-row items-center">
+            <div className="flex-1 h-full w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={serviceStats}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {serviceStats.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="w-full md:w-48 space-y-2 mt-4 md:mt-0">
+              {serviceStats.map((s, i) => (
+                <div key={s.name} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                    <span className="truncate text-slate-600">{s.name}</span>
+                  </div>
+                  <span className="font-bold text-brand-dark">{s.value} ครั้ง</span>
+                </div>
+              ))}
+              {serviceStats.length === 0 && <p className="text-center text-slate-400 py-10">ไม่มีข้อมูล</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* รายรับแยกตามหมวดหมู่ */}
+        <div className="card p-6">
+          <h3 className="font-semibold text-brand-dark text-sm mb-4">สัดส่วนรายได้ตามหมวดหมู่</h3>
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={categoryStats} layout="vertical">
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" fontSize={11} width={80} tickLine={false} axisLine={false} />
+                <Tooltip formatter={(val: number) => `฿${val.toLocaleString()}`} />
+                <Bar dataKey="value" fill="#fb7185" radius={[0, 4, 4, 0]} barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Expense breakdown */}
+        <div className="card p-6">
+          <h3 className="font-semibold text-brand-dark text-sm mb-4">สัดส่วนรายจ่าย</h3>
+          <div className="space-y-3">
+            {Object.entries(expenseByCategory).sort((a, b) => b[1] - a[1]).map(([cat, amount], index) => {
               const pct = expense > 0 ? Math.round((amount / expense) * 100) : 0;
               return (
-                <div key={cat} className="flex items-center gap-3">
-                  <span className="text-sm text-slate-600 w-24 truncate">{cat}</span>
-                  <div className="flex-1 h-2 bg-pink-50 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-rose-400 to-pink-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                <div key={cat} className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-600">{cat}</span>
+                    <span className="font-bold text-brand-dark">฿{amount.toLocaleString()} ({pct}%)</span>
                   </div>
-                  <span className="text-sm font-semibold text-brand-dark w-20 text-right">฿{amount.toLocaleString()}</span>
-                  <span className="text-xs text-slate-400 w-10 text-right">{pct}%</span>
+                  <div className="h-1.5 bg-pink-50 rounded-full overflow-hidden">
+                    <div className="h-full bg-rose-400 rounded-full" style={{ width: `${pct}%`, opacity: 1 - index * 0.15 }} />
+                  </div>
                 </div>
               );
             })}
+            {Object.keys(expenseByCategory).length === 0 && <p className="text-center text-slate-400 py-10 text-sm">ไม่มีข้อมูลรายจ่าย</p>}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Transaction list */}
       <div className="card overflow-hidden">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint, MessageCircle, CreditCard } from "lucide-react";
 import toast from "react-hot-toast";
 
 const CATEGORIES = ["ทำเล็บมือ", "ทำเล็บเท้า", "ต่อเล็บ", "สปา", "ถอดเล็บ", "อื่นๆ"];
@@ -405,6 +405,52 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-400 mt-3">
               ⏰ เวลาเปิดปิดจะแสดงในหน้าลูกค้า · จำนวนคิวต่อวันใช้แสดงสถานะว่าง/เต็มในปฏิทิน
             </p>
+          </div>
+
+          {/* การชำระเงินและแจ้งเตือน */}
+          <div className="card p-6">
+            <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2">
+              <CreditCard size={16} className="text-rose-400" />
+              การชำระเงินและแจ้งเตือน LINE OA
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="form-label">PromptPay ID (เบอร์โทร หรือ เลขบัตรประชาชน)</label>
+                <input
+                  className="input-field"
+                  value={shopSettings.promptpay_id}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, promptpay_id: e.target.value }))}
+                  placeholder="เช่น 0812345678"
+                />
+                <p className="text-[10px] text-slate-400 mt-1.5">ใช้สำหรับสร้าง QR Code อัตโนมัติในหน้าลงคิวและใบเสร็จ</p>
+              </div>
+              <div className="md:col-span-2 pt-2 border-t border-pink-50">
+                <label className="form-label text-brand-dark flex items-center gap-1.5">
+                  <MessageCircle size={14} className="text-green-500" />
+                  LINE Channel Access Token
+                </label>
+                <input
+                  type="password"
+                  className="input-field"
+                  value={shopSettings.line_channel_token}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, line_channel_token: e.target.value }))}
+                  placeholder="ได้จาก LINE Developers"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="form-label text-brand-dark flex items-center gap-1.5">
+                  <Settings size={14} className="text-slate-400" />
+                  Admin LINE User ID (UID)
+                </label>
+                <input
+                  className="input-field"
+                  value={shopSettings.admin_line_uid}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, admin_line_uid: e.target.value }))}
+                  placeholder="เช่น U850785123456789abcdef..."
+                />
+                <p className="text-[10px] text-slate-400 mt-1.5">User ID ของแอดมินที่จะรับแจ้งเตือนเมื่อมีการจองใหม่ (ไม่ใช่ LINE ID ทั่วไป)</p>
+              </div>
+            </div>
           </div>
 
           {/* Preview */}

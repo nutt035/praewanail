@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import {
   Save, Loader2, User, Phone, Scissors, CalendarDays, Clock, CreditCard,
-  FileText, ChevronDown, Banknote, Plus, Trash2, Fingerprint, Tag, Heart,
+  FileText, ChevronDown, Banknote, Plus, Trash2, Fingerprint, Tag, Heart, X, CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht } from "@/lib/types";
+import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import toast from "react-hot-toast";
+import PromptPayQR from "@/components/PromptPayQR";
 
 const paymentMethods = [
   { value: "cash", label: "💵 เงินสด" },
@@ -32,7 +33,9 @@ export default function BookingPage() {
   const [activeSearchField, setActiveSearchField] = useState<"phone" | "name" | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [phoneSearching, setPhoneSearching] = useState(false);
+  const [shopSettings, setShopSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastBooking, setLastBooking] = useState<{ id: string, name: string, total: number, deposit: number } | null>(null);
 
   // ── บริการที่เลือก ──
   const [selectedItems, setSelectedItems] = useState<ServiceItem[]>([]);
@@ -84,7 +87,15 @@ export default function BookingPage() {
     fetchServices(); 
     fetchCustomers();
     fetchPromotions();
+    fetchShopSettings();
   }, []);
+
+  async function fetchShopSettings() {
+    const { data } = await supabase.from("shop_settings").select("*");
+    if (data && data.length > 0) {
+      setShopSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) });
+    }
+  }
 
   async function fetchServices() {
     const { data } = await supabase
@@ -311,7 +322,32 @@ export default function BookingPage() {
         }]);
       }
 
+      // 6. ส่งการแจ้งเตือนไปยัง LINE OA
+      if (shopSettings.line_channel_token && shopSettings.admin_line_uid) {
+        const message = `💅 มีคิวจองใหม่!\n👤 ลูกค้า: ${formData.customerName}\n📅 วันที่: ${new Date(formData.date).toLocaleDateString("th-TH")}\n⏰ เวลา: ${formData.startTime} น.\n💰 ยอดรวม: ฿${totalPrice.toLocaleString()}\n💸 มัดจำ: ฿${Number(formData.deposit || 0).toLocaleString()}\n📝 หมายเหตุ: ${formData.notes || "-"}`;
+        
+        fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            channelToken: shopSettings.line_channel_token,
+            adminUid: shopSettings.admin_line_uid,
+            message,
+          }),
+        }).catch(err => console.error("LINE Notify Error:", err));
+      }
+
       toast.success("บันทึกคิวเรียบร้อยแล้ว! 🎉", { id: toastId });
+      
+      // เก็บข้อมูลแสดง Success Modal
+      setLastBooking({
+        id: newBooking.id,
+        name: formData.customerName,
+        total: totalPrice,
+        deposit: Number(formData.deposit || 0),
+      });
+      setShowSuccessModal(true);
+
       resetForm();
       fetchCustomers(); // อัปเดต dropdown ให้มีลูกค้าใหม่ทันที
     } catch (error) {
@@ -855,6 +891,56 @@ export default function BookingPage() {
           </button>
         </div>
       </form>
+
+      {/* ══════ Modal สรุปผลสำเร็จ (Success Modal) ══════ */}
+      {showSuccessModal && lastBooking && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up">
+            <div className="p-6 text-center bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
+                <CheckCircle2 size={32} />
+              </div>
+              <h3 className="text-xl font-bold">บันทึกคิวสำเร็จ! 🎉</h3>
+              <p className="text-emerald-50 text-sm mt-1">คิวของคุณ {lastBooking.name} ถูกลงระบบแล้ว</p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* รายละเอียด */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">ยอดรวม</p>
+                  <p className="text-lg font-bold text-brand-dark">฿{lastBooking.total.toLocaleString()}</p>
+                </div>
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
+                  <p className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider mb-1">มัดจำ</p>
+                  <p className="text-lg font-bold text-emerald-600">฿{lastBooking.deposit.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* PromptPay QR (ถ้ามีการมัดจำ) */}
+              {lastBooking.deposit > 0 && shopSettings.promptpay_id && (
+                <div className="animate-fade-in">
+                  <PromptPayQR 
+                    id={shopSettings.promptpay_id} 
+                    amount={lastBooking.deposit} 
+                    label="สแกนจ่ายค่ามัดจำ"
+                  />
+                  <p className="text-[10px] text-center text-slate-400 mt-3">
+                    สแกนเพื่อจ่ายมัดจำ <strong>฿{lastBooking.deposit.toLocaleString()}</strong> เข้าที่ร้านทันที
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full py-4 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-2xl transition-all active:scale-95 shadow-lg shadow-slate-200"
+              >
+                ปิดหน้าต่างนี้
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

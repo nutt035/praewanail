@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { Receipt, Search, X, Printer, Clock, User, Scissors, Banknote, CalendarDays } from "lucide-react";
+import { Receipt, Search, X, Printer, Clock, User, Scissors, Banknote, CalendarDays, CreditCard } from "lucide-react";
+import PromptPayQR from "@/components/PromptPayQR";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
@@ -27,6 +28,7 @@ export default function ReceiptsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [showReceipt, setShowReceipt] = useState<Booking | null>(null);
+  const [shopSettings, setShopSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
   const [shopName, setShopName] = useState("Praewa Nail Studio");
   const [shopPhone, setShopPhone] = useState("");
   const receiptRef = useRef<HTMLDivElement>(null);
@@ -62,6 +64,7 @@ export default function ReceiptsPage() {
     const { data } = await supabase.from("shop_settings").select("*");
     if (data && data.length > 0) {
       const cfg = settingsToMap(data as ShopSettings[]);
+      setShopSettings({ ...DEFAULT_SETTINGS, ...cfg });
       setShopName(cfg.shop_name || DEFAULT_SETTINGS.shop_name);
       setShopPhone(cfg.shop_phone || "");
     }
@@ -266,6 +269,17 @@ export default function ReceiptsPage() {
               <div style={{ borderTop: "1px dashed #e2e8f0", margin: "16px 0" }} />
               <p style={{ textAlign: "center", fontSize: "11px", color: "#94a3b8" }}>ขอบคุณที่ใช้บริการค่ะ 💅✨</p>
             </div>
+
+            {/* PromptPay QR for Remaining Balance */}
+            {shopSettings.promptpay_id && (
+              <div className="px-6 pb-6 border-t border-pink-50 pt-6">
+                <PromptPayQR 
+                  id={shopSettings.promptpay_id} 
+                  amount={(showReceipt.total_price || showReceipt.services?.price || 0) - showReceipt.deposit}
+                  label="สแกนจ่ายยอดที่เหลือ"
+                />
+              </div>
+            )}
 
             <div className="px-6 pb-5 flex justify-center">
               <button onClick={printReceipt} className="btn-primary w-full justify-center"><Printer size={16} /> พิมพ์ใบเสร็จ</button>
