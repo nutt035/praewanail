@@ -34,6 +34,7 @@ const statusConfig = {
 export default function AdminDashboard() {
   const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
   const [todayIncome, setTodayIncome] = useState(0);
+  const [incomeByMethod, setIncomeByMethod] = useState({ cash: 0, promptpay: 0, transfer: 0 });
   const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -57,10 +58,19 @@ export default function AdminDashboard() {
     // ดึงรายรับวันนี้ (income transactions)
     const { data: transactions } = await supabase
       .from("transactions")
-      .select("amount")
+      .select("amount, bookings(payment_method)")
       .eq("type", "income")
       .gte("created_at", start)
       .lt("created_at", end);
+
+    const trans = (transactions as any[]) || [];
+    const total = trans.reduce((sum, t) => sum + t.amount, 0);
+    const byMethod = trans.reduce((acc, t) => {
+      const method = t.bookings?.payment_method || "cash";
+      if (acc[method] !== undefined) acc[method] += t.amount;
+      else acc.transfer += t.amount;
+      return acc;
+    }, { cash: 0, promptpay: 0, transfer: 0 });
 
     // ดึงสินค้าใกล้หมด
     const { data: inventory } = await supabase
@@ -68,9 +78,8 @@ export default function AdminDashboard() {
       .select("id, quantity, min_threshold");
 
     setTodayBookings((bookings as Booking[]) || []);
-    setTodayIncome(
-      ((transactions as Transaction[]) || []).reduce((sum, t) => sum + t.amount, 0)
-    );
+    setTodayIncome(total);
+    setIncomeByMethod(byMethod);
     setLowStockCount(
       ((inventory as InventoryItem[]) || []).filter(
         (item) => item.quantity <= item.min_threshold
@@ -149,9 +158,25 @@ export default function AdminDashboard() {
               <TrendingUp size={20} className="text-emerald-500" />
             </div>
           </div>
-        </div>
+          {!loading && todayIncome > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-50 flex flex-col gap-2">
+              <div className="flex justify-between text-[11px] font-medium">
+                <span className="text-slate-400">💵 เงินสด</span>
+                <span className="text-brand-dark font-bold">฿{incomeByMethod.cash.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-[11px] font-medium">
+                <span className="text-slate-400">📱 พร้อมเพย์</span>
+                <span className="text-brand-dark font-bold">฿{incomeByMethod.promptpay.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-[11px] font-medium">
+                <span className="text-slate-400">🏦 โอนเงิน</span>
+                <span className="text-brand-dark font-bold">฿{incomeByMethod.transfer.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+          </div>
 
-        {/* สต็อกใกล้หมด */}
+          {/* สต็อกใกล้หมด */}
         <div className="stat-card">
           <div className="flex items-start justify-between">
             <div>

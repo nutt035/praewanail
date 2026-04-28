@@ -479,9 +479,9 @@ export default function SettingsPage() {
                   className="input-field"
                   value={shopSettings.admin_line_uid}
                   onChange={(e) => setShopSettings((s) => ({ ...s, admin_line_uid: e.target.value }))}
-                  placeholder="เช่น U850785123456789abcdef..."
+                  placeholder="เช่น U123... (ใส่หลายคนคั่นด้วยคอมม่า ,)"
                 />
-                <p className="text-[10px] text-slate-400 mt-1.5">User ID ของแอดมินที่จะรับแจ้งเตือนเมื่อมีการจองใหม่ (ไม่ใช่ LINE ID ทั่วไป)</p>
+                <p className="text-[10px] text-slate-400 mt-1.5">User ID ของแอดมินที่จะรับแจ้งเตือน (ใส่ได้หลายคนคั่นด้วยคอมม่า , เช่น UID1,UID2)</p>
               </div>
             </div>
           </div>

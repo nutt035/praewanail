@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell } from "lucide-react";
 import toast from "react-hot-toast";
 
 const STATUS_LABELS = {
@@ -86,6 +86,36 @@ export default function CalendarPage() {
       }
     })();
   }, [fetchBookings]);
+
+  // ส่งการแจ้งเตือน
+  async function sendReminder(booking: Booking) {
+    if (!shopSettings.line_channel_token || !shopSettings.admin_line_uid) {
+      toast.error("กรุณาตั้งค่า LINE Notification ในหน้าตั้งค่าก่อนครับ");
+      return;
+    }
+    
+    const toastId = toast.loading("กำลังส่งแจ้งเตือน...");
+    const customerName = booking.customers?.name || "ลูกค้า";
+    const startTime = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+    const message = `🔔 แจ้งเตือนคิวงาน!\n⏰ มีคิวคุณ ${customerName} เวลา ${startTime} น.\nอย่าลืมเตรียมตัวนะคะ ✨`;
+
+    try {
+      const res = await fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelToken: shopSettings.line_channel_token,
+          adminUid: shopSettings.admin_line_uid,
+          message
+        })
+      });
+      
+      if (res.ok) toast.success("ส่งแจ้งเตือนเข้า LINE เรียบร้อย!", { id: toastId });
+      else throw new Error();
+    } catch (err) {
+      toast.error("ส่งแจ้งเตือนไม่สำเร็จ", { id: toastId });
+    }
+  }
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -400,6 +430,12 @@ export default function CalendarPage() {
             <div className="px-6 pb-5 flex flex-wrap gap-2">
               {selectedBooking.status !== "completed" && (
                 <>
+                  <button
+                    onClick={() => sendReminder(selectedBooking)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-rose-50 text-rose-700 text-sm font-medium hover:bg-rose-100 transition-colors border border-rose-200"
+                  >
+                    <Bell size={15} /> แจ้งเตือน
+                  </button>
                   <button
                     onClick={() => openCompleteDialog(selectedBooking)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition-colors border border-emerald-200"

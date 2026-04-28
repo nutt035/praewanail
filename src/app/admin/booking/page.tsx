@@ -23,6 +23,23 @@ interface ServiceItem {
   lineTotal: number;
 }
 
+// Helper: แปลง UTC ISO เป็น local date (YYYY-MM-DD)
+function getLocalDate(iso: string) {
+  const d = new Date(iso);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Helper: แปลง UTC ISO เป็น local time (HH:mm)
+function getLocalTime(iso: string) {
+  const d = new Date(iso);
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 function BookingFormContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -108,8 +125,8 @@ function BookingFormContent() {
       customerName: b.customers?.name || "",
       phone: b.customers?.phone || "",
       lineId: b.customers?.line_id || "",
-      date: b.start_time.split("T")[0],
-      startTime: b.start_time.split("T")[1].substring(0, 5),
+      date: getLocalDate(b.start_time),
+      startTime: getLocalTime(b.start_time),
       deposit: b.deposit?.toString() || "",
       paymentMethod: b.payment_method || "cash",
       notes: b.notes || "",
@@ -220,7 +237,7 @@ function BookingFormContent() {
   };
 
   function resetForm() {
-    setFormData({ customerName: "", phone: "", lineId: "", date: new Date().toISOString().split("T")[0], startTime: "10:00", deposit: "", paymentMethod: "cash", notes: "" });
+    setFormData({ customerName: "", phone: "", lineId: "", date: getLocalDate(new Date().toISOString()), startTime: "10:00", deposit: "", paymentMethod: "cash", notes: "" });
     setSelectedItems([]);
     setAddServiceId("");
     setHasDiscount(false);
@@ -258,9 +275,14 @@ function BookingFormContent() {
         if (newCustomer) customerId = newCustomer.id;
       }
 
-      const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`).toISOString();
+      // สร้าง Date object จากปี-เดือน-วัน และ เวลา ท้องถิ่น
+      const [year, month, day] = formData.date.split("-").map(Number);
+      const [hour, min] = formData.startTime.split(":").map(Number);
+      const startObj = new Date(year, month - 1, day, hour, min);
+      
+      const startDateTime = startObj.toISOString();
       const durationMs = (totalDuration || 60) * 60 * 1000;
-      const endDateTime = new Date(new Date(`${formData.date}T${formData.startTime}:00`).getTime() + durationMs).toISOString();
+      const endDateTime = new Date(startObj.getTime() + durationMs).toISOString();
 
       const bookingPayload = {
         customer_id: customerId,

@@ -8,6 +8,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing LINE configuration" }, { status: 400 });
     }
 
+    // Split UIDs by comma and trim whitespace
+    const uids = adminUid.split(",").map((s: string) => s.trim()).filter((s: string) => s !== "");
+
+    if (uids.length === 0) {
+      return NextResponse.json({ error: "No valid Admin UIDs found" }, { status: 400 });
+    }
+
     const messages: { type: string; text?: string; originalContentUrl?: string; previewImageUrl?: string }[] = [
       {
         type: "text",
@@ -23,26 +30,33 @@ export async function POST(request: Request) {
       });
     }
 
-    const response = await fetch("https://api.line.me/v2/bot/message/push", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${channelToken}`,
-      },
-      body: JSON.stringify({
-        to: adminUid,
-        messages,
-      }),
-    });
+    // Send to all UIDs
+    const results = await Promise.all(uids.map(async (to: string) => {
+      try {
+        const res = await fetch("https://api.line.me/v2/bot/message/push", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${channelToken}`,
+          },
+          body: JSON.stringify({
+            to,
+            messages,
+          }),
+        });
+        return { uid: to, ok: res.ok, status: res.status };
+      } catch (err) {
+        return { uid: to, ok: false, error: err };
+      }
+    }));
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("LINE API Error:", data);
-      return NextResponse.json({ error: data.message || "Failed to send LINE message" }, { status: response.status });
+    const failed = results.filter(r => !r.ok);
+    if (failed.length === uids.length) {
+      console.error("All LINE notifications failed:", results);
+      return NextResponse.json({ error: "Failed to send LINE messages" }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, results });
   } catch (error) {
     console.error("Notify Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
