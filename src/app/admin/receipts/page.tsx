@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import { Receipt, Search, X, Printer, Clock, User, Scissors, Banknote, CalendarDays, CreditCard } from "lucide-react";
-import PromptPayQR from "@/components/PromptPayQR";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" });
@@ -264,17 +263,6 @@ export default function ReceiptsPage() {
               <div style={{ borderTop: "1px dashed #e2e8f0", margin: "16px 0" }} />
               <p style={{ textAlign: "center", fontSize: "11px", color: "#94a3b8" }}>ขอบคุณที่ใช้บริการค่ะ 💅✨</p>
             </div>
-
-            {/* PromptPay QR for Remaining Balance */}
-            {shopSettings.promptpay_id && (
-              <div className="px-6 pb-6 border-t border-pink-50 pt-6">
-                <PromptPayQR 
-                  id={shopSettings.promptpay_id} 
-                  amount={(showReceipt.total_price || showReceipt.services?.price || 0) - showReceipt.deposit}
-                  label="สแกนจ่ายยอดที่เหลือ"
-                />
-              </div>
-            )}
 
             <div className="px-6 pb-5 flex justify-center">
               <button onClick={printReceipt} className="btn-primary w-full justify-center"><Printer size={16} /> พิมพ์ใบเสร็จ</button>

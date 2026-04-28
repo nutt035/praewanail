@@ -126,7 +126,6 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   shop_line_id: "",
   shop_ig: "",
   shop_fb: "",
-  promptpay_id: "",
   line_channel_token: "",
   admin_line_uid: "",
   points_per_booking: "1",

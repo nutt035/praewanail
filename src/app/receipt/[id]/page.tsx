@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import { CheckCircle2, Scissors, Calendar, Clock, CreditCard, Sparkles, MapPin, Phone } from "lucide-react";
-import PromptPayQR from "@/components/PromptPayQR";
 
 export default function PublicReceiptPage() {
   const params = useParams();
@@ -152,17 +151,6 @@ export default function PublicReceiptPage() {
                 <span className="text-2xl font-black text-rose-500">฿{remaining.toLocaleString()}</span>
               </div>
             </div>
-
-            {/* Payment Link (If remaining > 0) */}
-            {remaining > 0 && shopSettings.promptpay_id && (
-              <div className="mt-8 pt-6 border-t border-slate-100 animate-in fade-in slide-in-from-bottom-2">
-                <PromptPayQR 
-                  id={shopSettings.promptpay_id} 
-                  amount={remaining} 
-                  label="สแกนจ่ายยอดคงเหลือ"
-                />
-              </div>
-            )}
           </div>
 
           {/* Cut-out circles for receipt look */}

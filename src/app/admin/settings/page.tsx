@@ -458,16 +458,6 @@ export default function SettingsPage() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="form-label">PromptPay ID (เบอร์โทร หรือ เลขบัตรประชาชน)</label>
-                <input
-                  className="input-field"
-                  value={shopSettings.promptpay_id}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, promptpay_id: e.target.value }))}
-                  placeholder="เช่น 0812345678"
-                />
-                <p className="text-[10px] text-slate-400 mt-1.5">ใช้สำหรับสร้าง QR Code อัตโนมัติในหน้าลงคิวและใบเสร็จ</p>
-              </div>
-              <div className="md:col-span-2 pt-2 border-t border-pink-50">
                 <label className="form-label text-brand-dark flex items-center gap-1.5">
                   <MessageCircle size={14} className="text-green-500" />
                   LINE Channel Access Token

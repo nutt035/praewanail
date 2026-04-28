@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote } from "lucide-react";
 import toast from "react-hot-toast";
-import PromptPayQR from "@/components/PromptPayQR";
 
 const STATUS_LABELS = {
   pending: { label: "รอยืนยัน", class: "badge-pending" },
@@ -497,17 +496,6 @@ export default function CalendarPage() {
                   ))}
                 </div>
               </div>
-
-              {/* PromptPay QR */}
-              {completePaymentMethod === "promptpay" && shopSettings.promptpay_id && (
-                <div className="animate-fade-in pt-2">
-                  <PromptPayQR 
-                    id={shopSettings.promptpay_id} 
-                    amount={Math.max(0, (showCompleteDialog.total_price || showCompleteDialog.services?.price || 0) - (showCompleteDialog.deposit || 0))} 
-                    label="สแกนเพื่อชำระเงิน"
-                  />
-                </div>
-              )}
             </div>
 
             <div className="px-6 pb-5 flex gap-2">

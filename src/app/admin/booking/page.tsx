@@ -9,7 +9,6 @@ import {
 import { supabase } from "@/lib/supabase";
 import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Booking } from "@/lib/types";
 import toast from "react-hot-toast";
-import PromptPayQR from "@/components/PromptPayQR";
 
 const paymentMethods = [
   { value: "cash", label: "💵 เงินสด" },
@@ -538,8 +537,7 @@ function BookingFormContent() {
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4"><div className="p-3 bg-slate-50 rounded-2xl border border-slate-100"><p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">ยอดรวม</p><p className="text-lg font-bold text-brand-dark">฿{lastBooking.total.toLocaleString()}</p></div><div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100"><p className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider mb-1">มัดจำ</p><p className="text-lg font-bold text-emerald-600">฿{lastBooking.deposit.toLocaleString()}</p></div></div>
-              {lastBooking.deposit > 0 && shopSettings.promptpay_id && <div className="animate-fade-in"><PromptPayQR id={shopSettings.promptpay_id} amount={lastBooking.deposit} label="สแกนจ่ายค่ามัดจำ" /></div>}
-              <button onClick={() => setShowSuccessModal(false)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-2xl">ปิดหน้าต่างนี้</button>
+               <button onClick={() => setShowSuccessModal(false)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-2xl">ปิดหน้าต่างนี้</button>
             </div>
           </div>
         </div>
