@@ -270,9 +270,33 @@ function BookingFormContent() {
           await supabase.from("customers").update({ points: Math.max(0, (finalCustomer.points || 0) - pointsToDeduct) }).eq("id", customerId);
         }
       } else {
-        const { data: newCustomer, error } = await supabase.from("customers").insert([{ name: formData.customerName, phone: formData.phone || null, line_id: formData.lineId || null }]).select().single();
-        if (error) throw error;
-        if (newCustomer) customerId = newCustomer.id;
+        // upsert: ถ้ามีเบอร์ซ้ำในระบบแล้วจะไม่สร้างใหม่
+        const phone = formData.phone?.trim() || null;
+        if (phone) {
+          // ค้นหาก่อน (phone อาจมีอยู่แล้ว)
+          const { data: found } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("phone", phone)
+            .limit(1);
+          if (found && found.length > 0) {
+            customerId = found[0].id;
+          } else {
+            const { data: newCustomer, error } = await supabase
+              .from("customers")
+              .insert([{ name: formData.customerName, phone, line_id: formData.lineId || null }])
+              .select().single();
+            if (error) throw error;
+            if (newCustomer) customerId = newCustomer.id;
+          }
+        } else {
+          const { data: newCustomer, error } = await supabase
+            .from("customers")
+            .insert([{ name: formData.customerName, phone: null, line_id: formData.lineId || null }])
+            .select().single();
+          if (error) throw error;
+          if (newCustomer) customerId = newCustomer.id;
+        }
       }
 
       // สร้าง Date object จากปี-เดือน-วัน และ เวลา ท้องถิ่น
@@ -331,9 +355,10 @@ function BookingFormContent() {
       } else router.push("/admin/calendar");
       resetForm();
       fetchCustomers();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error:", error);
-      toast.error("ไม่สามารถบันทึกข้อมูลได้ กรุณาลองใหม่", { id: toastId });
+      const msg = error?.message || error?.details || JSON.stringify(error) || "ไม่ทราบสาเหตุ";
+      toast.error(`บันทึกไม่สำเร็จ: ${msg}`, { id: toastId, duration: 8000 });
     } finally {
       setIsSubmitting(false);
     }

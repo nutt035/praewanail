@@ -79,7 +79,9 @@ export async function POST(req: NextRequest) {
     const endObj = new Date(startObj.getTime() + (totalDuration || 60) * 60 * 1000);
 
     const bookingCode = await generateUniqueBookingCode(supabase);
-    const depositRequired = Math.max(100, Math.ceil(totalPrice * 0.3 / 10) * 10); // 30% มัดจำ
+    const depositRequired = totalPrice <= 200
+      ? totalPrice  // ยอดน้อย จ่ายเต็ม
+      : Math.min(totalPrice, Math.max(100, Math.ceil(totalPrice * 0.3 / 10) * 10)); // 30% มัดจำ
 
     const { data: booking, error: bookErr } = await supabase
       .from("bookings")
@@ -99,13 +101,21 @@ export async function POST(req: NextRequest) {
         discount_type: "amount",
         is_practice_model: false,
         material_cost: 0,
+        has_line_linked: false,
       }])
       .select()
       .single();
 
     if (bookErr || !booking) {
-      console.error("Booking error:", bookErr);
-      return NextResponse.json({ error: "ไม่สามารถสร้างการจองได้" }, { status: 500 });
+      const errMsg = bookErr?.message || "unknown";
+      console.error("[BOOKING_INSERT_ERROR]:", errMsg);
+      // ถ้า column ไม่มี (migration ยังไม่รัน)
+      if (errMsg.includes("column") || errMsg.includes("does not exist")) {
+        return NextResponse.json({
+          error: "โครงสร้างฐานข้อมูลยังไม่อัพเดต กรุณารันไฟล์ migrations/phase2_full_system.sql ใน Supabase ก่อน"
+        }, { status: 500 });
+      }
+      return NextResponse.json({ error: `ไม่สามารถสร้างการจองได้: ${errMsg}` }, { status: 500 });
     }
 
     // 5. สร้าง booking services

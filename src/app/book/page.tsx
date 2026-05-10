@@ -8,6 +8,7 @@ import {
   CalendarDays, User, Phone, FileText, Loader2, Fingerprint, ArrowRight,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import toast, { Toaster } from "react-hot-toast";
 
 const STEPS = ["เลือกบริการ", "เลือกวัน-เวลา", "กรอกข้อมูล", "ยืนยันการจอง"];
 const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
@@ -73,7 +74,9 @@ export default function BookingPage() {
 
   const totalPrice = selected.reduce((sum, s) => sum + (s.price_per_finger != null ? s.price_per_finger * s.fingerCount : s.price), 0);
   const totalDuration = selected.reduce((sum, s) => sum + s.duration, 0);
-  const depositRequired = Math.max(100, Math.ceil(totalPrice * 0.3 / 10) * 10);
+  const depositRequired = totalPrice <= 200
+    ? totalPrice  // ยอดน้อย จ่ายเต็ม
+    : Math.min(totalPrice, Math.max(100, Math.ceil(totalPrice * 0.3 / 10) * 10));
 
   // Time slots
   const openH = parseInt(settings.open_time?.split(":")[0] || "9");
@@ -103,9 +106,11 @@ export default function BookingPage() {
       if (data.success && data.bookingCode) {
         router.push(`/book/${data.bookingCode}`);
       } else {
-        alert(data.error || "เกิดข้อผิดพลาด");
+        toast.error(data.error || "เกิดข้อผิดพลาด กรุณาลองใหม่");
       }
-    } catch { alert("เกิดข้อผิดพลาด กรุณาลองใหม่"); }
+    } catch {
+      toast.error("เกิดข้อผิดพลาด กรุณาลองใหม่");
+    }
     finally { setSubmitting(false); }
   }
 
@@ -122,6 +127,7 @@ export default function BookingPage() {
 
   return (
     <div className="min-h-screen bg-[#FDF2F8]">
+      <Toaster position="top-center" toastOptions={{ className: "text-sm font-medium" }} />
       {/* Header */}
       <header className="bg-white/95 backdrop-blur-md border-b border-pink-100 sticky top-0 z-50 isolate">
         <div className="max-w-xl mx-auto px-5 py-4 flex items-center gap-3">
