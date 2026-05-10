@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import {
   Sparkles, ChevronLeft, ChevronRight, Check, Scissors, Clock,
-  CalendarDays, User, Phone, FileText, Loader2, Fingerprint, ArrowRight,
+  CalendarDays, User, Phone, FileText, Loader2, ArrowRight,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
@@ -14,7 +14,9 @@ const STEPS = ["เลือกบริการ", "เลือกวัน-�
 const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const THAI_DAYS = ["อา","จ","อ","พ","พฤ","ศ","ส"];
 
-interface SelectedService { id: string; name: string; price: number; duration: number; price_per_finger: number | null; unit_name: string | null; fingerCount: number; }
+const DEPOSIT = 50; // มัดจำตายตัวทุกคน
+
+interface SelectedService { id: string; name: string; duration: number; category: string | null; }
 
 export default function BookingPage() {
   const router = useRouter();
@@ -65,18 +67,13 @@ export default function BookingPage() {
       setSelected(selected.filter(s => s.id !== svc.id));
     } else {
       setSelected([...selected, {
-        id: svc.id, name: svc.name, price: svc.price, duration: svc.duration,
-        price_per_finger: svc.price_per_finger, unit_name: svc.unit_name,
-        fingerCount: svc.price_per_finger != null ? 1 : 1,
+        id: svc.id, name: svc.name,
+        duration: svc.duration, category: svc.category || null,
       }]);
     }
   }
 
-  const totalPrice = selected.reduce((sum, s) => sum + (s.price_per_finger != null ? s.price_per_finger * s.fingerCount : s.price), 0);
   const totalDuration = selected.reduce((sum, s) => sum + s.duration, 0);
-  const depositRequired = totalPrice <= 200
-    ? totalPrice  // ยอดน้อย จ่ายเต็ม
-    : Math.min(totalPrice, Math.max(100, Math.ceil(totalPrice * 0.3 / 10) * 10));
 
   // Time slots
   const openH = parseInt(settings.open_time?.split(":")[0] || "9");
@@ -96,9 +93,8 @@ export default function BookingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerName: name, phone, services: selected.map(s => ({
-            id: s.id, fingerCount: s.price_per_finger != null ? s.fingerCount : null,
-          })),
+          customerName: name, phone,
+          services: selected.map(s => ({ id: s.id })),
           date, startTime: time, notes,
         }),
       });
@@ -178,19 +174,7 @@ export default function BookingPage() {
                             <p className="font-semibold text-sm text-brand-dark">{svc.name}</p>
                             <p className="text-xs text-slate-400"><Clock size={10} className="inline" /> {svc.duration} นาที</p>
                           </div>
-                          <p className="font-bold text-rose-500">
-                            {svc.price_per_finger != null ? `฿${svc.price_per_finger}/${svc.unit_name || "นิ้ว"}` : `฿${svc.price.toLocaleString()}`}
-                          </p>
                         </div>
-                        {isSelected && svc.price_per_finger != null && (
-                          <div className="mt-3 flex items-center gap-2 pl-8" onClick={e => e.stopPropagation()}>
-                            <Fingerprint size={14} className="text-violet-400" />
-                            <input type="number" min={1} max={20} className="w-16 text-center text-sm font-bold border border-violet-200 rounded-lg py-1 bg-white"
-                              value={selected.find(s => s.id === svc.id)?.fingerCount || 1}
-                              onChange={e => setSelected(selected.map(s => s.id === svc.id ? { ...s, fingerCount: Math.max(1, Number(e.target.value)) } : s))} />
-                            <span className="text-xs text-slate-400">{svc.unit_name || "นิ้ว"}</span>
-                          </div>
-                        )}
                       </button>
                     );
                   })}
@@ -274,28 +258,39 @@ export default function BookingPage() {
           </div>
         )}
 
-        {/* Step 3: Review */}
         {step === 3 && (
           <div className="space-y-4">
+            {/* สรุปบริการ */}
             <div className="bg-white rounded-2xl border border-pink-100 p-5 space-y-3">
               <h4 className="font-semibold text-brand-dark text-sm">สรุปการจอง</h4>
               {selected.map(s => (
-                <div key={s.id} className="flex justify-between text-sm">
-                  <span className="text-slate-600">{s.name} {s.price_per_finger != null ? `(${s.fingerCount} ${s.unit_name || "นิ้ว"})` : ""}</span>
-                  <span className="font-semibold">฿{(s.price_per_finger != null ? s.price_per_finger * s.fingerCount : s.price).toLocaleString()}</span>
+                <div key={s.id} className="flex items-center gap-2 text-sm">
+                  <Scissors size={12} className="text-rose-400 shrink-0" />
+                  <span className="text-slate-700">{s.name}</span>
+                  <span className="text-xs text-slate-400">({s.duration} นาที)</span>
                 </div>
               ))}
               <div className="h-px bg-pink-100" />
-              <div className="flex justify-between text-sm font-bold"><span>ยอดรวม</span><span className="text-rose-600">฿{totalPrice.toLocaleString()}</span></div>
-              <div className="flex justify-between text-sm text-rose-500"><span>มัดจำ (30%)</span><span className="font-bold">฿{depositRequired.toLocaleString()}</span></div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">เวลาทำทั้งหมด</span>
+                <span className="font-medium text-slate-700">{totalDuration} นาที</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-rose-500 font-medium">มัดจำ
+                  <span className="text-xs text-slate-400 font-normal ml-1">(ชำระเมื่อทำเสร็จ)</span>
+                </span>
+                <span className="text-lg font-black text-rose-500">฿{DEPOSIT}</span>
+              </div>
             </div>
+            {/* วัน-เวลา + ข้อมูลจอง */}
             <div className="bg-white rounded-2xl border border-pink-100 p-5 space-y-2 text-sm">
               <div className="flex items-center gap-2"><CalendarDays size={14} className="text-rose-400" /><span>{new Date(date).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span></div>
-              <div className="flex items-center gap-2"><Clock size={14} className="text-rose-400" /><span>{time} น. (ประมาณ {totalDuration} นาที)</span></div>
+              <div className="flex items-center gap-2"><Clock size={14} className="text-rose-400" /><span>{time} น.</span></div>
               <div className="flex items-center gap-2"><User size={14} className="text-rose-400" /><span>{name}</span></div>
               <div className="flex items-center gap-2"><Phone size={14} className="text-rose-400" /><span>{phone}</span></div>
               {notes && <div className="flex items-center gap-2"><FileText size={14} className="text-rose-400" /><span>{notes}</span></div>}
             </div>
+            <p className="text-xs text-center text-slate-400">หลังจองแอดมินจะติดต่อเพื่อยืนยันและเก็บมัดจำค่ะ ✨</p>
           </div>
         )}
       </main>
@@ -309,7 +304,7 @@ export default function BookingPage() {
             </button>
           )}
           <div className="flex-1 text-right">
-            {selected.length > 0 && <p className="text-xs text-slate-400">ยอดรวม <span className="font-bold text-rose-500">฿{totalPrice.toLocaleString()}</span></p>}
+            {step === 3 && <p className="text-xs text-slate-400">มัดจำ <span className="font-bold text-rose-500">฿{DEPOSIT}</span></p>}
           </div>
           {step < 3 ? (
             <button onClick={() => setStep(s => s + 1)} disabled={!canNext}

@@ -50,25 +50,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ไม่พบบริการที่เลือก" }, { status: 400 });
     }
 
-    // 3. คำนวณราคาและเวลา
-    let totalPrice = 0;
+    // 3. คำนวณเวลารวม (ไม่คิดราคา แอดมินใส่เองตอนปิดคิว)
     let totalDuration = 0;
     const bookingServiceRows: any[] = [];
 
     for (const sel of selectedServices) {
       const svc = svcData.find((s: any) => s.id === sel.id);
       if (!svc) continue;
-      const qty = sel.fingerCount || 1;
-      const unitPrice = svc.price_per_finger != null ? svc.price_per_finger : svc.price;
-      const lineTotal = svc.price_per_finger != null ? unitPrice * qty : unitPrice;
-      totalPrice += lineTotal;
       totalDuration += svc.duration;
       bookingServiceRows.push({
         service_id: svc.id,
         service_name: svc.name,
-        finger_count: svc.price_per_finger != null ? qty : null,
-        unit_price: unitPrice,
-        line_total: lineTotal,
+        finger_count: null,
+        unit_price: 0,
+        line_total: 0,
       });
     }
 
@@ -78,9 +73,7 @@ export async function POST(req: NextRequest) {
     const endObj = new Date(startObj.getTime() + (totalDuration || 60) * 60 * 1000);
 
     const bookingCode = await generateUniqueBookingCode(supabase);
-    const depositRequired = totalPrice <= 200
-      ? totalPrice  // ยอดน้อย จ่ายเต็ม
-      : Math.min(totalPrice, Math.max(100, Math.ceil(totalPrice * 0.3 / 10) * 10)); // 30% มัดจำ
+    const DEPOSIT_AMOUNT = 50; // มัดจำตายตัวทุกคน
 
     const { data: booking, error: bookErr } = await supabase
       .from("bookings")
@@ -89,9 +82,9 @@ export async function POST(req: NextRequest) {
         start_time: startObj.toISOString(),
         end_time: endObj.toISOString(),
         status: "pending",
-        total_price: totalPrice,
+        total_price: 0,
         booking_code: bookingCode,
-        deposit_required: depositRequired,
+        deposit_required: DEPOSIT_AMOUNT,
         deposit_paid: false,
         deposit: 0,
         notes: notes || null,
@@ -124,8 +117,7 @@ export async function POST(req: NextRequest) {
       success: true,
       bookingCode,
       bookingId: booking.id,
-      totalPrice,
-      depositRequired,
+      depositRequired: DEPOSIT_AMOUNT,
     }, { status: 201 });
 
   } catch (error: any) {
