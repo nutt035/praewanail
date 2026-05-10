@@ -24,7 +24,6 @@ import { Toaster } from "react-hot-toast";
 const navItems = [
   { href: "/admin", label: "ภาพรวม", icon: LayoutDashboard, exact: true },
   { href: "/admin/booking", label: "ลงคิวใหม่", icon: PlusSquare, exact: false },
-  { href: "/admin/services", label: "จัดการบริการ", icon: Scissors, exact: false },
   { href: "/admin/calendar", label: "ตารางคิว", icon: CalendarDays, exact: false },
   { href: "/admin/finance", label: "รายรับ-รายจ่าย", icon: DollarSign, exact: false },
   { href: "/admin/receipts", label: "ประวัติบิล", icon: Receipt, exact: false },

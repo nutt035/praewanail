@@ -103,7 +103,7 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
   return (
     <div className="min-h-screen bg-[#FDF2F8]">
       {/* Header */}
-      <header className="bg-white border-b border-pink-100">
+      <header className="bg-white/95 backdrop-blur-md border-b border-pink-100 sticky top-0 z-50 isolate">
         <div className="max-w-lg mx-auto px-5 py-4 flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center shadow-sm">
             <Sparkles size={15} className="text-white" />

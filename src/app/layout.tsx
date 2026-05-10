@@ -9,8 +9,8 @@ const prompt = Prompt({
 });
 
 export const metadata: Metadata = {
-  title: "Praewa Nail Studio",
-  description: "ระบบจัดการคิวและสต็อกร้านทำเล็บ",
+  title: "Antonette Nail",
+  description: "ร้านทำเล็บ Antonette Nail — จองคิวออนไลน์ง่ายๆ",
 };
 
 export default function RootLayout({

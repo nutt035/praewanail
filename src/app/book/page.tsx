@@ -123,7 +123,7 @@ export default function BookingPage() {
   return (
     <div className="min-h-screen bg-[#FDF2F8]">
       {/* Header */}
-      <header className="bg-white border-b border-pink-100 sticky top-0 z-10">
+      <header className="bg-white/95 backdrop-blur-md border-b border-pink-100 sticky top-0 z-50 isolate">
         <div className="max-w-xl mx-auto px-5 py-4 flex items-center gap-3">
           <a href="/" className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-rose-400 hover:bg-pink-100 transition-colors">
             <ChevronLeft size={18} />
