@@ -39,7 +39,7 @@ export default function ReceiptsPage() {
     const q = query.toLowerCase();
     setFiltered(bookings.filter((b) =>
       (b.customers?.name || "").toLowerCase().includes(q) ||
-      (b.services?.name || "").toLowerCase().includes(q) ||
+      ((b as any).booking_services || []).some((s: any) => s.service_name.toLowerCase().includes(q)) ||
       b.id.toLowerCase().includes(q)
     ));
   }, [query, bookings]);
@@ -48,7 +48,7 @@ export default function ReceiptsPage() {
     setLoading(true);
     const { data } = await supabase
       .from("bookings")
-      .select("*, customers(name, phone), services(name, price, duration)")
+      .select("*, customers(name, phone), booking_services(service_name, unit_price, line_total, finger_count)")
       .eq("status", "completed")
       .order("start_time", { ascending: false })
       .limit(200);
@@ -90,7 +90,7 @@ export default function ReceiptsPage() {
   }
 
   // Summary stats
-  const totalRevenue = bookings.reduce((sum, b) => sum + (b.total_price || b.services?.price || 0), 0);
+  const totalRevenue = bookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -178,7 +178,7 @@ export default function ReceiptsPage() {
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
                     <p className="text-xs text-slate-400 flex items-center gap-1">
-                      <Scissors size={10} /> {b.services?.name || "-"}
+                      <Scissors size={10} /> {((b as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "-"}
                     </p>
                     <p className="text-xs text-slate-400 flex items-center gap-1">
                       <CalendarDays size={10} /> {formatDate(b.start_time)}
@@ -188,7 +188,7 @@ export default function ReceiptsPage() {
 
                 {/* Price + payment */}
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-emerald-600">฿{(b.total_price || b.services?.price || 0).toLocaleString()}</p>
+                  <p className="text-sm font-bold text-emerald-600">฿{(b.total_price || 0).toLocaleString()}</p>
                   <p className="text-[10px] text-slate-400">{PAYMENT_LABELS[b.payment_method || "cash"] || b.payment_method}</p>
                 </div>
               </button>
@@ -234,8 +234,8 @@ export default function ReceiptsPage() {
               </div>
               <div style={{ borderTop: "1px dashed #e2e8f0", margin: "12px 0" }} />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}>
-                <span>{showReceipt.services?.name || "บริการ"}</span>
-                <span style={{ fontWeight: 600 }}>฿{(showReceipt.total_price || showReceipt.services?.price || 0).toLocaleString()}</span>
+                <span>{((showReceipt as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "บริการ"}</span>
+                <span style={{ fontWeight: 600 }}>฿{(showReceipt.total_price || 0).toLocaleString()}</span>
               </div>
               {showReceipt.deposit > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0", color: "#059669" }}>
@@ -246,13 +246,13 @@ export default function ReceiptsPage() {
               <div style={{ borderTop: "1px dashed #e2e8f0", margin: "12px 0" }} />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}>
                 <span style={{ fontWeight: 600 }}>ยอดรวม</span>
-                <span style={{ fontSize: "18px", fontWeight: 700 }}>฿{(showReceipt.total_price || showReceipt.services?.price || 0).toLocaleString()}</span>
+                <span style={{ fontSize: "18px", fontWeight: 700 }}>฿{(showReceipt.total_price || 0).toLocaleString()}</span>
               </div>
               {showReceipt.deposit > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", margin: "4px 0" }}>
                   <span style={{ color: "#64748b" }}>ยอดชำระวันนี้</span>
                   <span style={{ fontWeight: 600, color: "#e11d48" }}>
-                    ฿{((showReceipt.total_price || showReceipt.services?.price || 0) - showReceipt.deposit).toLocaleString()}
+                    ฿{((showReceipt.total_price || 0) - showReceipt.deposit).toLocaleString()}
                   </span>
                 </div>
               )}

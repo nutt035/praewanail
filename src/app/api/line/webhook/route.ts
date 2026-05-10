@@ -93,7 +93,7 @@ async function handleBookingLink(
       display_name: displayName,
       picture_url: profile?.pictureUrl || null,
       linked_at: new Date().toISOString(),
-    });
+    }, { onConflict: "line_user_id" });
 
     // อัพเดต customer
     await db.from("customers")
@@ -130,14 +130,28 @@ async function handleImageMessage(
   messageId: string
 ) {
   try {
-    // หา customer จาก LINE
+    // หา customer จาก line_accounts (PK = line_user_id)
+    let customerId: string | null = null;
+
     const { data: lineAccount } = await db
       .from("line_accounts")
       .select("customer_id")
       .eq("line_user_id", userId)
       .single();
 
-    if (!lineAccount) {
+    if (lineAccount) {
+      customerId = lineAccount.customer_id;
+    } else {
+      // fallback: ค้นหาจาก customers.line_id
+      const { data: cust } = await db
+        .from("customers")
+        .select("id")
+        .eq("line_id", userId)
+        .single();
+      if (cust) customerId = cust.id;
+    }
+
+    if (!customerId) {
       await line.pushMessage(userId,
         "รบกวนยืนยันการจองด้วยรหัส BKG-XXXX ก่อนส่งรูปนะคะ 💅"
       );
@@ -148,7 +162,7 @@ async function handleImageMessage(
     const { data: booking } = await db
       .from("bookings")
       .select("id, status, deposit_paid, booking_code")
-      .eq("customer_id", lineAccount.customer_id)
+      .eq("customer_id", customerId)
       .neq("status", "cancelled")
       .neq("status", "completed")
       .order("created_at", { ascending: false })

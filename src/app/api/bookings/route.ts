@@ -73,9 +73,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. สร้าง booking
-    const [year, month, day] = date.split("-").map(Number);
-    const [hour, min] = startTime.split(":").map(Number);
-    const startObj = new Date(year, month - 1, day, hour, min);
+    // ใช้ +07:00 offset เพื่อให้ server (Vercel UTC) แปลงเวลาออกเป็นเวลาไทยถูกต้อง
+    const startObj = new Date(`${date}T${startTime}:00+07:00`);
     const endObj = new Date(startObj.getTime() + (totalDuration || 60) * 60 * 1000);
 
     const bookingCode = await generateUniqueBookingCode(supabase);

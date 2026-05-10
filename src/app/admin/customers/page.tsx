@@ -58,7 +58,7 @@ export default function CustomersPage() {
     setLoadingBookings(true);
     const { data } = await supabase
       .from("bookings")
-      .select("*, services(name, price, duration)")
+      .select("*, booking_services(service_name, unit_price, line_total, finger_count)")
       .eq("customer_id", customer.id)
       .order("start_time", { ascending: false });
     setCustomerBookings((data as Booking[]) || []);
@@ -295,7 +295,11 @@ export default function CustomersPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
-                              <p className="text-sm font-semibold text-brand-dark">{b.services?.name || "ไม่ระบุบริการ"}</p>
+                              <p className="text-sm font-semibold text-brand-dark">
+                                {(b as any).booking_services?.length > 0
+                                  ? (b as any).booking_services.map((s: any) => s.service_name).join(", ")
+                                  : "ไม่ระบุบริการ"}
+                              </p>
                               <span className={`badge ${cfg.class} text-[10px] shrink-0`}>{cfg.label}</span>
                             </div>
                             <div className="flex items-center gap-3 mt-0.5">

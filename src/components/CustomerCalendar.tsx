@@ -46,13 +46,15 @@ export default function CustomerCalendar() {
     }
 
     // ดึง bookings เดือนที่เลือก
-    const start = new Date(year, month, 1).toISOString();
-    const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const startStr = `${year}-${pad(month + 1)}-01T00:00:00+07:00`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const endStr = `${year}-${pad(month + 1)}-${pad(lastDay)}T23:59:59+07:00`;
     const { data: bookingData } = await supabase
       .from("bookings")
       .select("start_time, end_time, status")
-      .gte("start_time", start)
-      .lte("start_time", end)
+      .gte("start_time", startStr)
+      .lte("start_time", endStr)
       .neq("status", "cancelled");
 
     setBookings((bookingData as Booking[]) || []);

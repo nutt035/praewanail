@@ -24,7 +24,7 @@ export default function PublicReceiptPage() {
   async function fetchBooking() {
     const { data, error } = await supabase
       .from("bookings")
-      .select("*, customers(name, phone), services(name, price, duration), booking_services(*)")
+      .select("*, customers(name, phone), booking_services(service_name, unit_price, line_total, finger_count)")
       .eq("id", id)
       .single();
     
@@ -59,7 +59,8 @@ export default function PublicReceiptPage() {
   }
 
   const isCompleted = booking.status === "completed";
-  const totalPrice = booking.total_price || booking.services?.price || 0;
+  const bsList = (booking as any).booking_services || [];
+  const totalPrice = booking.total_price || bsList.reduce((s: number, b: any) => s + b.line_total, 0) || 0;
   const deposit = booking.deposit || 0;
   const remaining = isCompleted ? 0 : totalPrice - deposit;
 
@@ -96,14 +97,10 @@ export default function PublicReceiptPage() {
                 <div className="flex-1">
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">บริการ</p>
                   <p className="text-brand-dark font-semibold">
-                    {booking.services?.name}
-                    {booking.booking_services && booking.booking_services.length > 1 && ` และรายการอื่นๆ`}
+                    {bsList.length > 0
+                      ? bsList.map((s: any) => `${s.service_name}${s.finger_count ? ` (${s.finger_count} หน่วย)` : ""}`).join(", ")
+                      : "ไม่ระบุบริการ"}
                   </p>
-                  {booking.booking_services && booking.booking_services.map(s => (
-                    <p key={s.id} className="text-xs text-slate-400">
-                      • {s.service_name} {s.finger_count && `(${s.finger_count} หน่วย)`}
-                    </p>
-                  ))}
                 </div>
               </div>
 

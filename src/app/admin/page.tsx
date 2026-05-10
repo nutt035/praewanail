@@ -9,9 +9,14 @@ import Link from "next/link";
 // ฟังก์ชันคำนวณ start/end ของวันนี้ (UTC)
 function getTodayRange() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  return { start: start.toISOString(), end: end.toISOString() };
+  // ใช้ +07:00 เพื่อให้ได้ช่วง 00:00-23:59 ของไทย ไม่ใช่ UTC
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return {
+    start: `${y}-${m}-${d}T00:00:00+07:00`,
+    end: `${y}-${m}-${d}T23:59:59+07:00`,
+  };
 }
 
 // ฟอร์แมตเงินบาท
@@ -49,7 +54,7 @@ export default function AdminDashboard() {
     // ดึงคิววันนี้ พร้อม join customers + services
     const { data: bookings } = await supabase
       .from("bookings")
-      .select("*, customers(name, phone), services(name, price, duration)")
+      .select("*, customers(name, phone), booking_services(service_name, unit_price, line_total, finger_count)")
       .gte("start_time", start)
       .lt("start_time", end)
       .neq("status", "cancelled")

@@ -65,13 +65,16 @@ export default function CalendarPage() {
 
   const fetchBookings = useCallback(async () => {
     setLoading(true);
-    const start = new Date(year, month, 1).toISOString();
-    const end = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+    // ใช้ offset +07:00 เพื่อให้ได้ช่วงเวลาไทยที่ถูกต้อง
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const startStr = `${year}-${pad(month + 1)}-01T00:00:00+07:00`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const endStr = `${year}-${pad(month + 1)}-${pad(lastDay)}T23:59:59+07:00`;
     const { data } = await supabase
       .from("bookings")
-      .select("*, customers(*), services(name, price, duration)")
-      .gte("start_time", start)
-      .lte("start_time", end)
+      .select("*, customers(*), booking_services(service_name, unit_price, line_total, finger_count)")
+      .gte("start_time", startStr)
+      .lte("start_time", endStr)
       .order("start_time", { ascending: true });
     setBookings((data as Booking[]) || []);
     setLoading(false);
