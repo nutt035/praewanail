@@ -41,17 +41,23 @@ export interface Booking {
   id: string;
   customer_id: string | null;
   service_id: string | null;      // เดิม (keep ไว้สำหรับ backward compat)
+  booking_code: string | null;    // BKG-XXXX (สำหรับลูกค้าจองเอง)
   start_time: string;
   end_time: string;
   status: "pending" | "confirmed" | "completed" | "cancelled";
   total_price: number | null;
   deposit: number;
+  deposit_required: number;        // จำนวนมัดจำที่ต้องจ่าย
+  deposit_paid: boolean;           // จ่ายมัดจำแล้วหรือยัง
   payment_method: string | null;
   notes: string | null;
   discount_amount: number;         // ส่วนลด
   discount_type: "amount" | "percent"; // ประเภทส่วนลด
   is_practice_model: boolean;      // โหมดหุ่นลอง
   material_cost: number;           // ค่าอุปกรณ์ (สำหรับหุ่นลอง)
+  design_image_url: string | null; // รูปแบบเล็บจาก LINE
+  final_price: number | null;      // ราคาสุดท้ายหลัง admin ยืนยัน
+  has_line_linked: boolean;        // ผูก LINE แล้วหรือยัง
   created_at: string;
   // relations (joined)
   customers?: Customer | null;
@@ -90,6 +96,26 @@ export interface Promotion {
   valid_to: string | null;    // DATE string
   is_active: boolean;
   created_at: string;
+}
+
+export interface Payment {
+  id: string;
+  booking_id: string;
+  amount: number;
+  payment_type: "deposit" | "final";
+  payment_status: "pending" | "verified" | "failed";
+  slip_verified: boolean;
+  transaction_id: string | null;
+  bank_info: any;
+  created_at: string;
+}
+
+export interface LineAccount {
+  line_user_id: string;
+  customer_id: string;
+  display_name: string | null;
+  picture_url: string | null;
+  linked_at: string;
 }
 
 export interface EstimationHistory {
@@ -132,6 +158,10 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   redeem_5_points_value: "50",
   redeem_10_points_value: "100",
   ai_pricing_rules: "ทาสีเจลพื้นฐาน (สีพื้น/ลูกแก้ว/แฟลช): 250 บาท\nงานเพ้นท์ลาย (Hand-drawn): เริ่มต้นนิ้วละ 30 - 50 บาท (ตามความยาก)\nงานปั้นนูน 3D / ขัดผง: นิ้วละ 50 บาท\nติดอะไหล่/เพชร: ชิ้นเล็ก 10 บาท, ชิ้นใหญ่/อะไหล่พรีเมียม 30 - 50 บาท",
+  promptpay_id: "",
+  slipok_branch_id: "",
+  slipok_api_key: "",
+  admin_password: "praewa1234",
 };
 
 // ────────────── Helpers ──────────────

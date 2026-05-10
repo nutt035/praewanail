@@ -1,15 +1,20 @@
-# Nail Salon Agent
+# Nail Salon AI System
 
-This project is a nail salon AI assistant.
+This project is an AI assistant for a nail salon.
 
-Files:
+## Business Knowledge
 - business_info.md
+- knowledge/price_list.md
+- knowledge/services.md
+- knowledge/faq.md
+- knowledge/brand_voice.md
 
-Skills:
+## Skills
 - skills/customer_chat.md
 - skills/booking_assistant.md
 - skills/social_content.md
-- skills/promotion_planner.md
+- skills/weekly_content.md
+- skills/monthly_promo.md
 
-Goal:
-Help run nail salon marketing and customer chat.
+## Main Goal
+Automatically run marketing, customer chat and booking.

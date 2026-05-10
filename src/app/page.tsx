@@ -130,6 +130,23 @@ export default async function Home() {
 
       <main className="max-w-2xl mx-auto px-5 py-8 space-y-10">
 
+        {/* Booking CTA */}
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-400 via-pink-500 to-fuchsia-500 p-6 text-center text-white shadow-lg">
+          <div className="relative z-10">
+            <h2 className="text-xl font-bold mb-2">จองคิวออนไลน์ได้แล้ว! 💅</h2>
+            <p className="text-rose-100 text-sm mb-5">เลือกบริการ เลือกเวลา จองง่ายๆ ไม่ต้องรอ</p>
+            <a
+              href="/book"
+              className="inline-flex items-center gap-2 px-8 py-3 bg-white text-rose-600 text-sm font-bold rounded-2xl shadow-md hover:shadow-xl transition-all active:scale-95"
+            >
+              <Sparkles size={18} />
+              จองคิวเลย
+            </a>
+          </div>
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+        </section>
+
         {/* Portfolio CTA - New Section */}
         <section id="portfolio" className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-100 to-pink-200 p-6 text-center shadow-sm border border-rose-200">
           <div className="relative z-10">
@@ -287,7 +304,7 @@ export default async function Home() {
             <div className="flex flex-wrap justify-center gap-3">
               {hasLine && (
                 <a
-                  href={`https://line.me/R và /ti/p/~${settings.shop_line_id}`}
+                  href={`https://line.me/R/ti/p/~${settings.shop_line_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:bg-green-600 active:scale-95"

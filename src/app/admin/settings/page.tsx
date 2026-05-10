@@ -483,7 +483,51 @@ export default function SettingsPage() {
                 />
                 <p className="text-[10px] text-slate-400 mt-1.5">User ID ของแอดมินที่จะรับแจ้งเตือน (ใส่ได้หลายคนคั่นด้วยคอมม่า , เช่น UID1,UID2)</p>
               </div>
+              <div className="md:col-span-2">
+                <label className="form-label text-brand-dark flex items-center gap-1.5">
+                  <CreditCard size={14} className="text-emerald-500" />
+                  PromptPay ID (สำหรับลูกค้าชำระเงิน)
+                </label>
+                <input
+                  className="input-field"
+                  value={shopSettings.promptpay_id || ""}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, promptpay_id: e.target.value }))}
+                  placeholder="เบอร์โทร หรือ เลขบัตรประชาชน"
+                />
+                <p className="text-[10px] text-slate-400 mt-1.5">ระบบจะสร้าง QR PromptPay อัตโนมัติเมื่อลูกค้าจอง</p>
+              </div>
             </div>
+          </div>
+
+          {/* SlipOK Settings */}
+          <div className="card p-6 border-emerald-100 bg-emerald-50/20">
+            <h3 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-2">
+              <CreditCard size={16} className="text-emerald-500" />
+              ตรวจสลิปอัตโนมัติ (SlipOK)
+            </h3>
+            <p className="text-[11px] text-slate-400 mb-4">ระบบจะตรวจสอบสลิปโอนเงินจากลูกค้าอัตโนมัติ · สมัครได้ที่ <a href="https://slipok.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">slipok.com</a></p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="form-label text-emerald-700">SlipOK Branch ID</label>
+                <input
+                  className="input-field border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400"
+                  value={shopSettings.slipok_branch_id || ""}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, slipok_branch_id: e.target.value }))}
+                  placeholder="เช่น 66157"
+                />
+              </div>
+              <div>
+                <label className="form-label text-emerald-700">SlipOK API Key</label>
+                <input
+                  type="password"
+                  className="input-field border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400"
+                  value={shopSettings.slipok_api_key || ""}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, slipok_api_key: e.target.value }))}
+                  placeholder="SLIPOKXXXXX"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-emerald-600 mt-3 italic">* ถ้าไม่ตั้งค่า SlipOK ระบบจะบันทึกสลิปและรอ admin ตรวจสอบเอง</p>
           </div>
 
           {/* Preview */}

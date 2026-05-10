@@ -1,16 +1,29 @@
-# Nail Salon Business Info
+# ข้อมูลร้านทำเล็บ
 
-Shop name: Antonette Nail
-Location: Thailand
-Services:
-- Gel nails
-- Acrylic nails
-- Nail art
-- Spa manicure
+ชื่อร้าน: Antonette Nail  
+ประเทศ: ไทย
 
-Target customers:
-Women age 18–35
-Students + Office workers
+บริการ:
+- ทาสีเจลมือ
+- ทาสีเจลเท้า
+- ต่อ PVC
+- เพ้นท์เล็บ
+- ทำ Overlay
+- ถอดเล็บ
+- ล้างสีเจล
+- ต่อเล็บเว้นโคน
+- เสริมหน้าเล็บธรรมดา
+- ขัดมุก
+- ขัดผง
+- ทาสีออมเบร์
+- ติดอะไหล่
+- ปั้นนูน
+- ลายนูน
 
-Brand vibe:
-Cute, friendly, affordable, trendy
+กลุ่มลูกค้าเป้าหมาย:
+วัยรุ่นอายุ 15–20 ปี
+นักศึกษา และ พนักงานออฟฟิศอายุ 21–35 ปี
+ส่วนใหญ่จะเป็นผู้หญิง และมีผู้ชายบ้างประปราย
+
+ภาพลักษณ์แบรนด์:
+น่ารัก เป็นกันเอง ราคาเข้าถึงได้ เทรนดี้
