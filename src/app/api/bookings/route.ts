@@ -87,12 +87,11 @@ export async function POST(req: NextRequest) {
       .from("bookings")
       .insert([{
         customer_id: customerId,
-        service_id: svcData[0].id,
-        booking_code: bookingCode,
         start_time: startObj.toISOString(),
         end_time: endObj.toISOString(),
         status: "pending",
         total_price: totalPrice,
+        booking_code: bookingCode,
         deposit_required: depositRequired,
         deposit_paid: false,
         deposit: 0,

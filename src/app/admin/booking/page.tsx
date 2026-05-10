@@ -310,7 +310,6 @@ function BookingFormContent() {
 
       const bookingPayload = {
         customer_id: customerId,
-        service_id: selectedItems[0]?.service.id || null,
         start_time: startDateTime,
         end_time: endDateTime,
         total_price: totalPrice,
