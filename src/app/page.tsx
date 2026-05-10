@@ -130,6 +130,41 @@ export default async function Home() {
 
       <main className="max-w-2xl mx-auto px-5 py-8 space-y-10">
 
+        {/* Portfolio CTA - New Section */}
+        <section id="portfolio" className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-100 to-pink-200 p-6 text-center shadow-sm border border-rose-200">
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+              <Camera size={24} className="text-rose-500" />
+            </div>
+            <h2 className="text-xl font-bold text-brand-dark mb-2">ดูผลงานล่าสุดของเรา ✨</h2>
+            <p className="text-sm text-rose-600/80 mb-5">อัปเดตรูปแบบลายเล็บใหม่ๆ และรีวิวจากลูกค้าได้ที่โซเชียลมีเดีย</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {hasIg && (
+                <a
+                  href={`https://instagram.com/${settings.shop_ig.replace("@", "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-white text-brand-dark text-sm font-bold rounded-full shadow-sm hover:shadow-md transition-all active:scale-95 border border-rose-100"
+                >
+                  <Camera size={16} className="text-pink-500" />
+                  Instagram
+                </a>
+              )}
+              {/* เพิ่ม TikTok ถ้ามีการระบุใน settings หรือใส่เป็นทางเลือกไว้ */}
+              <a
+                href="#"
+                className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-full shadow-sm hover:bg-slate-800 transition-all active:scale-95"
+              >
+                <span className="text-lg">🎵</span>
+                TikTok
+              </a>
+            </div>
+          </div>
+          {/* Decorative Background Elements */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/30 rounded-full blur-2xl"></div>
+          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-rose-300/20 rounded-full blur-2xl"></div>
+        </section>
+
         {/* โปรโมชั่น */}
         {promotions.length > 0 && (
           <section id="promotions">
@@ -183,7 +218,10 @@ export default async function Home() {
 
         {/* บริการ */}
         <section id="services">
-          <h2 className="text-xl font-bold text-brand-dark mb-1">บริการของเรา 💅</h2>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-xl font-bold text-brand-dark">บริการของเรา 💅</h2>
+            <span className="text-[10px] font-bold text-rose-400 bg-rose-50 px-2 py-0.5 rounded-full uppercase tracking-tighter border border-rose-100">Premium Quality</span>
+          </div>
           <p className="text-sm text-slate-400 mb-5">ราคาเริ่มต้น · ครอบคลุมทุกความต้องการ</p>
 
           {Object.keys(servicesByCategory).length === 0 ? (
@@ -203,10 +241,10 @@ export default async function Home() {
                     {categoryServices.map((service) => (
                       <div
                         key={service.id}
-                        className="bg-white rounded-xl px-4 py-3.5 border border-pink-100 hover:border-rose-200 transition-all flex items-center justify-between gap-3"
+                        className="group bg-white rounded-xl px-4 py-3.5 border border-pink-100 hover:border-rose-300 hover:shadow-sm transition-all flex items-center justify-between gap-3"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-brand-dark">{service.name}</p>
+                          <p className="font-semibold text-sm text-brand-dark group-hover:text-rose-500 transition-colors">{service.name}</p>
                           <div className="flex items-center gap-2 mt-0.5 text-slate-400 text-xs">
                             <span className="flex items-center gap-0.5">
                               <Clock size={11} />
@@ -219,7 +257,7 @@ export default async function Home() {
                             )}
                           </div>
                         </div>
-                        <p className="text-base font-bold gradient-text shrink-0">
+                        <p className="text-base font-bold gradient-text shrink-0 group-hover:scale-110 transition-transform">
                           {service.price_per_finger != null
                             ? `฿${service.price_per_finger.toLocaleString()}/${service.unit_name || "หน่วย"}`
                             : `฿${service.price.toLocaleString()}`
@@ -243,50 +281,53 @@ export default async function Home() {
 
         {/* Contact CTA */}
         <section className="text-center py-6">
-          <p className="text-sm font-bold text-brand-dark mb-4">สนใจจองคิว 💅</p>
-          <div className="flex flex-wrap justify-center gap-3">
-            {hasLine && (
-              <a
-                href={`https://line.me/R/ti/p/~${settings.shop_line_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-green-500 text-white text-sm font-semibold rounded-xl shadow-md transition-all hover:bg-green-600 active:scale-95"
-              >
-                <MessageCircle size={16} />
-                Line
-              </a>
-            )}
-            {hasFb && (
-              <a
-                href={settings.shop_fb.startsWith("http") ? settings.shop_fb : `https://${settings.shop_fb}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-blue-500 text-white text-sm font-semibold rounded-xl shadow-md transition-all hover:bg-blue-600 active:scale-95"
-              >
-                <MessageCircle size={16} />
-                Messenger
-              </a>
-            )}
-            {hasIg && (
-              <a
-                href={`https://instagram.com/${settings.shop_ig.replace("@", "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white text-sm font-semibold rounded-xl shadow-md transition-all hover:opacity-90 active:scale-95"
-              >
-                <Camera size={16} />
-                Instagram
-              </a>
-            )}
-            {hasPhone && (
-              <a
-                href={`tel:${settings.shop_phone}`}
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-slate-800 text-white text-sm font-semibold rounded-xl shadow-md transition-all hover:bg-slate-900 active:scale-95"
-              >
-                <Phone size={16} />
-                โทรสอบถาม
-              </a>
-            )}
+          <div className="bg-white rounded-3xl p-6 border border-pink-100 shadow-sm">
+            <p className="text-sm font-bold text-brand-dark mb-1">สนใจจองคิว 💅</p>
+            <p className="text-[11px] text-slate-400 mb-5">แนะนำจองผ่าน Line เพื่อความรวดเร็วในการเช็คคิว</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              {hasLine && (
+                <a
+                  href={`https://line.me/R và /ti/p/~${settings.shop_line_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:bg-green-600 active:scale-95"
+                >
+                  <MessageCircle size={18} />
+                  จองผ่าน Line
+                </a>
+              )}
+              {hasFb && (
+                <a
+                  href={settings.shop_fb.startsWith("http") ? settings.shop_fb : `https://${settings.shop_fb}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:bg-blue-600 active:scale-95"
+                >
+                  <MessageCircle size={18} />
+                  Messenger
+                </a>
+              )}
+              {hasIg && (
+                <a
+                  href={`https://instagram.com/${settings.shop_ig.replace("@", "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:opacity-90 active:scale-95"
+                >
+                  <Camera size={18} />
+                  Instagram
+                </a>
+              )}
+              {hasPhone && (
+                <a
+                  href={`tel:${settings.shop_phone}`}
+                  className="flex items-center gap-2 px-6 py-3 bg-slate-800 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:bg-slate-900 active:scale-95"
+                >
+                  <Phone size={18} />
+                  โทรสอบถาม
+                </a>
+              )}
+            </div>
           </div>
         </section>
       </main>
