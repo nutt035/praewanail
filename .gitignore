@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ─── Security: ห้าม commit ไฟล์ credentials เด็ดขาด ───
+# Google Cloud Service Account
+*-credentials.json
+*-service-account.json
+nail-booking-*.json
+*.serviceaccount.json
+
+# Private keys
+*.key
+*.p8
+*.p12
+*.pfx
