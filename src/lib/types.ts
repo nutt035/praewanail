@@ -144,8 +144,19 @@ export function settingsToMap(settings: ShopSettings[]): Record<string, string> 
 
 // Default settings (ใช้เมื่อยังไม่ได้ตั้งค่า)
 export const DEFAULT_SETTINGS: Record<string, string> = {
+  // เวลาเปิด-ปิด (fallback)
   open_time: "09:00",
   close_time: "20:00",
+  // เวลา จ-ศ
+  weekday_open_time: "09:00",
+  weekday_close_time: "20:00",
+  // เวลา ส-อา
+  weekend_open_time: "10:00",
+  weekend_close_time: "18:00",
+  // วันหยุดประจำสัปดาห์ (comma-separated: 0=อา, 1=จ, ..., 6=ส)
+  closed_weekdays: "",
+  // วันหยุดพิเศษ (comma-separated: YYYY-MM-DD)
+  closed_dates: "",
   max_bookings_per_day: "8",
   shop_name: "Praewa Nail Studio",
   shop_phone: "",
@@ -163,6 +174,31 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   slipok_api_key: "",
   admin_password: "praewa1234",
 };
+
+/** ช่วยหาเวลาเปิด-ปิดตามวันของสัปดาห์ */
+export function getOpenClose(date: Date, settings: Record<string, string>) {
+  const dow = date.getDay(); // 0=Sun, 6=Sat
+  const isWeekend = dow === 0 || dow === 6;
+  return {
+    openTime: isWeekend
+      ? (settings.weekend_open_time || settings.open_time || "10:00")
+      : (settings.weekday_open_time || settings.open_time || "09:00"),
+    closeTime: isWeekend
+      ? (settings.weekend_close_time || settings.close_time || "18:00")
+      : (settings.weekday_close_time || settings.close_time || "20:00"),
+  };
+}
+
+/** เช็คว่าวันนั้นร้านปิดหรือไม่ */
+export function isClosedDay(date: Date, settings: Record<string, string>): boolean {
+  const dow = date.getDay();
+  const closedWeekdays = (settings.closed_weekdays || "").split(",").filter(Boolean).map(Number);
+  if (closedWeekdays.includes(dow)) return true;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const dateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  const closedDates = (settings.closed_dates || "").split(",").filter(Boolean);
+  return closedDates.includes(dateStr);
+}
 
 // ────────────── Helpers ──────────────
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS, isClosedDay, getOpenClose } from "@/lib/types";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 
 const THAI_MONTHS = [
@@ -41,8 +41,8 @@ export default function CustomerCalendar() {
     if (settingsData && settingsData.length > 0) {
       const cfg = settingsToMap(settingsData as ShopSettings[]);
       setMaxPerDay(Number(cfg.max_bookings_per_day || DEFAULT_SETTINGS.max_bookings_per_day));
-      setOpenTime(cfg.open_time || DEFAULT_SETTINGS.open_time);
-      setCloseTime(cfg.close_time || DEFAULT_SETTINGS.close_time);
+      setOpenTime(cfg.weekday_open_time || cfg.open_time || DEFAULT_SETTINGS.open_time);
+      setCloseTime(cfg.weekday_close_time || cfg.close_time || DEFAULT_SETTINGS.close_time);
     }
 
     // ดึง bookings เดือนที่เลือก
@@ -66,6 +66,8 @@ export default function CustomerCalendar() {
 
   // นับคิวต่อวัน
   function getDayInfo(day: number): DayInfo {
+    const thisDate = new Date(year, month, day);
+    const cfg = {} as Record<string, string>; // ใช้ shopSettings จาก parent ถ้าเป็น component
     const count = bookings.filter((b) => {
       const d = new Date(b.start_time);
       return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;

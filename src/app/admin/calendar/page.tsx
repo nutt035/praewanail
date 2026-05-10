@@ -58,6 +58,11 @@ export default function CalendarPage() {
   const [completeFinalPrice, setCompleteFinalPrice] = useState<number>(0);
   const [completing, setCompleting] = useState(false);
 
+  // Confirm dialog (ยืนยันคิว + ใส่ราคา)
+  const [showConfirmDialog, setShowConfirmDialog] = useState<Booking | null>(null);
+  const [confirmPrice, setConfirmPrice] = useState<number>(0);
+  const [confirming, setConfirming] = useState(false);
+
   // Receipt
   const [showReceipt, setShowReceipt] = useState<Booking | null>(null);
   const [receiptPaymentMethod, setReceiptPaymentMethod] = useState("cash");
@@ -145,7 +150,46 @@ export default function CalendarPage() {
     setSelectedBooking(null);
     setShowCompleteDialog(booking);
     setCompletePaymentMethod("cash");
-    setCompleteFinalPrice(booking.total_price || 0); // เติมจากที่เก็บไว้ หรือ 0 ถ้ายังไม่ได้ใส่
+    setCompleteFinalPrice(booking.total_price || 0);
+  }
+
+  function openConfirmDialog(booking: Booking) {
+    setSelectedBooking(null);
+    setShowConfirmDialog(booking);
+    setConfirmPrice(booking.total_price || 0);
+  }
+
+  async function confirmBooking() {
+    if (!showConfirmDialog) return;
+    setConfirming(true);
+    const booking = showConfirmDialog;
+    const toastId = toast.loading("กำลังยืนยัน...");
+    try {
+      const { error } = await supabase
+        .from("bookings")
+        .update({ status: "confirmed", total_price: confirmPrice })
+        .eq("id", booking.id);
+      if (error) throw error;
+
+      // แจ้งเตือนแอดมิน LINE
+      if (shopSettings.line_channel_token && shopSettings.admin_line_uid) {
+        const svcNames = ((booking as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "บริการ";
+        const dateStr = new Date(booking.start_time).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
+        const timeStr = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+        const msg = `✅ ยืนยันคิวแล้ว\n\nสำหรับ ${booking.customers?.name || "ลูกค้า"}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n💰 ราคา: ฿${confirmPrice.toLocaleString()}\n\nรอเจอลูกค้าได้เลยค่ะ ✨`;
+        fetch("https://api.line.me/v2/bot/message/push", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${shopSettings.line_channel_token}` },
+          body: JSON.stringify({ to: shopSettings.admin_line_uid, messages: [{ type: "text", text: msg }] }),
+        }).catch(() => {});
+      }
+
+      toast.success("ยืนยันคิวเรียบร้อย! ✓", { id: toastId });
+      setShowConfirmDialog(null);
+      fetchBookings();
+    } catch (err) {
+      toast.error("ไม่สามารถยืนยันคิวได้", { id: toastId });
+    } finally { setConfirming(false); }
   }
 
   // ยืนยันจบงาน
@@ -469,10 +513,10 @@ export default function CalendarPage() {
               )}
               {selectedBooking.status !== "confirmed" && selectedBooking.status !== "completed" && (
                 <button
-                  onClick={() => updateStatus(selectedBooking.id, "confirmed")}
+                  onClick={() => openConfirmDialog(selectedBooking)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors border border-blue-200"
                 >
-                  <CheckCircle2 size={15} /> ยืนยัน
+                  <CheckCircle2 size={15} /> ยืนยัน + ใส่ราคา
                 </button>
               )}
               {selectedBooking.status !== "cancelled" && (
@@ -483,6 +527,48 @@ export default function CalendarPage() {
                   <XCircle size={15} /> ยกเลิกคิว
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Confirm Booking Dialog (ยืนยัน + ใส่ราคา) ===== */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-slide-up">
+            <div className="px-6 py-4 border-b border-pink-100 flex items-center justify-between">
+              <h4 className="font-bold text-brand-dark flex items-center gap-2">
+                <CheckCircle2 size={16} className="text-blue-400" /> ยืนยันคิว
+              </h4>
+              <button onClick={() => setShowConfirmDialog(null)} className="btn-ghost py-1 px-2"><X size={16} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* ข้อมูลคิว */}
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 space-y-1 text-sm">
+                <p className="font-semibold text-brand-dark">{showConfirmDialog.customers?.name || "ลูกค้า"}</p>
+                <p className="text-slate-500">{((showConfirmDialog as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "บริการ"}</p>
+                <p className="text-slate-400 flex items-center gap-1">
+                  <Clock size={12} /> {formatDate(showConfirmDialog.start_time)} · {formatTime(showConfirmDialog.start_time)}
+                </p>
+              </div>
+              {/* ใส่ราคา */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">ราคาทำเล็บ (฿) *</label>
+                <input
+                  type="number" min={0} autoFocus
+                  value={confirmPrice}
+                  onChange={e => setConfirmPrice(Number(e.target.value))}
+                  className="w-full px-4 py-3 rounded-xl border border-blue-200 bg-white text-xl font-bold text-brand-dark focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none text-right"
+                  placeholder="0"
+                />
+                <p className="text-xs text-slate-400 mt-1">แอดมินจะโอนไว้ก่อนเพื่อไม่ให้ลืม สามารถแก้ไขได้ที่หน้าแก้ไขคิว</p>
+              </div>
+            </div>
+            <div className="px-6 pb-5 flex gap-2">
+              <button onClick={() => setShowConfirmDialog(null)} className="btn-ghost flex-1">ยกเลิก</button>
+              <button onClick={confirmBooking} disabled={confirming} className="btn-primary flex-1 justify-center">
+                {confirming ? "กำลังบันทึก..." : "✓ ยืนยันคิว"}
+              </button>
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS, getOpenClose, isClosedDay } from "@/lib/types";
 import {
   Sparkles, ChevronLeft, ChevronRight, Check, Scissors, Clock,
   CalendarDays, User, Phone, FileText, Loader2, ArrowRight,
@@ -47,12 +47,14 @@ export default function BookingPage() {
     })();
   }, []);
 
-  // Fetch booking counts for calendar
+  // Fetch booking counts for calendar (with +07:00 offset)
   useEffect(() => {
     (async () => {
-      const start = new Date(calYear, calMonth, 1).toISOString();
-      const end = new Date(calYear, calMonth + 1, 0, 23, 59, 59).toISOString();
-      const { data } = await supabase.from("bookings").select("start_time").gte("start_time", start).lte("start_time", end).neq("status", "cancelled");
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const startStr = `${calYear}-${pad(calMonth + 1)}-01T00:00:00+07:00`;
+      const lastDay = new Date(calYear, calMonth + 1, 0).getDate();
+      const endStr = `${calYear}-${pad(calMonth + 1)}-${pad(lastDay)}T23:59:59+07:00`;
+      const { data } = await supabase.from("bookings").select("start_time").gte("start_time", startStr).lte("start_time", endStr).neq("status", "cancelled");
       const counts: Record<number, number> = {};
       (data || []).forEach((b: any) => { const d = new Date(b.start_time).getDate(); counts[d] = (counts[d] || 0) + 1; });
       setDayBookingCounts(counts);
@@ -75,9 +77,13 @@ export default function BookingPage() {
 
   const totalDuration = selected.reduce((sum, s) => sum + s.duration, 0);
 
-  // Time slots
-  const openH = parseInt(settings.open_time?.split(":")[0] || "9");
-  const closeH = parseInt(settings.close_time?.split(":")[0] || "20");
+  // Time slots เปลี่ยนตามวันที่เลือก
+  const selectedDateObj = date ? new Date(date + "T12:00:00") : null;
+  const { openTime: openH_str, closeTime: closeH_str } = selectedDateObj
+    ? getOpenClose(selectedDateObj, settings)
+    : { openTime: settings.weekday_open_time || settings.open_time || "09:00", closeTime: settings.weekday_close_time || settings.close_time || "20:00" };
+  const openH = parseInt(openH_str.split(":")[0]);
+  const closeH = parseInt(closeH_str.split(":")[0]);
   const timeSlots: string[] = [];
   for (let h = openH; h < closeH; h++) {
     timeSlots.push(`${String(h).padStart(2, "0")}:00`);
@@ -201,15 +207,24 @@ export default function BookingPage() {
                   const thisDate = new Date(calYear, calMonth, day);
                   const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                   const isPast = thisDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                  const isClosed = isClosedDay(thisDate, settings);
                   const isSel = date === dateStr;
                   const bookCount = dayBookingCounts[day] || 0;
                   const isFull = bookCount >= maxPerDay;
+                  const isDisabled = isPast || isFull || isClosed;
                   return (
-                    <button key={day} disabled={isPast || isFull} onClick={() => setDate(dateStr)}
-                      className={`py-2 rounded-xl text-sm font-medium transition-all ${isSel ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md" : isPast ? "text-slate-200" : isFull ? "text-slate-300 bg-slate-50" : "hover:bg-pink-50 text-slate-600"}`}>
+                    <button key={day} disabled={isDisabled} onClick={() => setDate(dateStr)}
+                      className={`py-2 rounded-xl text-sm font-medium transition-all ${
+                        isSel ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md"
+                        : isPast ? "text-slate-200"
+                        : isClosed ? "text-slate-300 bg-slate-50 line-through"
+                        : isFull ? "text-slate-300 bg-slate-50"
+                        : "hover:bg-pink-50 text-slate-600"
+                      }`}>
                       {day}
-                      {!isPast && !isFull && bookCount > 0 && <div className={`w-1 h-1 rounded-full mx-auto mt-0.5 ${isSel ? "bg-white/70" : "bg-rose-300"}`} />}
-                      {isFull && <p className="text-[8px] text-slate-300">เต็ม</p>}
+                      {isClosed && !isPast && <p className="text-[8px] text-slate-300">ปิด</p>}
+                      {isFull && !isClosed && !isPast && <p className="text-[8px] text-slate-300">เต็ม</p>}
+                      {!isDisabled && bookCount > 0 && <div className={`w-1 h-1 rounded-full mx-auto mt-0.5 ${isSel ? "bg-white/70" : "bg-rose-300"}`} />}
                     </button>
                   );
                 })}

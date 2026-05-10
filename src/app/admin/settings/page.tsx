@@ -372,40 +372,114 @@ export default function SettingsPage() {
               <Clock size={16} className="text-rose-400" />
               เวลาเปิด-ปิดร้าน
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            {/* จ-ศ */}
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">วันจันทร์ – ศุกร์</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
               <div>
-                <label className="form-label">เวลาเปิดร้าน</label>
-                <input
-                  type="time"
-                  className="input-field"
-                  value={shopSettings.open_time}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, open_time: e.target.value }))}
-                />
+                <label className="form-label">เปิดร้าน</label>
+                <input type="time" className="input-field"
+                  value={shopSettings.weekday_open_time || "09:00"}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, weekday_open_time: e.target.value }))} />
               </div>
               <div>
-                <label className="form-label">เวลาปิดร้าน</label>
-                <input
-                  type="time"
-                  className="input-field"
-                  value={shopSettings.close_time}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, close_time: e.target.value }))}
-                />
+                <label className="form-label">ปิดร้าน</label>
+                <input type="time" className="input-field"
+                  value={shopSettings.weekday_close_time || "20:00"}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, weekday_close_time: e.target.value }))} />
               </div>
               <div>
-                <label className="form-label">รับได้สูงสุดต่อวัน (คิว)</label>
-                <input
-                  type="number"
-                  className="input-field"
+                <label className="form-label">รับคิวสูงสุด/วัน</label>
+                <input type="number" min={1} className="input-field"
                   value={shopSettings.max_bookings_per_day}
-                  min={1}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, max_bookings_per_day: e.target.value }))}
-                />
+                  onChange={(e) => setShopSettings((s) => ({ ...s, max_bookings_per_day: e.target.value }))} />
               </div>
             </div>
-            <p className="text-xs text-slate-400 mt-3">
-              ⏰ เวลาเปิดปิดจะแสดงในหน้าลูกค้า · จำนวนคิวต่อวันใช้แสดงสถานะว่าง/เต็มในปฏิทิน
-            </p>
+
+            {/* ส-อา */}
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">วันเสาร์ – อาทิตย์</p>
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              <div>
+                <label className="form-label">เปิดร้าน</label>
+                <input type="time" className="input-field"
+                  value={shopSettings.weekend_open_time || "10:00"}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, weekend_open_time: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">ปิดร้าน</label>
+                <input type="time" className="input-field"
+                  value={shopSettings.weekend_close_time || "18:00"}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, weekend_close_time: e.target.value }))} />
+              </div>
+            </div>
+
+            {/* วันหยุดประจำ */}
+            <div className="border-t border-pink-100 pt-4 mb-4">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">วันปิดร้านประจำ</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "อา", dow: 0 }, { label: "จ", dow: 1 }, { label: "อ", dow: 2 },
+                  { label: "พ", dow: 3 }, { label: "พฤ", dow: 4 }, { label: "ศ", dow: 5 }, { label: "ส", dow: 6 },
+                ].map(({ label, dow }) => {
+                  const closed = (shopSettings.closed_weekdays || "").split(",").filter(Boolean).map(Number);
+                  const isOff = closed.includes(dow);
+                  return (
+                    <button key={dow} type="button"
+                      onClick={() => {
+                        const arr = (shopSettings.closed_weekdays || "").split(",").filter(Boolean).map(Number);
+                        const next = isOff ? arr.filter(d => d !== dow) : [...arr, dow];
+                        setShopSettings(s => ({ ...s, closed_weekdays: next.join(",") }));
+                      }}
+                      className={`w-12 h-12 rounded-xl text-sm font-bold border-2 transition-all ${
+                        isOff
+                          ? "bg-red-50 border-red-300 text-red-600"
+                          : "bg-white border-pink-100 text-slate-600 hover:border-rose-300"
+                      }`}>
+                      {label}
+                      {isOff && <p className="text-[8px] font-normal">ปิด</p>}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-slate-400 mt-2">กดเพื่อตั้งว่าร้านปิดวันนั้นเป็นประจำทุกสัปดาห์</p>
+            </div>
+
+            {/* วันหยุดพิเศษ */}
+            <div className="border-t border-pink-100 pt-4">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">วันหยุดพิเศษ (ปีใหม่, สงกรานต์ ฯลฯ)</p>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="date"
+                  id="special-closed-date-picker"
+                  className="input-field flex-1"
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const existing = (shopSettings.closed_dates || "").split(",").filter(Boolean);
+                    if (!existing.includes(e.target.value)) {
+                      setShopSettings(s => ({ ...s, closed_dates: [...existing, e.target.value].join(",") }));
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <span className="text-xs text-slate-400 self-center whitespace-nowrap">เลือกวันแล้วเพิ่มอัตโนมัติ</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(shopSettings.closed_dates || "").split(",").filter(Boolean).sort().map(d => (
+                  <div key={d} className="flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-700 text-xs font-medium px-3 py-1.5 rounded-lg">
+                    <span>{new Date(d + "T00:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</span>
+                    <button type="button" onClick={() => {
+                      const next = (shopSettings.closed_dates || "").split(",").filter(x => x !== d);
+                      setShopSettings(s => ({ ...s, closed_dates: next.join(",") }));
+                    }} className="text-red-400 hover:text-red-700">✕</button>
+                  </div>
+                ))}
+                {!(shopSettings.closed_dates || "").split(",").filter(Boolean).length && (
+                  <p className="text-xs text-slate-400 italic">ยังไม่มีวันหยุดพิเศษ</p>
+                )}
+              </div>
+            </div>
           </div>
+
 
           {/* ระบบสะสมแต้ม */}
           <div className="card p-6 border-yellow-100 bg-yellow-50/30">

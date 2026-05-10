@@ -113,6 +113,39 @@ export async function POST(req: NextRequest) {
     const bsRows = bookingServiceRows.map(r => ({ ...r, booking_id: booking.id }));
     await supabase.from("booking_services").insert(bsRows);
 
+    // 6. แจ้งเตือนแอดมินผ่าน LINE
+    try {
+      const { data: settingsRows } = await supabase
+        .from("shop_settings")
+        .select("key, value")
+        .in("key", ["line_channel_token", "admin_line_uid"]);
+
+      const cfg: Record<string, string> = {};
+      (settingsRows || []).forEach((s: any) => { cfg[s.key] = s.value; });
+
+      if (cfg.line_channel_token && cfg.admin_line_uid) {
+        const svcNames = bookingServiceRows.map(r => r.service_name).join(", ");
+        const thDate = new Date(`${date}T${startTime}:00+07:00`);
+        const dateStr = thDate.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
+        const timeStr = thDate.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+        const message = `💅 คิวใหม่! (Online)\n\n👤 ${customerName}\n📞 ${phone}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n🆔 ${bookingCode}\n\n✨ ยืนยันคิวในหน้า Calendar ได้เลยค่ะ`;
+
+        await fetch("https://api.line.me/v2/bot/message/push", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${cfg.line_channel_token}`,
+          },
+          body: JSON.stringify({
+            to: cfg.admin_line_uid,
+            messages: [{ type: "text", text: message }],
+          }),
+        });
+      }
+    } catch (lineErr) {
+      console.error("[LINE_NOTIFY_ERROR]:", lineErr); // ไม่ให้ผิดพลาด booking flow
+    }
+
     return NextResponse.json({
       success: true,
       bookingCode,
