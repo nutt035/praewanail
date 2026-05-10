@@ -11,8 +11,8 @@ import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 
 const STEPS = ["เลือกบริการ", "เลือกวัน-เวลา", "กรอกข้อมูล", "ยืนยันการจอง"];
-const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
-const THAI_DAYS = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+const THAI_DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
 const DEPOSIT = 50; // มัดจำตายตัวทุกคน
 
@@ -277,7 +277,7 @@ export default function BookingPage() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-rose-500 font-medium">มัดจำ
-                  <span className="text-xs text-slate-400 font-normal ml-1">(ชำระเมื่อทำเสร็จ)</span>
+                  <span className="text-xs text-slate-400 font-normal ml-1">(ชำระก่อนจองคิว)</span>
                 </span>
                 <span className="text-lg font-black text-rose-500">฿{DEPOSIT}</span>
               </div>
@@ -290,7 +290,12 @@ export default function BookingPage() {
               <div className="flex items-center gap-2"><Phone size={14} className="text-rose-400" /><span>{phone}</span></div>
               {notes && <div className="flex items-center gap-2"><FileText size={14} className="text-rose-400" /><span>{notes}</span></div>}
             </div>
-            <p className="text-xs text-center text-slate-400">หลังจองแอดมินจะติดต่อเพื่อยืนยันและเก็บมัดจำค่ะ ✨</p>
+            {/* ข้อความแจ้งเตือน */}
+            <div className="bg-pink-50 rounded-xl p-3 border border-pink-100">
+              <p className="text-xs text-center text-slate-600 font-medium">
+                หลังจองคิวจะมีรหัสขึ้นให้คุณลูกค้าส่งมาทางไลน์เพื่อยืนยันการจองและส่งลายเล็บที่ต้องการทำ เพื่อประเมิณราคาจริงค่ะ
+              </p>
+            </div>
           </div>
         )}
       </main>

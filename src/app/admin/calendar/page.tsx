@@ -55,6 +55,7 @@ export default function CalendarPage() {
   // Complete flow states
   const [showCompleteDialog, setShowCompleteDialog] = useState<Booking | null>(null);
   const [completePaymentMethod, setCompletePaymentMethod] = useState("cash");
+  const [completeFinalPrice, setCompleteFinalPrice] = useState<number>(0);
   const [completing, setCompleting] = useState(false);
 
   // Receipt
@@ -144,6 +145,7 @@ export default function CalendarPage() {
     setSelectedBooking(null);
     setShowCompleteDialog(booking);
     setCompletePaymentMethod("cash");
+    setCompleteFinalPrice(booking.total_price || 0); // เติมจากที่เก็บไว้ หรือ 0 ถ้ายังไม่ได้ใส่
   }
 
   // ยืนยันจบงาน
@@ -154,17 +156,21 @@ export default function CalendarPage() {
     const toastId = toast.loading("กำลังบันทึก...");
 
     try {
-      // 1. อัพเดตสถานะ + payment_method
+      // 1. อัพเดตสถานะ + ราคาจริง + payment_method
       const { error: updateError } = await supabase
         .from("bookings")
-        .update({ status: "completed", payment_method: completePaymentMethod })
+        .update({
+          status: "completed",
+          payment_method: completePaymentMethod,
+          total_price: completeFinalPrice,  // บันทึกราคาจริง
+        })
         .eq("id", booking.id);
       if (updateError) throw updateError;
 
       // 2. บันทึก transaction รายรับ (ยอดที่เหลือหลังหักมัดจำ)
-      const totalPrice = booking.total_price || booking.services?.price || 0;
+      const totalPrice = completeFinalPrice;
       const deposit = booking.deposit || 0;
-      const remaining = totalPrice - deposit;
+      const remaining = Math.max(0, totalPrice - deposit);
 
       if (remaining > 0) {
         await supabase.from("transactions").insert([{
@@ -495,22 +501,39 @@ export default function CalendarPage() {
 
             <div className="p-6 space-y-4">
               {/* สรุปยอด */}
-              <div className="bg-gradient-to-r from-rose-50 to-pink-50 rounded-xl p-4 border border-rose-100 space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">{showCompleteDialog.services?.name || "บริการ"}</span>
-                  <span className="font-semibold">฿{(showCompleteDialog.total_price || showCompleteDialog.services?.price || 0).toLocaleString()}</span>
+              <div className="bg-gradient-to-r from-rose-50 to-pink-50 rounded-xl p-4 border border-rose-100 space-y-3">
+                <div className="text-sm text-slate-500 font-medium">
+                  <p>{showCompleteDialog.customers?.name || "-"}</p>
+                  <p className="text-xs text-slate-400">
+                    {((showCompleteDialog as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "บริการ"}
+                  </p>
                 </div>
+
+                {/* ช่องใส่ราคาจริง */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1">ราคาทำเล็บ (฿) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={completeFinalPrice}
+                    onChange={e => setCompleteFinalPrice(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 rounded-xl border border-pink-200 bg-white text-sm font-bold text-brand-dark focus:ring-2 focus:ring-rose-400 focus:border-transparent outline-none text-right text-lg"
+                    placeholder="0"
+                    autoFocus
+                  />
+                </div>
+
                 {showCompleteDialog.deposit > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-emerald-600">มัดจำแล้ว</span>
                     <span className="text-emerald-600">-฿{showCompleteDialog.deposit.toLocaleString()}</span>
                   </div>
                 )}
-                <div className="h-px bg-rose-200 my-2" />
-                <div className="flex justify-between">
+                <div className="h-px bg-rose-200" />
+                <div className="flex justify-between items-center">
                   <span className="font-bold text-brand-dark">ยอดชำระวันนี้</span>
-                  <span className="text-xl font-bold text-rose-600">
-                    ฿{Math.max(0, (showCompleteDialog.total_price || showCompleteDialog.services?.price || 0) - (showCompleteDialog.deposit || 0)).toLocaleString()}
+                  <span className="text-xl font-black text-rose-600">
+                    ฿{Math.max(0, completeFinalPrice - (showCompleteDialog.deposit || 0)).toLocaleString()}
                   </span>
                 </div>
               </div>
