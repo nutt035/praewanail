@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Search, Trophy, Phone, User, Calendar, Star, Sparkles, ChevronLeft, CreditCard, Gift, Loader2 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { Reward, CustomerCoupon, Customer, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 
-export default function MemberPage() {
+function MemberContent() {
+  const searchParams = useSearchParams();
+  const linkLineId = searchParams?.get("link_line");
+  const linkName = searchParams?.get("name");
+  
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -17,6 +22,19 @@ export default function MemberPage() {
   const [redeeming, setRedeeming] = useState(false);
 
   useEffect(() => {
+    // เช็ค Cookie ว่ามี session ไหม
+    const cookies = document.cookie.split(";").reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split("=");
+      acc[key] = decodeURIComponent(value);
+      return acc;
+    }, {} as Record<string, string>);
+
+    if (cookies.customer_phone && !hasSearched) {
+      setPhone(cookies.customer_phone);
+      // Auto login by phone if cookie exists
+      handleSearchByPhone(cookies.customer_phone);
+    }
+
     (async () => {
       const [settingsRes, rewardsRes] = await Promise.all([
         supabase.from("shop_settings").select("*"),
@@ -40,18 +58,13 @@ export default function MemberPage() {
     if (data) setMyCoupons(data as CustomerCoupon[]);
   }
 
-  async function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    if (!phone) return;
-
+  async function handleSearchByPhone(phoneNumber: string) {
+    if (!phoneNumber) return;
     setLoading(true);
     setHasSearched(false);
     
     try {
-      // ค้นหาโดยไม่สนใจขีดหรือช่องว่างในเบอร์โทร
-      const cleanPhone = phone.replace(/\D/g, "");
-      
-      // เราให้ supabase ค้นหาแบบ like เพื่อครอบคลุมกรณีพิมพ์เบอร์ติดกันหรือมีขีด
+      const cleanPhone = phoneNumber.replace(/\D/g, "");
       const { data, error } = await supabase
         .from("customers")
         .select("*")
@@ -59,23 +72,35 @@ export default function MemberPage() {
         .limit(1)
         .single();
 
-      if (error) {
-        if (error.code === "PGRST116") {
-          toast.error("ไม่พบข้อมูลลูกค้าจากเบอร์โทรนี้");
-          setCustomer(null);
-        } else {
-          toast.error("เกิดข้อผิดพลาดในการค้นหา");
+      if (error && error.code === "PGRST116") {
+        toast.error("ไม่พบข้อมูลลูกค้าจากเบอร์โทรนี้");
+        setCustomer(null);
+      } else if (data) {
+        // หากกำลังผูก LINE ID ให้ทำการอัปเดต
+        if (linkLineId) {
+          await supabase.from("customers").update({ line_id: linkLineId }).eq("id", data.id);
+          toast.success("ผูกบัญชี LINE สำเร็จ!");
+          // ลบ query param
+          window.history.replaceState({}, "", "/member");
         }
-      } else {
+        
+        // Save to cookie for auto login
+        document.cookie = `customer_phone=${phoneNumber}; path=/; max-age=${60 * 60 * 24 * 30}`;
+        
         setCustomer(data);
         fetchMyCoupons(data.id);
       }
     } catch (err) {
-      toast.error("เกิดข้อผิดพลาด");
+      toast.error("เกิดข้อผิดพลาดในการค้นหา");
     } finally {
       setLoading(false);
       setHasSearched(true);
     }
+  }
+
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    await handleSearchByPhone(phone);
   }
 
   async function handleRedeem(reward: Reward) {
@@ -179,8 +204,27 @@ export default function MemberPage() {
               <div className="w-20 h-20 bg-gradient-to-br from-rose-100 to-pink-200 rounded-[2rem] flex items-center justify-center mx-auto mb-4 shadow-inner">
                 <Trophy className="text-rose-500 w-10 h-10" />
               </div>
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">เข้าสู่ระบบสมาชิก</h1>
-              <p className="text-sm text-gray-500">กรอกเบอร์โทรศัพท์เพื่อดูแต้มสะสมของคุณ</p>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                {linkLineId ? "ผูกบัญชี LINE" : "เข้าสู่ระบบสมาชิก"}
+              </h1>
+              <p className="text-sm text-gray-500">
+                {linkLineId ? `คุณ ${linkName || ""} กรุณากรอกเบอร์โทรที่เคยใช้บริการเพื่อผูกบัญชี` : "กรอกเบอร์โทรศัพท์หรือเข้าสู่ระบบด้วย LINE"}
+              </p>
+            </div>
+
+            {!linkLineId && (
+              <a href="/api/auth/line" className="w-full bg-[#06C755] hover:bg-[#05b34c] text-white font-bold py-4 px-4 rounded-2xl shadow-lg shadow-green-200/50 transition-all flex items-center justify-center gap-2 active:scale-[0.98] mb-4">
+                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
+                  <path d="M22.28 11.23c0-4.88-4.9-8.86-10.9-8.86C5.37 2.37.47 6.35.47 11.23c0 4.38 3.93 8.09 9.17 8.76.36.08.85.24.97.55.11.28.07.7.03 1.09l-.15 1c-.04.28-.21 1.09.96.6 1.17-.49 6.29-3.7 8.65-6.39 1.4-1.63 2.18-3.47 2.18-5.61z"/>
+                </svg>
+                ล็อกอินด้วย LINE
+              </a>
+            )}
+
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-px bg-pink-100"></div>
+              <span className="text-xs font-bold text-pink-300 uppercase">หรือ</span>
+              <div className="flex-1 h-px bg-pink-100"></div>
             </div>
 
             <form onSubmit={handleSearch} className="bg-white rounded-[2rem] shadow-sm border border-pink-100 p-6 space-y-5">
@@ -224,7 +268,12 @@ export default function MemberPage() {
           <div className="space-y-6 animate-slide-up">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-gray-900">บัตรสมาชิกของคุณ</h2>
-              <button onClick={() => {setCustomer(null); setPhone("");}} className="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1.5 rounded-full hover:bg-rose-100 transition-colors">
+              <button onClick={() => {
+                setCustomer(null); 
+                setPhone(""); 
+                document.cookie = "customer_phone=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                document.cookie = "customer_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+              }} className="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1.5 rounded-full hover:bg-rose-100 transition-colors">
                 ออกจากระบบ
               </button>
             </div>
@@ -365,5 +414,13 @@ export default function MemberPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function MemberPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FDF2F8] flex items-center justify-center"><Loader2 className="animate-spin text-rose-400" size={32} /></div>}>
+      <MemberContent />
+    </Suspense>
   );
 }
