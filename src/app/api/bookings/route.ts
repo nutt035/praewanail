@@ -113,37 +113,39 @@ export async function POST(req: NextRequest) {
     const bsRows = bookingServiceRows.map(r => ({ ...r, booking_id: booking.id }));
     await supabase.from("booking_services").insert(bsRows);
 
-    // 6. แจ้งเตือนแอดมินผ่าน LINE
+    // 6. แจ้งเตือนแอดมินผ่าน LINE & Telegram
     try {
       const { data: settingsRows } = await supabase
         .from("shop_settings")
         .select("key, value")
-        .in("key", ["line_channel_token", "admin_line_uid"]);
+        .in("key", ["line_channel_token", "admin_line_uid", "telegram_bot_token", "telegram_chat_id"]);
 
       const cfg: Record<string, string> = {};
       (settingsRows || []).forEach((s: any) => { cfg[s.key] = s.value; });
 
-      if (cfg.line_channel_token && cfg.admin_line_uid) {
-        const svcNames = bookingServiceRows.map(r => r.service_name).join(", ");
-        const thDate = new Date(`${date}T${startTime}:00+07:00`);
-        const dateStr = thDate.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
-        const timeStr = thDate.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
-        const message = `💅 คิวใหม่! (Online)\n\n👤 ${customerName}\n📞 ${phone}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n🆔 ${bookingCode}\n\n✨ ยืนยันคิวในหน้า Calendar ได้เลยค่ะ`;
+      const svcNames = bookingServiceRows.map(r => r.service_name).join(", ");
+      const thDate = new Date(`${date}T${startTime}:00+07:00`);
+      const dateStr = thDate.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
+      const timeStr = thDate.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+      
+      const message = `💅 <b>คิวใหม่! (Online)</b>\n\n👤 ${customerName}\n📞 ${phone}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n🆔 ${bookingCode}\n\n✨ <i>ยืนยันคิวในหน้าระบบได้เลยค่ะ</i>`;
 
-        await fetch("https://api.line.me/v2/bot/message/push", {
+      // 6.1 ส่งเข้า Telegram
+      if (cfg.telegram_bot_token && cfg.telegram_chat_id) {
+        const url = `https://api.telegram.org/bot${cfg.telegram_bot_token}/sendMessage`;
+        const chatIds = String(cfg.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
+        
+        await Promise.all(chatIds.map(id => fetch(url, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${cfg.line_channel_token}`,
-          },
-          body: JSON.stringify({
-            to: cfg.admin_line_uid,
-            messages: [{ type: "text", text: message }],
-          }),
-        });
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: id, text: message, parse_mode: "HTML", disable_web_page_preview: true })
+        })));
       }
-    } catch (lineErr) {
-      console.error("[LINE_NOTIFY_ERROR]:", lineErr); // ไม่ให้ผิดพลาด booking flow
+
+      // 6.2 ส่งเข้า LINE (Fallback) - ลบออกตามที่ขอ
+      // if (cfg.line_channel_token && cfg.admin_line_uid) { ... }
+    } catch (notifyErr) {
+      console.error("[NOTIFY_ERROR]:", notifyErr); // ไม่ให้ผิดพลาด booking flow
     }
 
     return NextResponse.json({

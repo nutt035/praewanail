@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint, MessageCircle, CreditCard } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint, MessageCircle, CreditCard, Send } from "lucide-react";
 import toast from "react-hot-toast";
 
 const CATEGORIES = ["ทำเล็บมือ", "ทำเล็บเท้า", "ต่อเล็บ", "สปา", "ถอดเล็บ", "อื่นๆ"];
@@ -487,48 +487,7 @@ export default function SettingsPage() {
           </div>
 
 
-          {/* ระบบสะสมแต้ม */}
-          <div className="card p-6 border-yellow-100 bg-yellow-50/30">
-            <h3 className="text-sm font-semibold text-yellow-700 mb-4 flex items-center gap-2">
-              <Sparkles size={16} className="text-yellow-500" />
-              ตั้งค่าระบบสะสมแต้ม
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="form-label text-yellow-700">แต้มที่จะได้รับ (ต่อคิว)</label>
-                <input
-                  type="number"
-                  className="input-field border-yellow-200 focus:border-yellow-400 focus:ring-yellow-400"
-                  value={shopSettings.points_per_booking}
-                  min={0}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, points_per_booking: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="form-label text-yellow-700">มูลค่าส่วนลด (ใช้ 5 แต้ม)</label>
-                <input
-                  type="number"
-                  className="input-field border-yellow-200 focus:border-yellow-400 focus:ring-yellow-400"
-                  value={shopSettings.redeem_5_points_value}
-                  min={0}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, redeem_5_points_value: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="form-label text-yellow-700">มูลค่าส่วนลด (ใช้ 10 แต้ม)</label>
-                <input
-                  type="number"
-                  className="input-field border-yellow-200 focus:border-yellow-400 focus:ring-yellow-400"
-                  value={shopSettings.redeem_10_points_value}
-                  min={0}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, redeem_10_points_value: e.target.value }))}
-                />
-              </div>
-            </div>
-            <p className="text-[10px] text-yellow-600 mt-3 italic">
-              * เมื่อแอดมินกดจบงาน ระบบจะเพิ่มแต้มให้ลูกค้าอัตโนมัติตามค่าที่ตั้งไว้
-            </p>
-          </div>
+
 
           {/* การชำระเงินและแจ้งเตือน */}
           <div className="card p-6">
@@ -576,6 +535,35 @@ export default function SettingsPage() {
                 />
                 <p className="text-[10px] text-slate-400 mt-1.5">ระบบจะสร้าง QR PromptPay อัตโนมัติเมื่อลูกค้าจอง</p>
               </div>
+
+              {/* แจ้งเตือนผ่าน Telegram (แอดมิน) */}
+              <div className="md:col-span-2 mt-2 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <h4 className="text-sm font-bold text-sky-600 flex items-center gap-2">
+                    <Send size={16} /> Telegram Notifications (ส่งหาแอดมิน)
+                  </h4>
+                </div>
+                <div>
+                  <label className="form-label text-brand-dark flex items-center gap-1.5">Telegram Bot Token</label>
+                  <input
+                    type="password"
+                    className="input-field border-sky-100 focus:ring-sky-200"
+                    value={shopSettings.telegram_bot_token || ""}
+                    onChange={(e) => setShopSettings((s) => ({ ...s, telegram_bot_token: e.target.value }))}
+                    placeholder="ได้จาก @BotFather"
+                  />
+                </div>
+                <div>
+                  <label className="form-label text-brand-dark flex items-center gap-1.5">Telegram Chat ID</label>
+                  <input
+                    className="input-field border-sky-100 focus:ring-sky-200"
+                    value={shopSettings.telegram_chat_id || ""}
+                    onChange={(e) => setShopSettings((s) => ({ ...s, telegram_chat_id: e.target.value }))}
+                    placeholder="ไอดีแชทของคุณ หรือ ไอดีกลุ่ม"
+                  />
+                </div>
+              </div>
+
             </div>
           </div>
 

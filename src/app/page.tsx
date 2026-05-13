@@ -1,6 +1,6 @@
 import { Sparkles, MapPin, Camera, Star, BookOpen, CalendarHeart, Award, HelpCircle, ChevronRight, Tag, Percent, Banknote, Megaphone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
 import Link from "next/link";
 import CustomerCalendar from "@/components/CustomerCalendar";
 
@@ -25,10 +25,21 @@ async function getActivePromotions(): Promise<Promotion[]> {
   return (data as Promotion[]) || [];
 }
 
+async function getReviews(): Promise<Review[]> {
+  const { data } = await supabase
+    .from("reviews")
+    .select("*, customers(name)")
+    .eq("is_published", true)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  return (data as Review[]) || [];
+}
+
 export default async function Home() {
-  const [settings, promotions] = await Promise.all([
+  const [settings, promotions, reviews] = await Promise.all([
     getSettings(),
-    getActivePromotions()
+    getActivePromotions(),
+    getReviews()
   ]);
 
   const isSameTime = settings.weekday_open_time === settings.weekend_open_time && settings.weekday_close_time === settings.weekend_close_time;
@@ -188,21 +199,11 @@ export default async function Home() {
               <Camera className="text-purple-500" size={20} />
               ผลงานของเรา
             </h2>
-            <a href={settings.shop_ig ? `https://instagram.com/${settings.shop_ig.replace("@", "")}` : "#"} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-purple-600 bg-purple-50 px-3 py-1.5 rounded-full hover:bg-purple-100 transition-colors">
-              ดู IG ทั้งหมด
-            </a>
           </div>
-          <div className="p-3 bg-gray-50/50">
-            {/* 
-                💡 แอดมิน: สามารถใช้ Elfsight Instagram Widget หรือ Embed โค้ด IG มาใส่ตรงนี้ได้ 
-                ตอนนี้ผมทำโครงสร้าง Embed แบบกรอบภาพจำลองความสวยงามไว้ให้ก่อน 
-             */}
-            <div className="aspect-[4/3] bg-gray-200 rounded-2xl overflow-hidden relative group">
-              <img src="https://images.unsplash.com/photo-1604654894610-df63bc536371?q=80&w=600&auto=format&fit=crop" alt="Nail Portfolio 1" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
-                <p className="text-white font-bold text-sm bg-black/40 px-4 py-2 rounded-full backdrop-blur-md">กดเพื่อดูวิดีโอ/รูปเพิ่มเติม</p>
-              </div>
-            </div>
+          <div className="p-8 bg-gray-50/50 flex flex-col items-center justify-center text-center">
+             <Camera size={32} className="text-gray-300 mb-2" />
+             <p className="text-sm font-medium text-gray-500">รออัพเดทผลงาน</p>
+             <p className="text-xs text-gray-400 mt-1">กำลังเตรียมรูปภาพสวยๆ มาอวดเร็วๆ นี้ค่ะ</p>
           </div>
         </section>
 
@@ -213,45 +214,52 @@ export default async function Home() {
               <MapPin className="text-rose-500" size={20} />
               แผนที่ร้าน
             </h2>
-            <p className="text-xs text-gray-500 mt-1">Antonette Nail Studio เดินทางสะดวก มีที่จอดรถ</p>
           </div>
-          <div className="h-60 w-full bg-gray-100 relative">
-            {/* 💡 แอดมิน: เอาโค้ด iframe ของ Google Maps (จากเว็บ Google Maps -> Share -> Embed a map) มาวางแทน iframe นี้ได้เลย */}
-            <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15502.50284714652!2d100.5619379!3d13.7391913!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x30e29e8d47b59e35%3A0xcb1351110fc6fa61!2sSukhumvit%20Road!5e0!3m2!1sen!2sth!4v1700000000000!5m2!1sen!2sth"
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              allowFullScreen={false}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              className="absolute inset-0 grayscale-[0.2] contrast-[1.1] hover:grayscale-0 transition-all duration-500"
-            ></iframe>
+          <div className="p-8 bg-gray-50 flex flex-col items-center justify-center text-center">
+             <MapPin size={32} className="text-gray-300 mb-2" />
+             <p className="text-sm font-medium text-gray-500">รออัพเดทแผนที่</p>
           </div>
         </section>
 
-        {/* 6. Review Placeholder Embed */}
-        <section className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-[2rem] shadow-sm border border-amber-100/50 p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-2xl"></div>
-          <div className="relative z-10 text-center">
-            <div className="flex justify-center gap-1 mb-3">
-              {[1, 2, 3, 4, 5].map(i => <Star key={i} size={24} className="text-yellow-400 fill-yellow-400 drop-shadow-sm" />)}
-            </div>
-            <h2 className="font-black text-gray-900 text-xl mb-2">เสียงตอบรับจากลูกค้า</h2>
-            <p className="text-sm text-gray-600 mb-5">เตรียมพบกับระบบรีวิวความประทับใจเร็วๆ นี้</p>
-
-            <div className="bg-white/80 backdrop-blur-md border border-white rounded-2xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] inline-block text-left w-full max-w-[280px]">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-bold">K</div>
-                <div>
-                  <p className="text-sm font-bold text-gray-900">คุณลูกค้า</p>
-                  <p className="text-[10px] text-gray-400">ตัวอย่างรีวิว</p>
+        {/* 6. Reviews Section */}
+        {reviews.length > 0 && (
+          <section className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-[2rem] shadow-sm border border-amber-100/50 p-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-2xl"></div>
+            <div className="relative z-10">
+              <div className="text-center mb-5">
+                <div className="flex justify-center gap-1 mb-2">
+                  {[1, 2, 3, 4, 5].map(i => <Star key={i} size={24} className="text-yellow-400 fill-yellow-400 drop-shadow-sm" />)}
                 </div>
+                <h2 className="font-black text-gray-900 text-xl mb-1">เสียงตอบรับจากลูกค้า</h2>
+                <p className="text-sm text-gray-600">ขอบคุณทุกความไว้วางใจค่ะ 💕</p>
               </div>
-              <p className="text-xs text-gray-600 italic">"ร้านทำเล็บสวยมากค่ะ ช่างใจดี งานละเอียด อยู่ทนมาก แนะนำเลยค่า 💕"</p>
+
+              <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar -mx-6 px-6">
+                {reviews.map((review) => (
+                  <div key={review.id} className="snap-center shrink-0 w-[260px] bg-white/80 backdrop-blur-md border border-white rounded-2xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] flex flex-col">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-bold uppercase">
+                        {(review.customers?.name || "K")[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{review.customers?.name || "คุณลูกค้า"}</p>
+                        <div className="flex gap-0.5 mt-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} size={10} className={i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-200 fill-gray-200"} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600 italic flex-1">"{review.comment}"</p>
+                    <p className="text-[9px] text-gray-400 mt-3 text-right">
+                      {new Date(review.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
       </main>
     </div>

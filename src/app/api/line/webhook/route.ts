@@ -41,10 +41,7 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Default auto-reply
-        await line.pushMessage(userId,
-          "สวัสดีค่ะ 💅✨\n\nส่งรหัสการจอง (เช่น BKG-A1B2) เพื่อยืนยันตัวตน\nหรือส่งรูปแบบเล็บที่ต้องการมาได้เลยนะคะ"
-        );
+        // เอา auto-reply ออกทั้งหมดตามคำขอ เพื่อไม่ให้รบกวนแอดมินตอนแชท
         continue;
       }
 
@@ -152,16 +149,13 @@ async function handleImageMessage(
     }
 
     if (!customerId) {
-      await line.pushMessage(userId,
-        "รบกวนยืนยันการจองด้วยรหัส BKG-XXXX ก่อนส่งรูปนะคะ 💅"
-      );
       return;
     }
 
     // หา booking ล่าสุด
     const { data: booking } = await db
       .from("bookings")
-      .select("id, status, deposit_paid, booking_code")
+      .select("id, status, deposit_paid, booking_code, start_time, customers(name, phone)")
       .eq("customer_id", customerId)
       .neq("status", "cancelled")
       .neq("status", "completed")
@@ -170,7 +164,6 @@ async function handleImageMessage(
       .single();
 
     if (!booking) {
-      await line.pushMessage(userId, "ไม่พบคิวที่กำลังดำเนินการอยู่ค่ะ");
       return;
     }
 
@@ -218,26 +211,25 @@ async function handleImageMessage(
               booking_id: booking.id,
             }]);
 
-            await line.sendPaymentConfirmation(userId, booking.booking_code, result.data.amount);
+            const cName = booking.customers?.name || "ลูกค้า";
+            const cPhone = booking.customers?.phone || "ไม่ระบุเบอร์";
+            const sDate = new Date(booking.start_time).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" });
+            const sTime = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+
+            await line.sendPaymentConfirmation(userId, cName, cPhone, sDate, sTime);
             return;
           }
         }
       }
 
-      await line.pushMessage(userId,
-        "ได้รับรูปแล้วค่ะ 📸\nรอแอดมินตรวจสอบนะคะ"
-      );
       return;
     }
 
-    // ถ้าชำระแล้ว → เป็นรูปแบบเล็บ
+    // ถ้าชำระแล้ว → เป็นรูปแบบเล็บ (แอดมินจะมาดูเอง ไม่ต้องให้บอทตอบ)
     await db.from("bookings").update({
       design_image_url: `line:${messageId}`,
     }).eq("id", booking.id);
 
-    await line.pushMessage(userId,
-      "ได้รับรูปแบบเล็บแล้วค่ะ! 💅✨\n\nช่างกำลังดูรูปและประเมินราคาขั้นสุดท้าย\nจะแจ้งยืนยันกลับไปโดยเร็วนะคะ"
-    );
   } catch (e: any) {
     console.error("[LINE_IMAGE_ERROR]:", e);
   }

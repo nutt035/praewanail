@@ -98,31 +98,31 @@ export default function CalendarPage() {
     })();
   }, [fetchBookings]);
 
-  // ส่งการแจ้งเตือน
+  // ส่งการแจ้งเตือน (ส่งหาแอดมินทาง Telegram)
   async function sendReminder(booking: Booking) {
-    if (!shopSettings.line_channel_token || !shopSettings.admin_line_uid) {
-      toast.error("กรุณาตั้งค่า LINE Notification ในหน้าตั้งค่าก่อนครับ");
+    if (!shopSettings.telegram_bot_token || !shopSettings.telegram_chat_id) {
+      toast.error("กรุณาตั้งค่า Telegram Notification ในหน้าตั้งค่าก่อนครับ");
       return;
     }
     
     const toastId = toast.loading("กำลังส่งแจ้งเตือน...");
     const customerName = booking.customers?.name || "ลูกค้า";
     const startTime = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
-    const message = `🔔 แจ้งเตือนคิวงาน!\n⏰ มีคิวคุณ ${customerName} เวลา ${startTime} น.\nอย่าลืมเตรียมตัวนะคะ ✨`;
+    const message = `🔔 <b>แจ้งเตือนคิวงาน!</b>\n\n⏰ มีคิวคุณ ${customerName} เวลา ${startTime} น.\n<i>อย่าลืมเตรียมตัวนะคะ ✨</i>`;
 
     try {
-      const res = await fetch("/api/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          channelToken: shopSettings.line_channel_token,
-          adminUid: shopSettings.admin_line_uid,
-          message
-        })
-      });
+      const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
+      const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
       
-      if (res.ok) toast.success("ส่งแจ้งเตือนเข้า LINE เรียบร้อย!", { id: toastId });
-      else throw new Error();
+      await Promise.all(chatIds.map(id => 
+        fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: id, text: message, parse_mode: "HTML" })
+        })
+      ));
+      
+      toast.success("ส่งแจ้งเตือนเข้า Telegram เรียบร้อย!", { id: toastId });
     } catch (err) {
       toast.error("ส่งแจ้งเตือนไม่สำเร็จ", { id: toastId });
     }
@@ -185,17 +185,21 @@ export default function CalendarPage() {
         .eq("id", booking.id);
       if (error) throw error;
 
-      // แจ้งเตือนแอดมิน LINE
-      if (shopSettings.line_channel_token && shopSettings.admin_line_uid) {
-        const svcNames = ((booking as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "บริการ";
-        const dateStr = new Date(booking.start_time).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
-        const timeStr = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
-        const msg = `✅ ยืนยันคิวแล้ว\n\nสำหรับ ${booking.customers?.name || "ลูกค้า"}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n💰 ราคา: ฿${confirmPrice.toLocaleString()}\n\nรอเจอลูกค้าได้เลยค่ะ ✨`;
-        fetch("https://api.line.me/v2/bot/message/push", {
+      // แจ้งเตือนแอดมิน (Telegram)
+      const svcNames = ((booking as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "บริการ";
+      const dateStr = new Date(booking.start_time).toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
+      const timeStr = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+      
+      const msgTelegram = `✅ <b>ยืนยันคิวแล้ว</b>\n\nสำหรับ ${booking.customers?.name || "ลูกค้า"}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n💰 ราคา: ฿${confirmPrice.toLocaleString()}\n\n<i>รอเจอลูกค้าได้เลยค่ะ ✨</i>`;
+
+      if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
+        const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
+        const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
+        chatIds.forEach(id => fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${shopSettings.line_channel_token}` },
-          body: JSON.stringify({ to: shopSettings.admin_line_uid, messages: [{ type: "text", text: msg }] }),
-        }).catch(() => {});
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: id, text: msgTelegram, parse_mode: "HTML" })
+        }).catch(() => {}));
       }
 
       toast.success("ยืนยันคิวเรียบร้อย! ✓", { id: toastId });
@@ -272,23 +276,42 @@ export default function CalendarPage() {
       const payLabel = PAYMENT_OPTIONS.find((p) => p.value === completePaymentMethod)?.label || completePaymentMethod;
       toast.success(`จบงานเรียบร้อย! ได้รับ ${pointsPerBooking} แต้ม (รวม ${newPoints} แต้ม)`, { id: toastId });
 
-      // 4. ส่งการแจ้งเตือน LINE พร้อม Link ใบเสร็จ
-      if (shopSettings.line_channel_token && shopSettings.admin_line_uid) {
-        const receiptUrl = `${window.location.origin}/receipt/${booking.id}`;
-        let message = `✅ จบงานแล้ว!\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม! (ตอนนี้มีทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่:\n${receiptUrl}`;
-        if (selectedCoupon) {
-          message = `✅ จบงานแล้ว!\n👤 ลูกค้า: ${booking.customers?.name}\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม! (ตอนนี้มีทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่:\n${receiptUrl}`;
-        }
+      // 4. ส่งการแจ้งเตือน
+      const receiptUrl = `${window.location.origin}/receipt/${booking.id}`;
+      
+      // 4.1 หาแอดมิน (Telegram)
+      if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
+        let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
+        if (selectedCoupon) adminMsg += `\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}`;
         
-        fetch("/api/notify", {
+        const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
+        const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
+        chatIds.forEach(id => fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: "HTML" })
+        }).catch(() => {}));
+      }
+
+      // 4.2 หาลูกค้า (LINE) ถ้าลูกค้ามี line_id
+      const customerLineId = booking.customers?.line_id;
+      if (shopSettings.line_channel_token && customerLineId) {
+        let custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
+        if (selectedCoupon) {
+          custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}\n💰 ยอดชำระหลังหักส่วนลด: ฿${totalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
+        }
+        
+        fetch("https://api.line.me/v2/bot/message/push", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${shopSettings.line_channel_token}`
+          },
           body: JSON.stringify({
-            channelToken: shopSettings.line_channel_token,
-            adminUid: shopSettings.admin_line_uid,
-            message,
-          }),
-        }).catch(err => console.error("LINE Notify Error:", err));
+            to: customerLineId,
+            messages: [{ type: "text", text: custMsg }]
+          })
+        }).catch(err => console.error("LINE Notify Customer Error:", err));
       }
 
       // 5. แสดงใบเสร็จ

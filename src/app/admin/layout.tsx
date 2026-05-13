@@ -30,7 +30,6 @@ const navItems = [
   { href: "/admin/receipts", label: "ประวัติบิล", icon: Receipt, exact: false },
   { href: "/admin/promotions", label: "โปรโมชั่น", icon: Tag, exact: false },
   { href: "/admin/rewards", label: "ของรางวัล/คูปอง", icon: Gift, exact: false },
-  { href: "/admin/inventory", label: "จัดการสต็อก", icon: PackageSearch, exact: false },
   { href: "/admin/customers", label: "ประวัติลูกค้า", icon: Users, exact: false },
   { href: "/admin/estimator", label: "AI ประเมินราคา", icon: Wand2, exact: false },
   { href: "/admin/settings", label: "ตั้งค่าร้าน", icon: Settings, exact: false },
@@ -63,7 +62,7 @@ export default function AdminLayout({
           </div>
           <p className="font-bold text-brand-dark leading-none">Antonette Nail</p>
         </div>
-        <button 
+        <button
           onClick={() => setMobileMenuOpen(true)}
           className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
         >
@@ -73,17 +72,16 @@ export default function AdminLayout({
 
       {/* Mobile Backdrop */}
       {mobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-pink-100 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:relative md:w-60 md:translate-x-0 ${
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        }`} 
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-pink-100 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:relative md:w-60 md:translate-x-0 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         style={{ boxShadow: "var(--shadow-sidebar)" }}
       >
         {/* Logo */}
@@ -97,7 +95,7 @@ export default function AdminLayout({
               <p className="text-[10px] text-brand-slate mt-0.5">Studio Management</p>
             </div>
           </div>
-          <button 
+          <button
             className="md:hidden p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded"
             onClick={() => setMobileMenuOpen(false)}
           >

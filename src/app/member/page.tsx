@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Search, Trophy, Phone, User, Calendar, Star, Sparkles, ChevronLeft, CreditCard, Gift, Loader2 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
-import { Reward, CustomerCoupon, Customer, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { Reward, CustomerCoupon, Customer, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
 
 function MemberContent() {
   const searchParams = useSearchParams();
@@ -20,6 +20,12 @@ function MemberContent() {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [myCoupons, setMyCoupons] = useState<CustomerCoupon[]>([]);
   const [redeeming, setRedeeming] = useState(false);
+
+  // Review state
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   useEffect(() => {
     // เช็ค Cookie ว่ามี session ไหม
@@ -143,6 +149,31 @@ function MemberContent() {
       toast.error("เกิดข้อผิดพลาดในการแลกคูปอง", { id: toastId });
     } finally {
       setRedeeming(false);
+    }
+  }
+
+  async function handleSubmitReview(e: React.FormEvent) {
+    e.preventDefault();
+    if (!customer) return;
+    setSubmittingReview(true);
+    const toastId = toast.loading("กำลังบันทึกรีวิว...");
+    
+    try {
+      const { error } = await supabase.from("reviews").insert([{
+        customer_id: customer.id,
+        rating,
+        comment,
+        is_published: true
+      }]);
+      
+      if (error) throw error;
+      
+      setHasReviewed(true);
+      toast.success("ขอบคุณสำหรับรีวิวค่ะ!", { id: toastId });
+    } catch (err) {
+      toast.error("เกิดข้อผิดพลาดในการส่งรีวิว", { id: toastId });
+    } finally {
+      setSubmittingReview(false);
     }
   }
 
@@ -370,6 +401,56 @@ function MemberContent() {
                   })
                 )}
               </div>
+            </div>
+
+            {/* เขียนรีวิว */}
+            <div className="bg-white rounded-2xl border border-pink-100 overflow-hidden p-5 shadow-sm">
+              <h4 className="font-bold text-gray-900 text-sm mb-4 flex items-center gap-2">
+                <Star size={16} className="text-pink-500 fill-pink-500" />
+                รีวิวความประทับใจ
+              </h4>
+              {hasReviewed ? (
+                <div className="bg-pink-50 text-rose-500 p-4 rounded-xl text-center text-sm font-medium">
+                  ขอบคุณสำหรับรีวิวของคุณค่ะ! 💕
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitReview} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">ให้คะแนนร้านเรา</label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRating(star)}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                            rating >= star ? "bg-amber-100 text-amber-500" : "bg-slate-50 text-slate-300 hover:bg-slate-100"
+                          }`}
+                        >
+                          <Star size={20} className={rating >= star ? "fill-amber-500" : ""} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">ความรู้สึก/ข้อเสนอแนะ</label>
+                    <textarea 
+                      required
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="เขียนรีวิวผลงานให้เราหน่อยน้า..."
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-pink-400 focus:border-transparent outline-none transition-all text-sm min-h-[80px]"
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    disabled={submittingReview || !comment.trim()}
+                    className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50"
+                  >
+                    {submittingReview ? "กำลังส่ง..." : "ส่งรีวิว"}
+                  </button>
+                </form>
+              )}
             </div>
 
             {/* Info */}

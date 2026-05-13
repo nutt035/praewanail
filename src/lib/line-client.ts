@@ -42,12 +42,12 @@ export class LineClient {
     ]);
   }
 
-  /** ส่งแจ้งเตือนชำระเงินสำเร็จ */
-  async sendPaymentConfirmation(userId: string, bookingCode: string, amount: number) {
+  /** ส่งแจ้งเตือนชำระเงินสำเร็จ (แก้ไขตามแบบฟอร์มใหม่) */
+  async sendPaymentConfirmation(userId: string, customerName: string, phone: string, date: string, time: string) {
     return this.pushMessages(userId, [
       {
         type: "text",
-        text: `✅ ได้รับเงินมัดจำเรียบร้อยแล้วค่ะ!\n\n💰 ยอด: ฿${amount.toLocaleString()}\n📋 รหัสจอง: ${bookingCode}\n\nขั้นตอนต่อไป: ส่งรูปลายเล็บที่ต้องการมาในแชทนี้ได้เลยนะคะ 💅`,
+        text: `ได้รับสลิปและข้อมูลเรียบร้อยค่ะ! ✅ ขอบคุณมากนะคะ\n\n📌 ยืนยันการจองคิว:\nคุณ ${customerName} | ${phone}\nวันที่: ${date}\nเวลา: ${time} น.\n\nล็อคคิวให้เรียบร้อยแล้วน้าา เตรียมมาสวยแบบสับๆ ได้เลยค่ะ! 💅✨ See you soon!`,
       },
     ]);
   }

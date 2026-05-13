@@ -213,3 +213,14 @@ CREATE TABLE customer_coupons (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   used_at TIMESTAMP WITH TIME ZONE
 );
+
+
+-- สร้างตารางรีวิว
+CREATE TABLE reviews (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+  rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT,
+  is_published BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

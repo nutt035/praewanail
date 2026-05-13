@@ -44,6 +44,17 @@ export interface CustomerCoupon {
   rewards?: Reward | null;
 }
 
+export interface Review {
+  id: string;
+  customer_id: string;
+  rating: number;
+  comment: string | null;
+  is_published: boolean;
+  created_at: string;
+  // joined
+  customers?: Customer | null;
+}
+
 // รายการบริการย่อยภายใน 1 คิว (many-to-many)
 export interface BookingService {
   id: string;
@@ -195,6 +206,8 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   slipok_branch_id: "",
   slipok_api_key: "",
   admin_password: "praewa1234",
+  telegram_bot_token: "",
+  telegram_chat_id: "",
 };
 
 /** ช่วยหาเวลาเปิด-ปิดตามวันของสัปดาห์ */
