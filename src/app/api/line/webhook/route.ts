@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
       }
 
       // === Image Messages ===
+      // ลูกค้าบอกว่าให้บอทตอบแค่รหัสจองพอ (เอา SlipOK และการจัดการรูปออกทั้งหมด)
       if (event.type === "message" && event.message.type === "image") {
-        await handleImageMessage(line, supabase, userId, event.message.id);
         continue;
       }
     }
@@ -120,117 +120,4 @@ async function handleBookingLink(
 }
 
 /** รับรูปจาก LINE (แบบเล็บ หรือ สลิป) */
-async function handleImageMessage(
-  line: LineClient,
-  db: any,
-  userId: string,
-  messageId: string
-) {
-  try {
-    // หา customer จาก line_accounts (PK = line_user_id)
-    let customerId: string | null = null;
 
-    const { data: lineAccount } = await db
-      .from("line_accounts")
-      .select("customer_id")
-      .eq("line_user_id", userId)
-      .single();
-
-    if (lineAccount) {
-      customerId = lineAccount.customer_id;
-    } else {
-      // fallback: ค้นหาจาก customers.line_id
-      const { data: cust } = await db
-        .from("customers")
-        .select("id")
-        .eq("line_id", userId)
-        .single();
-      if (cust) customerId = cust.id;
-    }
-
-    if (!customerId) {
-      return;
-    }
-
-    // หา booking ล่าสุด
-    const { data: booking } = await db
-      .from("bookings")
-      .select("id, status, deposit_paid, booking_code, start_time, customers(name, phone)")
-      .eq("customer_id", customerId)
-      .neq("status", "cancelled")
-      .neq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (!booking) {
-      return;
-    }
-
-    // ถ้ายังไม่ชำระมัดจำ → ลองตรวจสลิป
-    if (!booking.deposit_paid) {
-      // ดึง SlipOK settings
-      const { data: settings } = await db
-        .from("shop_settings")
-        .select("key, value")
-        .in("key", ["slipok_branch_id", "slipok_api_key"]);
-
-      const settingsMap: Record<string, string> = {};
-      (settings || []).forEach((s: any) => { settingsMap[s.key] = s.value; });
-
-      if (settingsMap.slipok_branch_id && settingsMap.slipok_api_key) {
-        const imageBuffer = await line.getMessageContent(messageId);
-        if (imageBuffer) {
-          const result = await verifySlip(
-            imageBuffer,
-            settingsMap.slipok_branch_id,
-            settingsMap.slipok_api_key
-          );
-
-          if (result.success && result.data) {
-            // บันทึก payment
-            await db.from("payments").insert([{
-              booking_id: booking.id,
-              amount: result.data.amount,
-              payment_type: "deposit",
-              payment_status: "verified",
-              slip_verified: true,
-              transaction_id: result.data.transRef,
-            }]);
-
-            await db.from("bookings").update({
-              deposit_paid: true,
-              deposit: result.data.amount,
-              payment_method: "promptpay",
-            }).eq("id", booking.id);
-
-            await db.from("transactions").insert([{
-              type: "income",
-              amount: result.data.amount,
-              category: "มัดจำ (LINE)",
-              booking_id: booking.id,
-            }]);
-
-            const cName = booking.customers?.name || "ลูกค้า";
-            const cPhone = booking.customers?.phone || "ไม่ระบุเบอร์";
-            const sDate = new Date(booking.start_time).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" });
-            const sTime = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
-
-            await line.sendPaymentConfirmation(userId, cName, cPhone, sDate, sTime);
-            return;
-          }
-        }
-      }
-
-      return;
-    }
-
-    // ถ้าชำระแล้ว → เป็นรูปแบบเล็บ (แอดมินจะมาดูเอง ไม่ต้องให้บอทตอบ)
-    await db.from("bookings").update({
-      design_image_url: `line:${messageId}`,
-    }).eq("id", booking.id);
-
-  } catch (e: any) {
-    console.error("[LINE_IMAGE_ERROR]:", e);
-  }
-}
