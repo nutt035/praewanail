@@ -224,3 +224,6 @@ CREATE TABLE reviews (
   is_published BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- [M13] เพิ่มข้อมูลวันเกิดให้ลูกค้า
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS birthdate DATE;

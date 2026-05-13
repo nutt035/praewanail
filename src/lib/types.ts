@@ -20,6 +20,7 @@ export interface Customer {
   line_id: string | null;
   points: number; // สะสมแต้ม
   notes: string | null;
+  birthdate: string | null;
   created_at: string;
 }
 

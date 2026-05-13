@@ -21,6 +21,13 @@ function MemberContent() {
   const [myCoupons, setMyCoupons] = useState<CustomerCoupon[]>([]);
   const [redeeming, setRedeeming] = useState(false);
 
+  // Registration & Update state
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [isUpdatingInfo, setIsUpdatingInfo] = useState(false);
+  const [regName, setRegName] = useState(linkName || "");
+  const [regPhone, setRegPhone] = useState("");
+  const [regBirthdate, setRegBirthdate] = useState("");
+
   // Review state
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
@@ -79,8 +86,11 @@ function MemberContent() {
         .single();
 
       if (error && error.code === "PGRST116") {
-        toast.error("ไม่พบข้อมูลลูกค้าจากเบอร์โทรนี้");
+        // ไม่พบข้อมูล -> ให้สมัครสมาชิก
         setCustomer(null);
+        setRegPhone(cleanPhone);
+        if (linkName) setRegName(linkName);
+        setIsRegistering(true);
       } else if (data) {
         // หากกำลังผูก LINE ID ให้ทำการอัปเดต
         if (linkLineId) {
@@ -95,6 +105,14 @@ function MemberContent() {
         
         setCustomer(data);
         fetchMyCoupons(data.id);
+        
+        // เช็คว่าข้อมูลครบไหม
+        if (!data.name || !data.birthdate) {
+          setRegName(data.name || linkName || "");
+          setRegPhone(data.phone || phoneNumber);
+          setRegBirthdate(data.birthdate || "");
+          setIsUpdatingInfo(true);
+        }
       }
     } catch (err) {
       toast.error("เกิดข้อผิดพลาดในการค้นหา");
@@ -107,6 +125,58 @@ function MemberContent() {
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     await handleSearchByPhone(phone);
+  }
+
+  async function handleRegisterOrUpdate(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    const toastId = toast.loading(isUpdatingInfo ? "กำลังอัปเดตข้อมูล..." : "กำลังสมัครสมาชิก...");
+
+    try {
+      const cleanPhone = regPhone.replace(/\D/g, "");
+      
+      if (isUpdatingInfo && customer) {
+        // อัปเดตข้อมูล
+        const { error } = await supabase
+          .from("customers")
+          .update({ name: regName, birthdate: regBirthdate || null, line_id: linkLineId || customer.line_id })
+          .eq("id", customer.id);
+        
+        if (error) throw error;
+        setCustomer({ ...customer, name: regName, birthdate: regBirthdate || null, line_id: linkLineId || customer.line_id });
+        setIsUpdatingInfo(false);
+        toast.success("อัปเดตข้อมูลสำเร็จ!", { id: toastId });
+        
+        if (linkLineId) window.history.replaceState({}, "", "/member");
+
+      } else {
+        // สมัครใหม่
+        const { data: newCust, error } = await supabase
+          .from("customers")
+          .insert([{
+            name: regName,
+            phone: cleanPhone,
+            line_id: linkLineId || null,
+            birthdate: regBirthdate || null,
+            points: 0
+          }])
+          .select()
+          .single();
+          
+        if (error) throw error;
+        
+        document.cookie = `customer_phone=${cleanPhone}; path=/; max-age=${60 * 60 * 24 * 30}`;
+        setCustomer(newCust);
+        setIsRegistering(false);
+        toast.success("สมัครสมาชิกสำเร็จ!", { id: toastId });
+        
+        if (linkLineId) window.history.replaceState({}, "", "/member");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "เกิดข้อผิดพลาด", { id: toastId });
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleRedeem(reward: Reward) {
@@ -229,7 +299,47 @@ function MemberContent() {
 
       <main className="max-w-md mx-auto px-5 py-8">
         
-        {!customer ? (
+        {isRegistering || isUpdatingInfo ? (
+          <div className="space-y-6 animate-slide-up">
+            <div className="text-center space-y-2 mb-8">
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                {isUpdatingInfo ? "อัปเดตข้อมูลส่วนตัว" : "สมัครสมาชิกใหม่"}
+              </h1>
+              <p className="text-sm text-gray-500">กรอกข้อมูลให้ครบถ้วนเพื่อรับสิทธิพิเศษ</p>
+            </div>
+            <form onSubmit={handleRegisterOrUpdate} className="bg-white rounded-[2rem] shadow-sm border border-pink-100 p-6 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">ชื่อ-นามสกุล / ชื่อเล่น</label>
+                <div className="relative">
+                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input type="text" value={regName} onChange={e => setRegName(e.target.value)} required className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-pink-400 outline-none transition-all font-medium text-slate-700" placeholder="ชื่อของคุณ" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">เบอร์โทรศัพท์</label>
+                <div className="relative">
+                  <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} required className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-pink-400 outline-none transition-all font-medium text-slate-700" placeholder="08X-XXX-XXXX" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">วัน/เดือน/ปีเกิด (เพื่อรับสิทธิพิเศษ)</label>
+                <div className="relative">
+                  <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input type="date" value={regBirthdate} onChange={e => setRegBirthdate(e.target.value)} required className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-pink-400 outline-none transition-all font-medium text-slate-700" />
+                </div>
+              </div>
+              <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-rose-400 to-pink-500 hover:to-pink-600 text-white font-bold py-4 px-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
+                {loading ? <><Loader2 size={18} className="animate-spin" /> กำลังบันทึก...</> : "บันทึกข้อมูล"}
+              </button>
+              {isRegistering && (
+                <button type="button" onClick={() => setIsRegistering(false)} className="w-full mt-3 text-sm text-slate-400 font-bold hover:text-slate-600 transition-colors">
+                  ยกเลิก / กลับไปเข้าสู่ระบบ
+                </button>
+              )}
+            </form>
+          </div>
+        ) : !customer ? (
           <div className="space-y-6 animate-fade-in">
             <div className="text-center space-y-2 mb-8">
               <div className="w-20 h-20 bg-gradient-to-br from-rose-100 to-pink-200 rounded-[2rem] flex items-center justify-center mx-auto mb-4 shadow-inner">
@@ -287,13 +397,6 @@ function MemberContent() {
                 )}
               </button>
             </form>
-
-            {hasSearched && !customer && !loading && (
-               <div className="text-center mt-6 p-4 bg-red-50 rounded-2xl border border-red-100 animate-in fade-in zoom-in duration-300">
-                 <p className="text-sm text-red-600 font-medium">ไม่พบข้อมูลสมาชิกของเบอร์นี้</p>
-                 <p className="text-xs text-red-400 mt-1">หากคุณเคยใช้บริการแล้ว โปรดติดต่อแอดมิน</p>
-               </div>
-            )}
           </div>
         ) : (
           <div className="space-y-6 animate-slide-up">

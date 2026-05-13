@@ -177,5 +177,5 @@ ON CONFLICT (key) DO NOTHING;
 -- [M12] เพิ่มระบบสะสมแต้ม
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0;
 
-
-
+-- [M13] เพิ่มข้อมูลวันเกิดให้ลูกค้า
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS birthdate DATE;
