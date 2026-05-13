@@ -1,29 +1,18 @@
-import { Sparkles, Clock, Phone, Camera, MessageCircle, Fingerprint, Tag, Percent, Banknote, Megaphone } from "lucide-react";
+import { Sparkles, MapPin, Camera, Star, BookOpen, CalendarHeart, Award, HelpCircle, ChevronRight, Tag, Percent, Banknote, Megaphone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { Service, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import Link from "next/link";
 import CustomerCalendar from "@/components/CustomerCalendar";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// ดึงข้อมูล services จาก Supabase (Server Component)
-async function getServices(): Promise<Service[]> {
-  const { data } = await supabase
-    .from("services")
-    .select("*")
-    .order("category", { ascending: true })
-    .order("price", { ascending: true });
-  return (data as Service[]) || [];
-}
-
-// ดึง shop settings
 async function getSettings(): Promise<Record<string, string>> {
   const { data } = await supabase.from("shop_settings").select("*");
   if (data && data.length > 0) return { ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) };
   return DEFAULT_SETTINGS;
 }
 
-// ดึงโปรโมชั่นที่ active อยู่
 async function getActivePromotions(): Promise<Promotion[]> {
   const today = new Date().toISOString().split("T")[0];
   const { data } = await supabase
@@ -36,195 +25,97 @@ async function getActivePromotions(): Promise<Promotion[]> {
   return (data as Promotion[]) || [];
 }
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  "ทำเล็บมือ": "💅",
-  "ทำเล็บเท้า": "🦶",
-  "ต่อเล็บ": "✨",
-  "สปา": "🧖‍♀️",
-  "ถอดเล็บ": "🧴",
-  "อื่นๆ": "💎",
-};
-
 export default async function Home() {
-  const [services, settings, promotions] = await Promise.all([
-    getServices(),
+  const [settings, promotions] = await Promise.all([
     getSettings(),
-    getActivePromotions(),
+    getActivePromotions()
   ]);
 
-  // จัดกลุ่มบริการตาม category
-  const servicesByCategory: Record<string, Service[]> = {};
-  services.forEach((s) => {
-    const cat = s.category || "อื่นๆ";
-    if (!servicesByCategory[cat]) servicesByCategory[cat] = [];
-    servicesByCategory[cat].push(s);
-  });
-
-  const hasLine = settings.shop_line_id && settings.shop_line_id.trim() !== "";
-  const hasFb = settings.shop_fb && settings.shop_fb.trim() !== "";
-  const hasIg = settings.shop_ig && settings.shop_ig.trim() !== "";
-  const hasPhone = settings.shop_phone && settings.shop_phone.trim() !== "";
+  const isSameTime = settings.weekday_open_time === settings.weekend_open_time && settings.weekday_close_time === settings.weekend_close_time;
 
   return (
-    <div className="min-h-screen bg-[#FDF2F8]">
-      {/* Mini Header */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-pink-100 sticky top-0 z-50 isolate">
-        <div className="max-w-2xl mx-auto px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center shadow-sm">
-              <Sparkles size={15} className="text-white" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-brand-dark leading-none">{settings.shop_name || "Praewa Nail"}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                เปิด {settings.open_time} – {settings.close_time} น.
-              </p>
+    <div className="min-h-screen bg-pink-50/40 pb-20 font-sans selection:bg-pink-200">
+
+      {/* 1. Hero Section - ปรับให้หรูหรา น่าดึงดูด */}
+      <div className="relative pt-16 pb-12 px-6 overflow-hidden bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-b-[40px] border-b border-pink-100">
+        {/* Background Gradients */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-pink-200/50 to-rose-200/50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+        <div className="absolute top-0 left-0 w-64 h-64 bg-gradient-to-br from-purple-200/50 to-pink-200/50 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/3"></div>
+
+        <div className="relative z-10 flex flex-col items-center text-center">
+          {/* Logo / Icon Placeholder */}
+          <div className="w-30 h-30 rounded-[2rem] bg-gradient-to-tr from-rose-400 via-pink-500 to-fuchsia-500 p-[2px] shadow-xl shadow-pink-200/60 mb-6 group cursor-pointer transition-transform hover:scale-105">
+            <div className="w-full h-full bg-white rounded-[1.9rem] flex items-center justify-center overflow-hidden">
+              {/* 💡 แอดมินสามารถนำรูปโลโก้มาใส่ในโฟลเดอร์ public/ โค้ดด้านล่างนี้ได้เลย */}
+              <img src="/logo.png" alt="Shop Logo" className="w-full h-full object-cover" />
+              <Sparkles size={40} className="text-pink-500 group-hover:animate-pulse" />
             </div>
           </div>
-          <div className="flex gap-2">
-            {hasLine && (
-              <a
-                href={`https://line.me/R/ti/p/~${settings.shop_line_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white shadow-sm hover:scale-110 transition-transform"
-                title="Line"
-              >
-                <MessageCircle size={14} />
-              </a>
-            )}
-            {hasFb && (
-              <a
-                href={settings.shop_fb.startsWith("http") ? settings.shop_fb : `https://${settings.shop_fb}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110 active:scale-95"
-                title="Messenger"
-              >
-                <MessageCircle size={14} />
-              </a>
-            )}
-            {hasIg && (
-              <a
-                href={`https://instagram.com/${settings.shop_ig.replace("@", "")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-500 flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110 active:scale-95"
-                title="Instagram"
-              >
-                <Camera size={14} />
-              </a>
-            )}
-            {hasPhone && (
-              <a
-                href={`tel:${settings.shop_phone}`}
-                className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110 active:scale-95"
-                title="โทรสอบถาม"
-              >
-                <Phone size={14} />
-              </a>
-            )}
+
+          <h1 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-tight">
+            {settings.shop_name || "Antonette Nail"}
+          </h1>
+          <p className="text-pink-600/80 font-medium text-sm max-w-xs mb-1">
+            Nail Studio
+          </p>
+          <div className="inline-flex items-start gap-1.5 px-3 py-2 bg-green-50 text-green-600 rounded-2xl text-[10px] font-bold border border-green-100 text-left">
+            <span className="relative flex h-2 w-2 mt-1 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <div className="flex flex-col">
+              {isSameTime ? (
+                <span>เปิดบริการ {settings.weekday_open_time || settings.open_time} – {settings.weekday_close_time || settings.close_time} น.</span>
+              ) : (
+                <>
+                  <span>จ-ศ {settings.weekday_open_time || settings.open_time} – {settings.weekday_close_time || settings.close_time} น.</span>
+                  <span>ส-อา {settings.weekend_open_time || settings.open_time} – {settings.weekend_close_time || settings.close_time} น.</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-2xl mx-auto px-5 py-8 space-y-10">
+      <main className="max-w-md mx-auto px-5 py-8 space-y-10">
 
-        {/* Booking CTA */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-400 via-pink-500 to-fuchsia-500 p-6 text-center text-white shadow-lg">
-          <div className="relative z-10">
-            <h2 className="text-xl font-bold mb-2">จองคิวออนไลน์ได้แล้ว! 💅</h2>
-            <p className="text-rose-100 text-sm mb-5">เลือกบริการ เลือกเวลา จองง่ายๆ ไม่ต้องรอ</p>
-            <a
-              href="/book"
-              className="inline-flex items-center gap-2 px-8 py-3 bg-white text-rose-600 text-sm font-bold rounded-2xl shadow-md hover:shadow-xl transition-all active:scale-95"
-            >
-              <Sparkles size={18} />
-              จองคิวเลย
-            </a>
-          </div>
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-        </section>
-
-        {/* Portfolio CTA - New Section */}
-        <section id="portfolio" className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-rose-100 to-pink-200 p-6 text-center shadow-sm border border-rose-200">
-          <div className="relative z-10">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
-              <Camera size={24} className="text-rose-500" />
-            </div>
-            <h2 className="text-xl font-bold text-brand-dark mb-2">ดูผลงานล่าสุดของเรา ✨</h2>
-            <p className="text-sm text-rose-600/80 mb-5">อัปเดตรูปแบบลายเล็บใหม่ๆ และรีวิวจากลูกค้าได้ที่โซเชียลมีเดีย</p>
-            <div className="flex flex-wrap justify-center gap-3">
-              {hasIg && (
-                <a
-                  href={`https://instagram.com/${settings.shop_ig.replace("@", "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-6 py-2.5 bg-white text-brand-dark text-sm font-bold rounded-full shadow-sm hover:shadow-md transition-all active:scale-95 border border-rose-100"
-                >
-                  <Camera size={16} className="text-pink-500" />
-                  Instagram
-                </a>
-              )}
-              {/* เพิ่ม TikTok ถ้ามีการระบุใน settings หรือใส่เป็นทางเลือกไว้ */}
-              <a
-                href="#"
-                className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-full shadow-sm hover:bg-slate-800 transition-all active:scale-95"
-              >
-                <span className="text-lg">🎵</span>
-                TikTok
-              </a>
-            </div>
-          </div>
-          {/* Decorative Background Elements */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/30 rounded-full blur-2xl"></div>
-          <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-rose-300/20 rounded-full blur-2xl"></div>
-        </section>
-
-        {/* โปรโมชั่น */}
+        {/* 2. Promotions (เอามาไว้หน้าแรกตามรีเควสต์) */}
         {promotions.length > 0 && (
-          <section id="promotions">
-            <h2 className="text-xl font-bold text-brand-dark mb-1">โปรโมชั่นพิเศษ 🎉</h2>
-            <p className="text-sm text-slate-400 mb-4">ข้อเสนอสุดพิเศษจากร้านเรา</p>
-            <div className="space-y-3">
+          <section>
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-gray-900">โปรโมชั่นพิเศษ ✨</h2>
+                <p className="text-xs text-gray-500 mt-0.5">ข้อเสนอสุดคุ้มที่คุณไม่ควรพลาด</p>
+              </div>
+            </div>
+
+            {/* Horizontal Scroll for Promotions */}
+            <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar -mx-5 px-5">
               {promotions.map((promo) => (
-                <div
-                  key={promo.id}
-                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-400 via-pink-500 to-fuchsia-500 p-px shadow-md"
-                >
-                  <div className="bg-white rounded-[15px] px-4 py-3.5 flex items-start gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                      promo.discount_type === "percent" ? "bg-violet-50" :
-                      promo.discount_type === "amount" ? "bg-emerald-50" : "bg-rose-50"
-                    }`}>
-                      {promo.discount_type === "percent" && <Percent size={16} className="text-violet-500" />}
-                      {promo.discount_type === "amount" && <Banknote size={16} className="text-emerald-500" />}
-                      {promo.discount_type === "announcement" && <Megaphone size={16} className="text-rose-400" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-sm text-brand-dark">{promo.title}</p>
+                <div key={promo.id} className="snap-center shrink-0 w-[280px] bg-gradient-to-br from-rose-400 via-pink-500 to-fuchsia-500 rounded-3xl p-[2px] shadow-lg shadow-pink-200/50">
+                  <div className="bg-white/95 backdrop-blur-sm rounded-[22px] h-full p-4 flex flex-col">
+                    <div className="flex items-start gap-3 mb-2">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${promo.discount_type === "percent" ? "bg-violet-100" :
+                        promo.discount_type === "amount" ? "bg-emerald-100" : "bg-rose-100"
+                        }`}>
+                        {promo.discount_type === "percent" && <Percent size={20} className="text-violet-600" />}
+                        {promo.discount_type === "amount" && <Banknote size={20} className="text-emerald-600" />}
+                        {promo.discount_type === "announcement" && <Megaphone size={20} className="text-rose-600" />}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-900 line-clamp-1">{promo.title}</h3>
                         {promo.discount_type === "percent" && promo.discount_value > 0 && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">
-                            ลด {promo.discount_value}%
-                          </span>
+                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">ลด {promo.discount_value}%</span>
                         )}
                         {promo.discount_type === "amount" && promo.discount_value > 0 && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600">
-                            ลด ฿{promo.discount_value}
-                          </span>
+                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">ลด ฿{promo.discount_value}</span>
                         )}
                       </div>
-                      {promo.description && (
-                        <p className="text-xs text-slate-500 mt-0.5">{promo.description}</p>
-                      )}
-                      {promo.valid_to && (
-                        <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                          <Tag size={10} />
-                          หมดเขต {new Date(promo.valid_to).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "2-digit" })}
-                        </p>
-                      )}
+                    </div>
+                    {promo.description && <p className="text-xs text-gray-500 mb-3 line-clamp-2">{promo.description}</p>}
+                    <div className="mt-auto pt-3 border-t border-gray-100/50 flex items-center justify-between text-[10px] font-semibold text-gray-400">
+                      <span>{promo.valid_to ? `หมดเขต ${new Date(promo.valid_to).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}` : "ไม่มีวันหมดอายุ"}</span>
+                      <Link href="/book" className="text-pink-500">จองเลย</Link>
                     </div>
                   </div>
                 </div>
@@ -233,126 +124,136 @@ export default async function Home() {
           </section>
         )}
 
-        {/* บริการ */}
-        <section id="services">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-xl font-bold text-brand-dark">บริการของเรา 💅</h2>
-            <span className="text-[10px] font-bold text-rose-400 bg-rose-50 px-2 py-0.5 rounded-full uppercase tracking-tighter border border-rose-100">Premium Quality</span>
-          </div>
-          <p className="text-sm text-slate-400 mb-5">ราคาเริ่มต้น · ครอบคลุมทุกความต้องการ</p>
+        {/* 3. Main Menu Grid - ปรับดีไซน์ให้ดู Premium ขึ้น */}
+        <section>
+          <div className="grid grid-cols-2 gap-4">
+            <Link href="/book" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-pink-200 group-hover:scale-110 transition-transform">
+                <CalendarHeart size={28} />
+              </div>
+              <div className="w-full">
+                <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">จองคิว <ChevronRight size={16} className="text-pink-300 group-hover:translate-x-1 transition-transform" /></h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">เลือกเวลา & วันที่ต้องการ</p>
+              </div>
+            </Link>
 
-          {Object.keys(servicesByCategory).length === 0 ? (
-            <div className="text-center text-slate-400 py-8 bg-white rounded-2xl border border-pink-100">
-              <Sparkles size={28} className="mx-auto mb-2 text-pink-200" />
-              <p className="text-sm">กำลังอัพเดตรายการบริการ</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {Object.entries(servicesByCategory).map(([category, categoryServices]) => (
-                <div key={category}>
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
-                    <span>{CATEGORY_EMOJI[category] || "💎"}</span>
-                    {category}
-                  </h3>
-                  <div className="space-y-2">
-                    {categoryServices.map((service) => (
-                      <div
-                        key={service.id}
-                        className="group bg-white rounded-xl px-4 py-3.5 border border-pink-100 hover:border-rose-300 hover:shadow-sm transition-all flex items-center justify-between gap-3"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-brand-dark group-hover:text-rose-500 transition-colors">{service.name}</p>
-                          <div className="flex items-center gap-2 mt-0.5 text-slate-400 text-xs">
-                            <span className="flex items-center gap-0.5">
-                              <Clock size={11} />
-                              {service.duration} นาที
-                            </span>
-                            {service.price_per_finger != null && (
-                              <span className="flex items-center gap-0.5 text-violet-400">
-                                <Fingerprint size={11} /> ต่อ{service.unit_name || "นิ้ว"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-base font-bold gradient-text shrink-0 group-hover:scale-110 transition-transform">
-                          {service.price_per_finger != null
-                            ? `฿${service.price_per_finger.toLocaleString()}/${service.unit_name || "หน่วย"}`
-                            : `฿${service.price.toLocaleString()}`
-                          }
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+            <Link href="/services" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 group-hover:bg-rose-100 group-hover:scale-110 transition-all">
+                <BookOpen size={28} />
+              </div>
+              <div className="w-full">
+                <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">เมนู <ChevronRight size={16} className="text-rose-300 group-hover:translate-x-1 transition-transform" /></h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">ดูรายการ & ราคา</p>
+              </div>
+            </Link>
+
+            <Link href="/member" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 group-hover:bg-amber-100 group-hover:scale-110 transition-all">
+                <Award size={28} />
+              </div>
+              <div className="w-full">
+                <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">สมาชิก <ChevronRight size={16} className="text-amber-300 group-hover:translate-x-1 transition-transform" /></h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">สะสมแต้ม & แลกของ</p>
+              </div>
+            </Link>
+
+            <Link href="/how-to" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 group-hover:scale-110 transition-all">
+                <HelpCircle size={28} />
+              </div>
+              <div className="w-full">
+                <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">วิธีใช้ <ChevronRight size={16} className="text-blue-300 group-hover:translate-x-1 transition-transform" /></h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">คู่มือจองคิวออนไลน์</p>
+              </div>
+            </Link>
+          </div>
         </section>
 
-        {/* ปฏิทิน */}
-        <section id="calendar">
-          <h2 className="text-xl font-bold text-brand-dark mb-1">ดูคิวว่าง 📅</h2>
-          <p className="text-sm text-slate-400 mb-5">กดที่วันเพื่อดูจำนวนคิวว่าง</p>
+        {/* 3.5 Customer Calendar (เช็คคิวว่าง) */}
+        <section className="bg-white rounded-[2rem] shadow-sm border border-pink-50 p-6">
+          <div className="mb-4">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+              <CalendarHeart className="text-pink-500" size={20} />
+              เช็คคิวว่างเบื้องต้น
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">กดที่วันเพื่อดูจำนวนคิวที่ยังว่างอยู่</p>
+          </div>
           <CustomerCalendar />
         </section>
 
-        {/* Contact CTA */}
-        <section className="text-center py-6">
-          <div className="bg-white rounded-3xl p-6 border border-pink-100 shadow-sm">
-            <p className="text-sm font-bold text-brand-dark mb-1">สนใจจองคิว 💅</p>
-            <p className="text-[11px] text-slate-400 mb-5">แนะนำจองผ่าน Line เพื่อความรวดเร็วในการเช็คคิว</p>
-            <div className="flex flex-wrap justify-center gap-3">
-              {hasLine && (
-                <a
-                  href={`https://line.me/R/ti/p/~${settings.shop_line_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-6 py-3 bg-green-500 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:bg-green-600 active:scale-95"
-                >
-                  <MessageCircle size={18} />
-                  จองผ่าน Line
-                </a>
-              )}
-              {hasFb && (
-                <a
-                  href={settings.shop_fb.startsWith("http") ? settings.shop_fb : `https://${settings.shop_fb}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:bg-blue-600 active:scale-95"
-                >
-                  <MessageCircle size={18} />
-                  Messenger
-                </a>
-              )}
-              {hasIg && (
-                <a
-                  href={`https://instagram.com/${settings.shop_ig.replace("@", "")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:opacity-90 active:scale-95"
-                >
-                  <Camera size={18} />
-                  Instagram
-                </a>
-              )}
-              {hasPhone && (
-                <a
-                  href={`tel:${settings.shop_phone}`}
-                  className="flex items-center gap-2 px-6 py-3 bg-slate-800 text-white text-sm font-bold rounded-2xl shadow-md transition-all hover:bg-slate-900 active:scale-95"
-                >
-                  <Phone size={18} />
-                  โทรสอบถาม
-                </a>
-              )}
+        {/* 4. Portfolio Embed (Instagram / Feed Placeholder) */}
+        <section className="bg-white rounded-[2rem] shadow-sm border border-pink-50 overflow-hidden">
+          <div className="p-5 border-b border-gray-50 flex items-center justify-between">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+              <Camera className="text-purple-500" size={20} />
+              ผลงานของเรา
+            </h2>
+            <a href={settings.shop_ig ? `https://instagram.com/${settings.shop_ig.replace("@", "")}` : "#"} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold text-purple-600 bg-purple-50 px-3 py-1.5 rounded-full hover:bg-purple-100 transition-colors">
+              ดู IG ทั้งหมด
+            </a>
+          </div>
+          <div className="p-3 bg-gray-50/50">
+            {/* 
+                💡 แอดมิน: สามารถใช้ Elfsight Instagram Widget หรือ Embed โค้ด IG มาใส่ตรงนี้ได้ 
+                ตอนนี้ผมทำโครงสร้าง Embed แบบกรอบภาพจำลองความสวยงามไว้ให้ก่อน 
+             */}
+            <div className="aspect-[4/3] bg-gray-200 rounded-2xl overflow-hidden relative group">
+              <img src="https://images.unsplash.com/photo-1604654894610-df63bc536371?q=80&w=600&auto=format&fit=crop" alt="Nail Portfolio 1" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+                <p className="text-white font-bold text-sm bg-black/40 px-4 py-2 rounded-full backdrop-blur-md">กดเพื่อดูวิดีโอ/รูปเพิ่มเติม</p>
+              </div>
             </div>
           </div>
         </section>
-      </main>
 
-      {/* Footer */}
-      <footer className="text-center py-6 text-slate-300 text-xs border-t border-pink-100">
-        © 2025 {settings.shop_name || "Praewa Nail Studio"}
-      </footer>
+        {/* 5. Google Maps Embed */}
+        <section className="bg-white rounded-[2rem] shadow-sm border border-pink-50 overflow-hidden">
+          <div className="p-5 border-b border-gray-50">
+            <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
+              <MapPin className="text-rose-500" size={20} />
+              แผนที่ร้าน
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">Antonette Nail Studio เดินทางสะดวก มีที่จอดรถ</p>
+          </div>
+          <div className="h-60 w-full bg-gray-100 relative">
+            {/* 💡 แอดมิน: เอาโค้ด iframe ของ Google Maps (จากเว็บ Google Maps -> Share -> Embed a map) มาวางแทน iframe นี้ได้เลย */}
+            <iframe
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15502.50284714652!2d100.5619379!3d13.7391913!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x30e29e8d47b59e35%3A0xcb1351110fc6fa61!2sSukhumvit%20Road!5e0!3m2!1sen!2sth!4v1700000000000!5m2!1sen!2sth"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              allowFullScreen={false}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              className="absolute inset-0 grayscale-[0.2] contrast-[1.1] hover:grayscale-0 transition-all duration-500"
+            ></iframe>
+          </div>
+        </section>
+
+        {/* 6. Review Placeholder Embed */}
+        <section className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-[2rem] shadow-sm border border-amber-100/50 p-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-full blur-2xl"></div>
+          <div className="relative z-10 text-center">
+            <div className="flex justify-center gap-1 mb-3">
+              {[1, 2, 3, 4, 5].map(i => <Star key={i} size={24} className="text-yellow-400 fill-yellow-400 drop-shadow-sm" />)}
+            </div>
+            <h2 className="font-black text-gray-900 text-xl mb-2">เสียงตอบรับจากลูกค้า</h2>
+            <p className="text-sm text-gray-600 mb-5">เตรียมพบกับระบบรีวิวความประทับใจเร็วๆ นี้</p>
+
+            <div className="bg-white/80 backdrop-blur-md border border-white rounded-2xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] inline-block text-left w-full max-w-[280px]">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-bold">K</div>
+                <div>
+                  <p className="text-sm font-bold text-gray-900">คุณลูกค้า</p>
+                  <p className="text-[10px] text-gray-400">ตัวอย่างรีวิว</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600 italic">"ร้านทำเล็บสวยมากค่ะ ช่างใจดี งานละเอียด อยู่ทนมาก แนะนำเลยค่า 💕"</p>
+            </div>
+          </div>
+        </section>
+
+      </main>
     </div>
   );
 }

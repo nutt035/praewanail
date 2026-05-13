@@ -18,6 +18,7 @@ import {
   Scissors,
   Menu,
   X,
+  Gift,
 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/admin/finance", label: "รายรับ-รายจ่าย", icon: DollarSign, exact: false },
   { href: "/admin/receipts", label: "ประวัติบิล", icon: Receipt, exact: false },
   { href: "/admin/promotions", label: "โปรโมชั่น", icon: Tag, exact: false },
+  { href: "/admin/rewards", label: "ของรางวัล/คูปอง", icon: Gift, exact: false },
   { href: "/admin/inventory", label: "จัดการสต็อก", icon: PackageSearch, exact: false },
   { href: "/admin/customers", label: "ประวัติลูกค้า", icon: Users, exact: false },
   { href: "/admin/estimator", label: "AI ประเมินราคา", icon: Wand2, exact: false },

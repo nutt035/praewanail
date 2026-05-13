@@ -23,6 +23,27 @@ export interface Customer {
   created_at: string;
 }
 
+export interface Reward {
+  id: string;
+  title: string;
+  description: string | null;
+  points_required: number;
+  discount_value: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CustomerCoupon {
+  id: string;
+  customer_id: string;
+  reward_id: string;
+  status: "active" | "used";
+  created_at: string;
+  used_at: string | null;
+  // joined
+  rewards?: Reward | null;
+}
+
 // รายการบริการย่อยภายใน 1 คิว (many-to-many)
 export interface BookingService {
   id: string;
@@ -157,8 +178,9 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   closed_weekdays: "",
   // วันหยุดพิเศษ (comma-separated: YYYY-MM-DD)
   closed_dates: "",
-  max_bookings_per_day: "8",
-  shop_name: "Praewa Nail Studio",
+  weekday_max_bookings: "8",
+  weekend_max_bookings: "10",
+  shop_name: "Antonette Nail",
   shop_phone: "",
   shop_line_id: "",
   shop_ig: "",

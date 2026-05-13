@@ -391,8 +391,8 @@ export default function SettingsPage() {
               <div>
                 <label className="form-label">รับคิวสูงสุด/วัน</label>
                 <input type="number" min={1} className="input-field"
-                  value={shopSettings.max_bookings_per_day}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, max_bookings_per_day: e.target.value }))} />
+                  value={shopSettings.weekday_max_bookings || "8"}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, weekday_max_bookings: e.target.value }))} />
               </div>
             </div>
 
@@ -410,6 +410,12 @@ export default function SettingsPage() {
                 <input type="time" className="input-field"
                   value={shopSettings.weekend_close_time || "18:00"}
                   onChange={(e) => setShopSettings((s) => ({ ...s, weekend_close_time: e.target.value }))} />
+              </div>
+              <div>
+                <label className="form-label">รับคิวสูงสุด/วัน</label>
+                <input type="number" min={1} className="input-field"
+                  value={shopSettings.weekend_max_bookings || "10"}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, weekend_max_bookings: e.target.value }))} />
               </div>
             </div>
 
@@ -613,8 +619,11 @@ export default function SettingsPage() {
               </div>
               <div>
                 <p className="text-sm font-bold text-brand-dark">{shopSettings.shop_name || "ชื่อร้าน"}</p>
-                <p className="text-xs text-slate-400">
-                  เปิด {shopSettings.open_time || "09:00"} – {shopSettings.close_time || "20:00"} น. · รับ {shopSettings.max_bookings_per_day || 8} คิว/วัน
+                <p className="text-[10px] text-slate-400">
+                  เปิด จ-ศ {shopSettings.weekday_open_time || "09:00"}–{shopSettings.weekday_close_time || "20:00"} น. (รับ {shopSettings.weekday_max_bookings || 8} คิว)
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  ส-อา {shopSettings.weekend_open_time || "10:00"}–{shopSettings.weekend_close_time || "18:00"} น. (รับ {shopSettings.weekend_max_bookings || 10} คิว)
                 </p>
               </div>
             </div>

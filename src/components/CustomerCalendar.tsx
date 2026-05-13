@@ -23,9 +23,7 @@ export default function CustomerCalendar() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [maxPerDay, setMaxPerDay] = useState(8);
-  const [openTime, setOpenTime] = useState("09:00");
-  const [closeTime, setCloseTime] = useState("20:00");
+  const [shopSettings, setShopSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
 
@@ -39,10 +37,7 @@ export default function CustomerCalendar() {
     // ดึง settings
     const { data: settingsData } = await supabase.from("shop_settings").select("*");
     if (settingsData && settingsData.length > 0) {
-      const cfg = settingsToMap(settingsData as ShopSettings[]);
-      setMaxPerDay(Number(cfg.max_bookings_per_day || DEFAULT_SETTINGS.max_bookings_per_day));
-      setOpenTime(cfg.weekday_open_time || cfg.open_time || DEFAULT_SETTINGS.open_time);
-      setCloseTime(cfg.weekday_close_time || cfg.close_time || DEFAULT_SETTINGS.close_time);
+      setShopSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(settingsData as ShopSettings[]) });
     }
 
     // ดึง bookings เดือนที่เลือก
@@ -67,16 +62,21 @@ export default function CustomerCalendar() {
   // นับคิวต่อวัน
   function getDayInfo(day: number): DayInfo {
     const thisDate = new Date(year, month, day);
-    const cfg = {} as Record<string, string>; // ใช้ shopSettings จาก parent ถ้าเป็น component
+    const dow = thisDate.getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const maxBookings = isWeekend 
+      ? Number(shopSettings.weekend_max_bookings || shopSettings.max_bookings_per_day || 10)
+      : Number(shopSettings.weekday_max_bookings || shopSettings.max_bookings_per_day || 8);
+      
     const count = bookings.filter((b) => {
       const d = new Date(b.start_time);
       return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
     }).length;
     return {
       bookingCount: count,
-      maxBookings: maxPerDay,
-      isFull: count >= maxPerDay,
-      remaining: Math.max(0, maxPerDay - count),
+      maxBookings: maxBookings,
+      isFull: count >= maxBookings,
+      remaining: Math.max(0, maxBookings - count),
     };
   }
 
@@ -117,8 +117,10 @@ export default function CustomerCalendar() {
             <ChevronRight size={16} />
           </button>
         </div>
-        <p className="text-center text-xs text-slate-400">
-          เปิด {openTime} – {closeTime} น. · รับได้ {maxPerDay} คิว/วัน
+        <p className="text-center text-[10px] text-slate-400">
+          จ-ศ {shopSettings.weekday_open_time || shopSettings.open_time || "09:00"}-{shopSettings.weekday_close_time || shopSettings.close_time || "20:00"} น. (รับ {shopSettings.weekday_max_bookings || shopSettings.max_bookings_per_day || 8} คิว)
+          <br />
+          ส-อา {shopSettings.weekend_open_time || shopSettings.open_time || "10:00"}-{shopSettings.weekend_close_time || shopSettings.close_time || "18:00"} น. (รับ {shopSettings.weekend_max_bookings || shopSettings.max_bookings_per_day || 10} คิว)
         </p>
       </div>
 

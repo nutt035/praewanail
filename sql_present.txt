@@ -191,3 +191,25 @@ create table public.transactions (
   constraint transactions_pkey primary key (id),
   constraint transactions_booking_id_fkey foreign KEY (booking_id) references bookings (id) on delete set null
 ) TABLESPACE pg_default;
+
+
+-- สร้างตารางของรางวัล (คูปองที่ให้ลูกค้าแลก)
+CREATE TABLE rewards (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  points_required INT NOT NULL,
+  discount_value INT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- สร้างตารางกระเป๋าคูปองของลูกค้า
+CREATE TABLE customer_coupons (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+  reward_id UUID REFERENCES rewards(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'active', -- 'active' (ยังไม่ใช้) หรือ 'used' (ใช้แล้ว)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  used_at TIMESTAMP WITH TIME ZONE
+);

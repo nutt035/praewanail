@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift } from "lucide-react";
 import toast from "react-hot-toast";
 
 const STATUS_LABELS = {
@@ -57,6 +57,8 @@ export default function CalendarPage() {
   const [completePaymentMethod, setCompletePaymentMethod] = useState("cash");
   const [completeFinalPrice, setCompleteFinalPrice] = useState<number>(0);
   const [completing, setCompleting] = useState(false);
+  const [customerCoupons, setCustomerCoupons] = useState<any[]>([]);
+  const [selectedCoupon, setSelectedCoupon] = useState<any | null>(null);
 
   // Confirm dialog (ยืนยันคิว + ใส่ราคา)
   const [showConfirmDialog, setShowConfirmDialog] = useState<Booking | null>(null);
@@ -146,11 +148,23 @@ export default function CalendarPage() {
   });
 
   // เปิด complete dialog (เลือกวิธีชำระก่อน)
-  function openCompleteDialog(booking: Booking) {
+  async function openCompleteDialog(booking: Booking) {
     setSelectedBooking(null);
     setShowCompleteDialog(booking);
     setCompletePaymentMethod("cash");
     setCompleteFinalPrice(booking.total_price || 0);
+    setSelectedCoupon(null);
+    setCustomerCoupons([]);
+    
+    // ดึงคูปองของลูกค้าคนนี้
+    if (booking.customer_id) {
+      const { data } = await supabase
+        .from("customer_coupons")
+        .select("*, rewards(*)")
+        .eq("customer_id", booking.customer_id)
+        .eq("status", "active");
+      if (data) setCustomerCoupons(data);
+    }
   }
 
   function openConfirmDialog(booking: Booking) {
@@ -225,6 +239,14 @@ export default function CalendarPage() {
         }]);
       }
 
+      // 2.5 ใช้คูปอง (ถ้ามีการเลือก)
+      if (selectedCoupon) {
+        await supabase
+          .from("customer_coupons")
+          .update({ status: "used", used_at: new Date().toISOString() })
+          .eq("id", selectedCoupon.id);
+      }
+
       // 3. ระบบสะสมแต้ม
       let currentPoints = 0;
       let newPoints = 1;
@@ -253,7 +275,10 @@ export default function CalendarPage() {
       // 4. ส่งการแจ้งเตือน LINE พร้อม Link ใบเสร็จ
       if (shopSettings.line_channel_token && shopSettings.admin_line_uid) {
         const receiptUrl = `${window.location.origin}/receipt/${booking.id}`;
-        const message = `✅ จบงานแล้ว!\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม! (ตอนนี้มีทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่:\n${receiptUrl}`;
+        let message = `✅ จบงานแล้ว!\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม! (ตอนนี้มีทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่:\n${receiptUrl}`;
+        if (selectedCoupon) {
+          message = `✅ จบงานแล้ว!\n👤 ลูกค้า: ${booking.customers?.name}\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม! (ตอนนี้มีทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่:\n${receiptUrl}`;
+        }
         
         fetch("/api/notify", {
           method: "POST",
@@ -602,12 +627,46 @@ export default function CalendarPage() {
                     type="number"
                     min={0}
                     value={completeFinalPrice}
-                    onChange={e => setCompleteFinalPrice(Number(e.target.value))}
+                    onChange={e => {
+                      setCompleteFinalPrice(Number(e.target.value));
+                      setSelectedCoupon(null); // ยกเลิกคูปองถ้าแอดมินเปลี่ยนราคาเอง
+                    }}
                     className="w-full px-4 py-2.5 rounded-xl border border-pink-200 bg-white text-sm font-bold text-brand-dark focus:ring-2 focus:ring-rose-400 focus:border-transparent outline-none text-right text-lg"
                     placeholder="0"
                     autoFocus
                   />
                 </div>
+
+                {customerCoupons.length > 0 && (
+                  <div className="border-t border-rose-100 pt-3 mt-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">คูปองของลูกค้า</p>
+                    <div className="space-y-2">
+                      {customerCoupons.map(coupon => {
+                        const isSelected = selectedCoupon?.id === coupon.id;
+                        return (
+                          <button
+                            key={coupon.id}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedCoupon(null);
+                                setCompleteFinalPrice(completeFinalPrice + coupon.rewards.discount_value);
+                              } else {
+                                if (selectedCoupon) setCompleteFinalPrice(completeFinalPrice + selectedCoupon.rewards.discount_value - coupon.rewards.discount_value);
+                                else setCompleteFinalPrice(Math.max(0, completeFinalPrice - coupon.rewards.discount_value));
+                                setSelectedCoupon(coupon);
+                              }
+                            }}
+                            className={`w-full text-left p-2 rounded-lg border transition-all text-xs flex items-center gap-2 ${isSelected ? "bg-rose-500 text-white border-rose-500" : "bg-white border-rose-200 text-slate-600"}`}
+                          >
+                            <Gift size={14} className={isSelected ? "text-white" : "text-rose-400"} />
+                            <span className="flex-1 font-semibold">{coupon.rewards?.title}</span>
+                            <span>{isSelected ? "✅ ใช้คูปองนี้" : "เลือกใช้"}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {showCompleteDialog.deposit > 0 && (
                   <div className="flex justify-between text-sm">

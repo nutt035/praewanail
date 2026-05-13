@@ -61,7 +61,13 @@ export default function BookingPage() {
     })();
   }, [calMonth, calYear]);
 
-  const maxPerDay = Number(settings.max_bookings_per_day || 8);
+  const getCapacityForDay = (dateObj: Date) => {
+    const dow = dateObj.getDay();
+    if (dow === 0 || dow === 6) {
+      return Number(settings.weekend_max_bookings || settings.max_bookings_per_day || 10);
+    }
+    return Number(settings.weekday_max_bookings || settings.max_bookings_per_day || 8);
+  };
 
   function toggleService(svc: Service) {
     const exists = selected.find(s => s.id === svc.id);
@@ -78,7 +84,7 @@ export default function BookingPage() {
   const totalDuration = selected.reduce((sum, s) => sum + s.duration, 0);
 
   // Time slots เปลี่ยนตามวันที่เลือก
-  const selectedDateObj = date ? new Date(date + "T12:00:00") : null;
+  const selectedDateObj = date ? new Date(date + "T00:00:00") : null;
   const { openTime: openH_str, closeTime: closeH_str } = selectedDateObj
     ? getOpenClose(selectedDateObj, settings)
     : { openTime: settings.weekday_open_time || settings.open_time || "09:00", closeTime: settings.weekday_close_time || settings.close_time || "20:00" };
@@ -210,7 +216,8 @@ export default function BookingPage() {
                   const isClosed = isClosedDay(thisDate, settings);
                   const isSel = date === dateStr;
                   const bookCount = dayBookingCounts[day] || 0;
-                  const isFull = bookCount >= maxPerDay;
+                  const maxPerDayForThisDate = getCapacityForDay(thisDate);
+                  const isFull = bookCount >= maxPerDayForThisDate;
                   const isDisabled = isPast || isFull || isClosed;
                   return (
                     <button key={day} disabled={isDisabled} onClick={() => setDate(dateStr)}
