@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Promotion } from "@/lib/types";
 import {
   Plus, Pencil, Trash2, X, Tag, Calendar, ToggleLeft, ToggleRight,
-  Loader2, Save, Sparkles, Banknote,
+  Loader2, Save, Sparkles, Banknote, Megaphone, Percent,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
