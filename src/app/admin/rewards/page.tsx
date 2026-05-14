@@ -187,7 +187,7 @@ export default function RewardsAdminPage() {
                   <select
                     className="input-field"
                     value={formData.reward_type}
-                    onChange={e => setFormData({...formData, reward_type: e.target.value})}
+                    onChange={e => setFormData({...formData, reward_type: e.target.value as Reward["reward_type"]})}
                   >
                     <option value="amount">ลดเป็นจำนวนเงิน (฿)</option>
                     <option value="percent">ลดเป็นเปอร์เซ็นต์ (%)</option>
