@@ -58,6 +58,17 @@ function MemberContent() {
         setRewards(rewardsRes.data as Reward[]);
       }
     })();
+
+    // Auto-init LIFF
+    const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+    if (liffId) {
+      liff.init({ liffId }).then(() => {
+        if (liff.isLoggedIn()) {
+          // If already logged in, automatically run login flow
+          handleLiffLogin();
+        }
+      }).catch(console.error);
+    }
   }, []);
 
   async function handleLiffLogin() {
@@ -77,9 +88,18 @@ function MemberContent() {
         return; // will redirect to login and come back
       }
 
-      const profile = await liff.getProfile();
-      const lineUserId = profile.userId;
-      const displayName = profile.displayName;
+      // ใช้วิธีใหม่ถ้าทำงานใน LINE App จะได้โปรไฟล์ไวขึ้น
+      let profile;
+      try {
+        profile = await liff.getProfile();
+      } catch (e) {
+        // ถ้าไม่ได้ ให้ลองวิธีธรรมดา
+        profile = liff.getDecodedIDToken();
+        if (!profile) throw new Error("ไม่สามารถดึงข้อมูลโปรไฟล์ได้");
+      }
+      
+      const lineUserId = profile.userId || profile.sub;
+      const displayName = profile.displayName || profile.name || "Member";
 
       // ค้นหาลูกค้าจาก LINE ID
       const { data: existingCust, error } = await supabase
