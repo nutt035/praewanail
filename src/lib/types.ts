@@ -29,7 +29,7 @@ export interface Reward {
   title: string;
   description: string | null;
   points_required: number;
-  value: number;
+  value: number | string;
   reward_type: "amount" | "percent" | "free_service" | "points";
   category: string | null;
   is_active: boolean;

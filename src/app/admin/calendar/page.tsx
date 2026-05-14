@@ -243,9 +243,9 @@ export default function CalendarPage() {
       if (selectedCoupon && selectedCoupon.rewards) {
         const reward = selectedCoupon.rewards;
         if (reward.reward_type === "amount") {
-          finalPrice = Math.max(0, finalPrice - reward.value);
+          finalPrice = Math.max(0, finalPrice - (Number(reward.value) || 0));
         } else if (reward.reward_type === "percent") {
-          finalPrice = Math.max(0, finalPrice - Math.round(completeFinalPrice * (reward.value / 100)));
+          finalPrice = Math.max(0, finalPrice - Math.round(completeFinalPrice * ((Number(reward.value) || 0) / 100)));
         }
       }
       const deposit = booking.deposit || 0;
@@ -301,7 +301,8 @@ export default function CalendarPage() {
         let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
         if (selectedCoupon) {
           const reward = selectedCoupon.rewards;
-          const disc = reward.reward_type === "amount" ? reward.value : (reward.reward_type === "percent" ? Math.round(completeFinalPrice * (reward.value / 100)) : 0);
+          const val = Number(reward.value) || 0;
+          const disc = reward.reward_type === "amount" ? val : (reward.reward_type === "percent" ? Math.round(completeFinalPrice * (val / 100)) : 0);
           adminMsg += `\n🎟️ ใช้คูปอง: ${reward.title} (-฿${disc.toLocaleString()})`;
         }
         adminMsg += `\n\n📄 ดูใบเสร็จ: ${receiptUrl}`;

@@ -6,13 +6,23 @@ import { Reward } from "@/lib/types";
 import { Plus, Edit2, Trash2, Gift, Save, X } from "lucide-react";
 import toast from "react-hot-toast";
 
+type RewardFormData = {
+  title: string;
+  description: string;
+  points_required: number;
+  value: number | string;
+  reward_type: Reward["reward_type"];
+  category: string;
+  is_active: boolean;
+};
+
 export default function RewardsAdminPage() {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RewardFormData>({
     title: "",
     description: "",
     points_required: 5,
