@@ -184,7 +184,7 @@ export default function PromotionsPage() {
             <div>
               <p className="text-xs text-slate-400">โปรลดราคา</p>
               <p className="text-xl font-bold text-brand-dark">
-                {promotions.filter((p) => p.promotion_type !== "announcement" && p.is_active).length} โปร
+                {promotions.filter((p) => p.promotion_type === "discount" && p.is_active).length} โปร
               </p>
             </div>
           </div>
