@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { Booking, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift } from "lucide-react";
 import toast from "react-hot-toast";
 

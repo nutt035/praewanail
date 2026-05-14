@@ -41,9 +41,14 @@ export default function HowToPage() {
                   ให้นำโค้ด <iframe> ของ YouTube มาวางแทนที่เนื้อหาใน div นี้
                   ตัวอย่าง: <iframe className="w-full h-full" src="https://www.youtube.com/embed/XXXXXX" frameBorder="0" allowFullScreen></iframe>
                 */}
-                <PlayCircle className="w-12 h-12 mb-3 text-pink-300 group-hover:text-pink-400 transition-colors" />
-                <p className="text-sm font-medium text-gray-500">พื้นที่สำหรับวิดีโอ YouTube</p>
-                <p className="text-xs mt-1 text-gray-400">(รอการนำโค้ด iframe มาใส่)</p>
+                <iframe
+                  className="w-full h-full"
+                  src="https://www.youtube.com/embed/OvTBX1JmNB4"
+                  title="วิธีการจองคิวทำเล็บ - Antonette Nail"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  loading="lazy"
+                ></iframe>
               </div>
             </div>
           </section>
