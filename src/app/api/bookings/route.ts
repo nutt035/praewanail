@@ -125,8 +125,8 @@ export async function POST(req: NextRequest) {
 
       const svcNames = bookingServiceRows.map(r => r.service_name).join(", ");
       const thDate = new Date(`${date}T${startTime}:00+07:00`);
-      const dateStr = thDate.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short" });
-      const timeStr = thDate.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+      const dateStr = thDate.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", weekday: "short", day: "numeric", month: "short" });
+      const timeStr = thDate.toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
       
       const message = `💅 <b>คิวใหม่! (Online)</b>\n\n👤 ${customerName}\n📞 ${phone}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n🆔 ${bookingCode}\n\n✨ <i>ยืนยันคิวในหน้าระบบได้เลยค่ะ</i>`;
 

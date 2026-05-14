@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Search, Trophy, Phone, User, Calendar, Star, Sparkles, ChevronLeft, CreditCard, Gift, Loader2 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { Reward, CustomerCoupon, Customer, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
+import liff from "@line/liff";
 
 function MemberContent() {
   const searchParams = useSearchParams();
@@ -49,18 +50,71 @@ function MemberContent() {
     }
 
     (async () => {
-      const [settingsRes, rewardsRes] = await Promise.all([
-        supabase.from("shop_settings").select("*"),
-        supabase.from("rewards").select("*").eq("is_active", true).order("points_required", { ascending: true })
-      ]);
-      if (settingsRes.data && settingsRes.data.length > 0) {
-        setSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(settingsRes.data as ShopSettings[]) });
-      }
+      const { data: setData } = await supabase.from("shop_settings").select("*");
+      if (setData && setData.length > 0) setSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(setData as ShopSettings[]) });
+
+      const rewardsRes = await supabase.from("rewards").select("*").eq("is_active", true).order("points_required", { ascending: true });
       if (rewardsRes.data) {
         setRewards(rewardsRes.data as Reward[]);
       }
     })();
   }, []);
+
+  async function handleLiffLogin() {
+    try {
+      setLoading(true);
+      const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+      if (!liffId) {
+        toast.error("ยังไม่ได้ตั้งค่า LIFF ID");
+        setLoading(false);
+        return;
+      }
+
+      await liff.init({ liffId });
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return; // will redirect to login and come back
+      }
+
+      const profile = await liff.getProfile();
+      const lineUserId = profile.userId;
+      const displayName = profile.displayName;
+
+      // ค้นหาลูกค้าจาก LINE ID
+      const { data: existingCust, error } = await supabase
+        .from("customers")
+        .select("*")
+        .eq("line_id", lineUserId)
+        .limit(1)
+        .single();
+
+      if (existingCust) {
+        // มีประวัติแล้ว เข้าสู่ระบบได้เลย
+        setCustomer(existingCust);
+        fetchMyCoupons(existingCust.id);
+        
+        if (!existingCust.name || !existingCust.birthdate) {
+          setRegName(existingCust.name || displayName);
+          setRegBirthdate(existingCust.birthdate || "");
+          setIsUpdatingInfo(true);
+        }
+      } else {
+        // ยังไม่เคยเป็นสมาชิก -> พาไปหน้าสมัคร
+        setCustomer(null);
+        setRegName(displayName);
+        // เก็บ state ไว้ตอนกดบันทึกให้ส่ง lineUserId ไปด้วย (กรณีนี้เราแอบแนบไว้ใน URL หรือ state ก็ได้)
+        // แต่ตอนนี้เราจะเปลี่ยน URL ให้มี link_line เหมือนเดิมเพื่อให้ liff สมูทขึ้น
+        window.history.replaceState({}, "", `/member?link_line=${lineUserId}&name=${encodeURIComponent(displayName)}`);
+        setIsRegistering(true);
+      }
+    } catch (err: any) {
+      console.error("LIFF Init Error:", err);
+      toast.error("เข้าสู่ระบบผ่าน LINE ไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function fetchMyCoupons(customerId: string) {
     const { data } = await supabase
@@ -316,10 +370,10 @@ function MemberContent() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">เบอร์โทรศัพท์</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">เบอร์โทรศัพท์ (ถ้ามี)</label>
                 <div className="relative">
                   <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} required className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-pink-400 outline-none transition-all font-medium text-slate-700" placeholder="08X-XXX-XXXX" />
+                  <input type="tel" value={regPhone} onChange={e => setRegPhone(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-pink-400 outline-none transition-all font-medium text-slate-700" placeholder="08X-XXX-XXXX" />
                 </div>
               </div>
               <div>
@@ -354,12 +408,16 @@ function MemberContent() {
             </div>
 
             {!linkLineId && (
-              <a href="/api/auth/line" className="w-full bg-[#06C755] hover:bg-[#05b34c] text-white font-bold py-4 px-4 rounded-2xl shadow-lg shadow-green-200/50 transition-all flex items-center justify-center gap-2 active:scale-[0.98] mb-4">
-                <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
-                  <path d="M22.28 11.23c0-4.88-4.9-8.86-10.9-8.86C5.37 2.37.47 6.35.47 11.23c0 4.38 3.93 8.09 9.17 8.76.36.08.85.24.97.55.11.28.07.7.03 1.09l-.15 1c-.04.28-.21 1.09.96.6 1.17-.49 6.29-3.7 8.65-6.39 1.4-1.63 2.18-3.47 2.18-5.61z"/>
-                </svg>
-                ล็อกอินด้วย LINE
-              </a>
+              <button onClick={handleLiffLogin} disabled={loading} className="w-full bg-[#06C755] hover:bg-[#05b34c] text-white font-bold py-4 px-4 rounded-2xl shadow-lg shadow-green-200/50 transition-all flex items-center justify-center gap-2 active:scale-[0.98] mb-4">
+                {loading ? <Loader2 size={24} className="animate-spin" /> : (
+                  <>
+                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-white">
+                      <path d="M22.28 11.23c0-4.88-4.9-8.86-10.9-8.86C5.37 2.37.47 6.35.47 11.23c0 4.38 3.93 8.09 9.17 8.76.36.08.85.24.97.55.11.28.07.7.03 1.09l-.15 1c-.04.28-.21 1.09.96.6 1.17-.49 6.29-3.7 8.65-6.39 1.4-1.63 2.18-3.47 2.18-5.61z"/>
+                    </svg>
+                    ล็อกอินด้วย LINE
+                  </>
+                )}
+              </button>
             )}
 
             <div className="flex items-center gap-4 my-6">

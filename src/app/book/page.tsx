@@ -34,6 +34,7 @@ export default function BookingPage() {
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [dayBookingCounts, setDayBookingCounts] = useState<Record<number, number>>({});
+  const [blockedSlotsMap, setBlockedSlotsMap] = useState<Record<string, Set<string>>>({});
 
   useEffect(() => {
     (async () => {
@@ -47,17 +48,38 @@ export default function BookingPage() {
     })();
   }, []);
 
-  // Fetch booking counts for calendar (with +07:00 offset)
+  // Fetch booking counts and blocked slots for calendar (with +07:00 offset)
   useEffect(() => {
     (async () => {
       const pad = (n: number) => String(n).padStart(2, "0");
       const startStr = `${calYear}-${pad(calMonth + 1)}-01T00:00:00+07:00`;
       const lastDay = new Date(calYear, calMonth + 1, 0).getDate();
       const endStr = `${calYear}-${pad(calMonth + 1)}-${pad(lastDay)}T23:59:59+07:00`;
-      const { data } = await supabase.from("bookings").select("start_time").gte("start_time", startStr).lte("start_time", endStr).neq("status", "cancelled");
+      const { data } = await supabase.from("bookings").select("start_time, end_time").gte("start_time", startStr).lte("start_time", endStr).neq("status", "cancelled");
+      
       const counts: Record<number, number> = {};
-      (data || []).forEach((b: any) => { const d = new Date(b.start_time).getDate(); counts[d] = (counts[d] || 0) + 1; });
+      const blockedMap: Record<string, Set<string>> = {};
+
+      (data || []).forEach((b: any) => { 
+        const startDate = new Date(b.start_time);
+        const endDate = new Date(b.end_time);
+        const d = startDate.getDate(); 
+        counts[d] = (counts[d] || 0) + 1; 
+
+        // คำนวณ Slot ที่ถูกจองไปแล้ว
+        const dateStr = `${calYear}-${pad(calMonth + 1)}-${pad(d)}`;
+        if (!blockedMap[dateStr]) blockedMap[dateStr] = new Set();
+        
+        let curr = new Date(startDate.getTime());
+        while (curr < endDate) {
+          const hours = String(curr.getHours()).padStart(2, "0");
+          const mins = String(curr.getMinutes()).padStart(2, "0");
+          blockedMap[dateStr].add(`${hours}:${mins}`);
+          curr = new Date(curr.getTime() + 30 * 60000); // +30 mins
+        }
+      });
       setDayBookingCounts(counts);
+      setBlockedSlotsMap(blockedMap);
     })();
   }, [calMonth, calYear]);
 
@@ -91,9 +113,21 @@ export default function BookingPage() {
   const openH = parseInt(openH_str.split(":")[0]);
   const closeH = parseInt(closeH_str.split(":")[0]);
   const timeSlots: string[] = [];
+  const now = new Date();
+  const isToday = date === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+
   for (let h = openH; h < closeH; h++) {
-    timeSlots.push(`${String(h).padStart(2, "0")}:00`);
-    timeSlots.push(`${String(h).padStart(2, "0")}:30`);
+    const time1 = `${String(h).padStart(2, "0")}:00`;
+    const time2 = `${String(h).padStart(2, "0")}:30`;
+    
+    // ถ้าเป็นวันนี้ ไม่ให้จองเวลาที่ผ่านไปแล้ว (เผื่อเวลาเตรียมตัว 30 นาที)
+    const isPast1 = isToday && (h < currentHour || (h === currentHour && currentMin >= -30));
+    const isPast2 = isToday && (h < currentHour || (h === currentHour && currentMin >= 0));
+
+    if (!isPast1) timeSlots.push(time1);
+    if (!isPast2) timeSlots.push(time2);
   }
 
   const canNext = step === 0 ? selected.length > 0 : step === 1 ? date && time : step === 2 ? name && phone : true;
@@ -241,12 +275,19 @@ export default function BookingPage() {
               <div className="bg-white rounded-2xl border border-pink-100 p-5">
                 <h4 className="text-sm font-semibold text-brand-dark mb-3 flex items-center gap-2"><Clock size={14} className="text-rose-400" /> เลือกเวลา</h4>
                 <div className="grid grid-cols-4 gap-2">
-                  {timeSlots.map(t => (
-                    <button key={t} onClick={() => setTime(t)}
-                      className={`py-2 rounded-xl text-sm font-medium border transition-all ${time === t ? "bg-rose-400 text-white border-transparent shadow-sm" : "bg-white text-slate-600 border-pink-100 hover:border-rose-300"}`}>
-                      {t}
-                    </button>
-                  ))}
+                  {timeSlots.map(t => {
+                    const isBlocked = blockedSlotsMap[date]?.has(t);
+                    return (
+                      <button key={t} disabled={isBlocked} onClick={() => setTime(t)}
+                        className={`py-2 rounded-xl text-sm font-medium border transition-all ${
+                          isBlocked ? "bg-slate-50 text-slate-300 border-slate-100 line-through cursor-not-allowed" 
+                          : time === t ? "bg-rose-400 text-white border-transparent shadow-sm" 
+                          : "bg-white text-slate-600 border-pink-100 hover:border-rose-300"
+                        }`}>
+                        {t}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
     for (const booking of upcomingBookings) {
       const customerName = booking.customers?.name || "ลูกค้า";
-      const startTime = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+      const startTime = new Date(booking.start_time).toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
       
       // 3. แจ้งแอดมินทาง Telegram
       if (settings.telegram_bot_token && settings.telegram_chat_id) {
