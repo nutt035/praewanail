@@ -48,6 +48,7 @@ export default function CalendarPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(today);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -63,6 +64,7 @@ export default function CalendarPage() {
   // Confirm dialog (ยืนยันคิว + ใส่ราคา)
   const [showConfirmDialog, setShowConfirmDialog] = useState<Booking | null>(null);
   const [confirmPrice, setConfirmPrice] = useState<number>(0);
+  const [selectedPromoId, setSelectedPromoId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
   // Receipt
@@ -95,6 +97,8 @@ export default function CalendarPage() {
       if (data && data.length > 0) {
         setShopSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) });
       }
+      const { data: promoData } = await supabase.from("promotions").select("*").eq("is_active", true);
+      if (promoData) setPromotions(promoData as Promotion[]);
     })();
   }, [fetchBookings]);
 
@@ -171,6 +175,7 @@ export default function CalendarPage() {
     setSelectedBooking(null);
     setShowConfirmDialog(booking);
     setConfirmPrice(booking.total_price || 0);
+    setSelectedPromoId(booking.promotion_id);
   }
 
   async function confirmBooking() {
@@ -181,7 +186,11 @@ export default function CalendarPage() {
     try {
       const { error } = await supabase
         .from("bookings")
-        .update({ status: "confirmed", total_price: confirmPrice })
+        .update({
+          status: "confirmed",
+          total_price: confirmPrice,
+          promotion_id: selectedPromoId
+        })
         .eq("id", booking.id);
       if (error) throw error;
 
@@ -230,9 +239,17 @@ export default function CalendarPage() {
       if (updateError) throw updateError;
 
       // 2. บันทึก transaction รายรับ (ยอดที่เหลือหลังหักมัดจำ)
-      const totalPrice = completeFinalPrice;
+      let finalPrice = completeFinalPrice;
+      if (selectedCoupon && selectedCoupon.rewards) {
+        const reward = selectedCoupon.rewards;
+        if (reward.reward_type === "amount") {
+          finalPrice = Math.max(0, finalPrice - reward.value);
+        } else if (reward.reward_type === "percent") {
+          finalPrice = Math.max(0, finalPrice - Math.round(completeFinalPrice * (reward.value / 100)));
+        }
+      }
       const deposit = booking.deposit || 0;
-      const remaining = Math.max(0, totalPrice - deposit);
+      const remaining = Math.max(0, finalPrice - deposit);
 
       if (remaining > 0) {
         await supabase.from("transactions").insert([{
@@ -278,12 +295,17 @@ export default function CalendarPage() {
 
       // 4. ส่งการแจ้งเตือน
       const receiptUrl = `${window.location.origin}/receipt/${booking.id}`;
-      
+
       // 4.1 หาแอดมิน (Telegram)
       if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
-        let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
-        if (selectedCoupon) adminMsg += `\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}`;
-        
+        let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
+        if (selectedCoupon) {
+          const reward = selectedCoupon.rewards;
+          const disc = reward.reward_type === "amount" ? reward.value : (reward.reward_type === "percent" ? Math.round(completeFinalPrice * (reward.value / 100)) : 0);
+          adminMsg += `\n🎟️ ใช้คูปอง: ${reward.title} (-฿${disc.toLocaleString()})`;
+        }
+        adminMsg += `\n\n📄 ดูใบเสร็จ: ${receiptUrl}`;
+
         const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
         const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
         chatIds.forEach(id => fetch(url, {
@@ -292,6 +314,7 @@ export default function CalendarPage() {
           body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: "HTML" })
         }).catch(() => {}));
       }
+
 
       // 4.2 หาลูกค้า (LINE) ถ้าลูกค้ามี line_id
       const customerLineId = booking.customers?.line_id;
@@ -599,6 +622,28 @@ export default function CalendarPage() {
                   <Clock size={12} /> {formatDate(showConfirmDialog.start_time)} · {formatTime(showConfirmDialog.start_time)}
                 </p>
               </div>
+
+              {/* เลือกโปรโมชั่น */}
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">โปรโมชั่น / บุฟเฟ่ต์</label>
+                <select
+                  className="w-full px-4 py-2 rounded-xl border border-blue-200 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                  value={selectedPromoId || ""}
+                  onChange={e => {
+                    const promoId = e.target.value;
+                    setSelectedPromoId(promoId || null);
+                    const promo = promotions.find(p => p.id === promoId);
+                    if (promo) setConfirmPrice(promo.price);
+                  }}
+                >
+                  <option value="">-- ไม่มีโปรโมชั่น (ราคาปกติ) --</option>
+                  {promotions.map(p => (
+                    <option key={p.id} value={p.id}>{p.title} (฿{p.price})</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400">เลือกโปรบุฟเฟ่ต์เพื่อตั้งราคาเหมาทันที</p>
+              </div>
+
               {/* ใส่ราคา */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5">ราคาทำเล็บ (฿) *</label>

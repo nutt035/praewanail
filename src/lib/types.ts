@@ -29,7 +29,9 @@ export interface Reward {
   title: string;
   description: string | null;
   points_required: number;
-  discount_value: number;
+  value: number;
+  reward_type: "amount" | "percent" | "free_service" | "points";
+  category: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -91,6 +93,7 @@ export interface Booking {
   design_image_url: string | null; // รูปแบบเล็บจาก LINE
   final_price: number | null;      // ราคาสุดท้ายหลัง admin ยืนยัน
   has_line_linked: boolean;        // ผูก LINE แล้วหรือยัง
+  promotion_id: string | null;     // โปรโมชั่นที่ใช้ (Buffet/Bundle)
   created_at: string;
   // relations (joined)
   customers?: Customer | null;
@@ -123,8 +126,8 @@ export interface Promotion {
   id: string;
   title: string;
   description: string | null;
-  discount_type: "percent" | "amount" | "announcement";
-  discount_value: number;
+  promotion_type: "buffet" | "bundle" | "discount";
+  price: number;
   valid_from: string | null;  // DATE string
   valid_to: string | null;    // DATE string
   is_active: boolean;

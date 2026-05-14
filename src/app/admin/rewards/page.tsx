@@ -16,7 +16,9 @@ export default function RewardsAdminPage() {
     title: "",
     description: "",
     points_required: 5,
-    discount_value: 50,
+    value: 50,
+    reward_type: "amount",
+    category: "",
     is_active: true,
   });
 
@@ -38,7 +40,9 @@ export default function RewardsAdminPage() {
       title: r.title,
       description: r.description || "",
       points_required: r.points_required,
-      discount_value: r.discount_value,
+      value: r.value,
+      reward_type: r.reward_type,
+      category: r.category || "",
       is_active: r.is_active,
     });
     setEditingId(r.id);
@@ -46,14 +50,22 @@ export default function RewardsAdminPage() {
   }
 
   function handleAdd() {
-    setFormData({ title: "", description: "", points_required: 5, discount_value: 50, is_active: true });
+    setFormData({
+      title: "",
+      description: "",
+      points_required: 5,
+      value: 50,
+      reward_type: "amount",
+      category: "",
+      is_active: true
+    });
     setEditingId(null);
     setShowModal(true);
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!formData.title || formData.points_required <= 0 || formData.discount_value <= 0) {
+    if (!formData.title || formData.points_required <= 0) {
       toast.error("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
@@ -68,7 +80,7 @@ export default function RewardsAdminPage() {
       if (error) toast.error("เกิดข้อผิดพลาด", { id: t });
       else toast.success("เพิ่มเรียบร้อย", { id: t });
     }
-    
+
     setShowModal(false);
     fetchRewards();
   }
@@ -124,7 +136,12 @@ export default function RewardsAdminPage() {
               {r.description && <p className="text-xs text-slate-400 mb-3">{r.description}</p>}
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-50">
                 <span className="text-sm text-slate-500">มูลค่าคูปอง:</span>
-                <span className="font-bold text-emerald-500">ส่วนลด ฿{r.discount_value}</span>
+                <span className="font-bold text-emerald-500">
+                  {r.reward_type === "amount" && `ส่วนลด ฿${r.value}`}
+                  {r.reward_type === "percent" && `ส่วนลด ${r.value}%`}
+                  {r.reward_type === "free_service" && `บริการฟรี: ${r.value}`}
+                  {r.reward_type === "points" && `แลกแต้ม: ${r.value} แต้ม`}
+                </span>
               </div>
             </div>
           ))
@@ -140,9 +157,15 @@ export default function RewardsAdminPage() {
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:bg-slate-100 p-1 rounded-md"><X size={20} /></button>
             </div>
             <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div>
-                <label className="form-label">ชื่อคูปอง / ของรางวัล</label>
-                <input required type="text" className="input-field" placeholder="เช่น ส่วนลด 50 บาท" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="form-label">ชื่อคูปอง / ของรางวัล</label>
+                  <input required type="text" className="input-field" placeholder="เช่น ส่วนลดวันเกิด" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                </div>
+                <div className="col-span-2">
+                  <label className="form-label">หมวดหมู่ (เช่น โปรโมชั่น, วันเกิด)</label>
+                  <input type="text" className="input-field" placeholder="เช่น Birthday" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} />
+                </div>
               </div>
               <div>
                 <label className="form-label">รายละเอียด (บอกเงื่อนไขถ้ามี)</label>
@@ -150,19 +173,43 @@ export default function RewardsAdminPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">ใช้แต้มกี่แต้ม?</label>
-                  <input required type="number" min={1} className="input-field text-rose-500 font-bold" value={formData.points_required} onChange={e => setFormData({...formData, points_required: Number(e.target.value)})} />
+                  <label className="form-label">ประเภทรางวัล</label>
+                  <select
+                    className="input-field"
+                    value={formData.reward_type}
+                    onChange={e => setFormData({...formData, reward_type: e.target.value})}
+                  >
+                    <option value="amount">ลดเป็นจำนวนเงิน (฿)</option>
+                    <option value="percent">ลดเป็นเปอร์เซ็นต์ (%)</option>
+                    <option value="free_service">บริการฟรี (ระบุชื่อ)</option>
+                    <option value="points">แลกแต้มเพิ่ม</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="form-label">มูลค่าส่วนลด (บาท)</label>
-                  <input required type="number" min={1} className="input-field text-emerald-500 font-bold" value={formData.discount_value} onChange={e => setFormData({...formData, discount_value: Number(e.target.value)})} />
+                  <label className="form-label">ใช้ {formData.reward_type === "points" ? "แต้มที่ต้องใช้" : "แต้มแลก"}</label>
+                  <input required type="number" min={1} className="input-field text-rose-500 font-bold" value={formData.points_required} onChange={e => setFormData({...formData, points_required: Number(e.target.value)})} />
                 </div>
+              </div>
+              <div>
+                <label className="form-label">
+                  {formData.reward_type === "amount" && "มูลค่าส่วนลด (บาท)"}
+                  {formData.reward_type === "percent" && "เปอร์เซ็นต์ส่วนลด (%)"}
+                  {formData.reward_type === "free_service" && "ชื่อบริการที่แถมฟรี"}
+                  {formData.reward_type === "points" && "จำนวนแต้มที่จะได้รับ"}
+                </label>
+                <input
+                  required
+                  type={formData.reward_type === "free_service" ? "text" : "number"}
+                  className={`input-field font-bold ${formData.reward_type === "amount" || formData.reward_type === "points" ? "text-emerald-500" : ""}`}
+                  value={formData.value}
+                  onChange={e => setFormData({...formData, value: formData.reward_type === "free_service" ? e.target.value : Number(e.target.value)})}
+                />
               </div>
               <label className="flex items-center gap-2 mt-2 cursor-pointer">
                 <input type="checkbox" checked={formData.is_active} onChange={e => setFormData({...formData, is_active: e.target.checked})} className="w-4 h-4 text-rose-500 focus:ring-rose-400 border-gray-300 rounded" />
                 <span className="text-sm font-medium text-slate-700">เปิดใช้งานให้ลูกค้าแลกได้</span>
               </label>
-              
+
               <div className="flex gap-3 pt-4 border-t border-slate-50">
                 <button type="button" onClick={() => setShowModal(false)} className="btn-ghost flex-1">ยกเลิก</button>
                 <button type="submit" className="btn-primary flex-1 justify-center"><Save size={16} /> บันทึก</button>

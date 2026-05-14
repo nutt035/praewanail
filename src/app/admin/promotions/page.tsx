@@ -5,17 +5,17 @@ import { supabase } from "@/lib/supabase";
 import { Promotion } from "@/lib/types";
 import {
   Plus, Pencil, Trash2, X, Tag, Calendar, ToggleLeft, ToggleRight,
-  Loader2, Save, Megaphone, Percent, Banknote,
+  Loader2, Save, Sparkles, Banknote,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
-type DiscountType = "percent" | "amount" | "announcement";
+type PromoType = "buffet" | "bundle" | "discount";
 
 const emptyForm = {
   title: "",
   description: "",
-  discount_type: "announcement" as DiscountType,
-  discount_value: 0,
+  promotion_type: "buffet" as PromoType,
+  price: 0,
   valid_from: "",
   valid_to: "",
   is_active: true,
@@ -36,10 +36,10 @@ const STATUS_CONFIG = {
   inactive: { label: "ปิดอยู่", class: "bg-rose-50 text-rose-400 border-rose-100" },
 };
 
-const TYPE_CONFIG: Record<DiscountType, { label: string; icon: React.ReactNode; color: string }> = {
-  percent: { label: "ลด %", icon: <Percent size={13} />, color: "text-violet-600 bg-violet-50" },
-  amount: { label: "ลดเป็นบาท", icon: <Banknote size={13} />, color: "text-emerald-600 bg-emerald-50" },
-  announcement: { label: "ประกาศ", icon: <Megaphone size={13} />, color: "text-rose-500 bg-rose-50" },
+const TYPE_CONFIG: Record<PromoType, { label: string; icon: React.ReactNode; color: string }> = {
+  buffet: { label: "บุฟเฟ่ต์", icon: <Sparkles size={13} />, color: "text-rose-600 bg-rose-50" },
+  bundle: { label: "ชุดคอมโบ", icon: <Tag size={13} />, color: "text-violet-600 bg-violet-50" },
+  discount: { label: "ลดราคา", icon: <Banknote size={13} />, color: "text-emerald-600 bg-emerald-50" },
 };
 
 function formatDate(iso: string | null) {
@@ -78,8 +78,8 @@ export default function PromotionsPage() {
     setForm({
       title: promo.title,
       description: promo.description || "",
-      discount_type: promo.discount_type,
-      discount_value: promo.discount_value,
+      promotion_type: promo.promotion_type,
+      price: promo.price,
       valid_from: promo.valid_from || "",
       valid_to: promo.valid_to || "",
       is_active: promo.is_active,
@@ -89,16 +89,16 @@ export default function PromotionsPage() {
 
   async function savePromo() {
     if (!form.title.trim()) { toast.error("กรุณาใส่ชื่อโปรโมชั่น"); return; }
-    if (form.discount_type !== "announcement" && form.discount_value <= 0) {
-      toast.error("กรุณาใส่ค่าส่วนลด"); return;
+    if (form.price <= 0) {
+      toast.error("กรุณาใส่ราคาโปรโมชั่น"); return;
     }
     setSaving(true);
 
     const payload = {
       title: form.title,
       description: form.description || null,
-      discount_type: form.discount_type,
-      discount_value: form.discount_type === "announcement" ? 0 : form.discount_value,
+      promotion_type: form.promotion_type,
+      price: form.price,
       valid_from: form.valid_from || null,
       valid_to: form.valid_to || null,
       is_active: form.is_active,
@@ -236,8 +236,7 @@ export default function PromotionsPage() {
                       </span>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${typeCfg.color}`}>
                         {typeCfg.label}
-                        {promo.discount_type === "percent" && promo.discount_value > 0 && ` ${promo.discount_value}%`}
-                        {promo.discount_type === "amount" && promo.discount_value > 0 && ` ฿${promo.discount_value}`}
+                        {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" ? ` ฿${promo.price}` : ""}
                       </span>
                     </div>
                     {promo.description && (
@@ -307,18 +306,18 @@ export default function PromotionsPage() {
                 />
               </div>
 
-              {/* ประเภทส่วนลด */}
+              {/* ประเภทโปรโมชั่น */}
               <div>
-                <label className="form-label">ประเภทโปร</label>
+                <label className="form-label">ประเภทโปรโมชั่น</label>
                 <div className="grid grid-cols-3 gap-2 mt-1">
-                  {(["announcement", "percent", "amount"] as DiscountType[]).map((type) => {
+                  {(["buffet", "bundle", "discount"] as PromoType[]).map((type) => {
                     const cfg = TYPE_CONFIG[type];
                     return (
                       <button
                         key={type}
                         type="button"
-                        onClick={() => setForm((f) => ({ ...f, discount_type: type }))}
-                        className={`py-2 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${form.discount_type === type
+                        onClick={() => setForm((f) => ({ ...f, promotion_type: type }))}
+                        className={`py-2 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${form.promotion_type === type
                           ? "bg-rose-400 text-white border-transparent"
                           : "bg-white text-slate-500 border-pink-100 hover:border-rose-200"
                         }`}
@@ -329,28 +328,25 @@ export default function PromotionsPage() {
                     );
                   })}
                 </div>
-                {form.discount_type === "announcement" && (
-                  <p className="text-xs text-slate-400 mt-1.5">📢 แสดงเป็นประกาศ ไม่มีการคำนวณส่วนลดอัตโนมัติ</p>
+                {form.promotion_type === "buffet" && (
+                  <p className="text-xs text-rose-400 mt-1.5">✨ โปรบุฟเฟ่ต์: เหมาจ่ายราคาเดียว ทำได้ไม่อั้น!</p>
                 )}
               </div>
 
-              {/* ค่าส่วนลด */}
-              {form.discount_type !== "announcement" && (
-                <div>
-                  <label className="form-label">
-                    {form.discount_type === "percent" ? "ส่วนลด (%)" : "ส่วนลด (บาท)"}
-                  </label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    value={form.discount_value}
-                    min={0}
-                    max={form.discount_type === "percent" ? 100 : undefined}
-                    onChange={(e) => setForm((f) => ({ ...f, discount_value: Number(e.target.value) }))}
-                    placeholder={form.discount_type === "percent" ? "เช่น 20" : "เช่น 100"}
-                  />
-                </div>
-              )}
+              {/* ราคาโปรโมชั่น */}
+              <div>
+                <label className="form-label">
+                  {form.promotion_type === "discount" ? "มูลค่าส่วนลด (บาท)" : "ราคาโปรโมชั่น (บาท)"}
+                </label>
+                <input
+                  type="number"
+                  className="input-field"
+                  value={form.price}
+                  min={0}
+                  onChange={(e) => setForm((f) => ({ ...f, price: Number(e.target.value) }))}
+                  placeholder={form.promotion_type === "discount" ? "เช่น 100" : "เช่น 129"}
+                />
+              </div>
 
               {/* รายละเอียด */}
               <div>

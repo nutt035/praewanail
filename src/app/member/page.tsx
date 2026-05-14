@@ -89,7 +89,7 @@ function MemberContent() {
       }
 
       // ใช้วิธีใหม่ถ้าทำงานใน LINE App จะได้โปรไฟล์ไวขึ้น
-      let profile;
+      let profile: any;
       try {
         profile = await liff.getProfile();
       } catch (e) {

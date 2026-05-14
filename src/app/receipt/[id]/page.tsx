@@ -144,7 +144,7 @@ export default function PublicReceiptPage() {
               )}
               <div className="h-px bg-slate-200 my-1" />
               <div className="flex justify-between items-center">
-                <span className="text-brand-dark font-bold">ยอดคงเหลือ</span>
+                <span className="text-brand-dark font-bold">{isCompleted ? "ยอดชำระรวม" : "ยอดคงเหลือ"}</span>
                 <span className="text-2xl font-black text-rose-500">฿{remaining.toLocaleString()}</span>
               </div>
             </div>
@@ -166,18 +166,18 @@ export default function PublicReceiptPage() {
                 <span className="text-[10px] font-bold uppercase tracking-widest">โทร</span>
               </a>
             )}
-            <div className="flex flex-col items-center gap-1">
+            <a href={shopSettings.shop_location_url || "https://maps.app.goo.gl/your-link"} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1 hover:text-rose-500 transition-colors">
               <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center">
                 <MapPin size={18} />
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest">พิกัดร้าน</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
+            </a>
+            <a href={shopSettings.shop_review_url || "https://facebook.com/your-reviews"} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1 hover:text-rose-500 transition-colors">
               <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center">
                 <Sparkles size={18} />
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest">รีวิว</span>
-            </div>
+            </a>
           </div>
           
           <p className="text-[10px] text-slate-300 font-medium uppercase tracking-[0.2em]">
