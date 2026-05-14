@@ -184,7 +184,7 @@ export default function PromotionsPage() {
             <div>
               <p className="text-xs text-slate-400">โปรลดราคา</p>
               <p className="text-xl font-bold text-brand-dark">
-                {promotions.filter((p) => p.discount_type !== "announcement" && p.is_active).length} โปร
+                {promotions.filter((p) => p.promotion_type !== "announcement" && p.is_active).length} โปร
               </p>
             </div>
           </div>
@@ -215,7 +215,7 @@ export default function PromotionsPage() {
           {promotions.map((promo) => {
             const status = getPromoStatus(promo);
             const statusCfg = STATUS_CONFIG[status];
-            const typeCfg = TYPE_CONFIG[promo.discount_type];
+            const typeCfg = TYPE_CONFIG[promo.promotion_type];
             return (
               <div
                 key={promo.id}
