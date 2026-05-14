@@ -319,9 +319,9 @@ export default function CalendarPage() {
       // 4.2 หาลูกค้า (LINE) ถ้าลูกค้ามี line_id
       const customerLineId = booking.customers?.line_id;
       if (shopSettings.line_channel_token && customerLineId) {
-        let custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
+        let custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
         if (selectedCoupon) {
-          custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}\n💰 ยอดชำระหลังหักส่วนลด: ฿${totalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
+          custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}\n💰 ยอดชำระหลังหักส่วนลด: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
         }
         
         fetch("https://api.line.me/v2/bot/message/push", {
