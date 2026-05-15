@@ -69,9 +69,14 @@ export default function HowToPage() {
             <div className="p-6">
               {/* YouTube Placeholder */}
               <div className="aspect-video bg-gray-50 rounded-2xl flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 relative overflow-hidden group hover:bg-gray-100 transition-colors">
-                <PlayCircle className="w-12 h-12 mb-3 text-amber-300 group-hover:text-amber-400 transition-colors" />
-                <p className="text-sm font-medium text-gray-500">พื้นที่สำหรับวิดีโอ YouTube</p>
-                <p className="text-xs mt-1 text-gray-400">(รอการนำโค้ด iframe มาใส่)</p>
+                <iframe
+                  className="w-full h-full"
+                  src="https://www.youtube.com/embed/V5zH24eOy6k"
+                  title="ระบบสมาชิกและสะสมแต้ม - Antonette Nail"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  loading="lazy"
+                ></iframe>
               </div>
             </div>
           </section>
