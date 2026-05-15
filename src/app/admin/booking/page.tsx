@@ -5,11 +5,14 @@ import { useSearchParams, useRouter } from "next/navigation";
 import {
   Save, Loader2, User, Phone, Scissors, CalendarDays, Clock, CreditCard,
   FileText, ChevronDown, Banknote, Plus, Trash2, Fingerprint, Tag, Heart, X, CheckCircle2, Trophy, Star,
-  Sparkles, Gift, Users, ScissorsIcon
+  Sparkles, Gift, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Booking } from "@/lib/types";
 import toast from "react-hot-toast";
+
+const [services, setServices] = useState<Service[]>([]);
+const [settings, setSettings] = useState<ShopSettings>(DEFAULT_SETTINGS);
 
 const paymentMethods = [
   { value: "cash", label: "💵 เงินสด" },
@@ -502,31 +505,6 @@ function BookingFormContent() {
           </div>
         </div>
 
-        <div className="card p-6">
-          <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2"><CalendarDays size={16} className="text-rose-400" /> วันที่และเวลา</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="form-label">วันที่</label>
-              <input type="date" name="date" value={formData.date} onChange={handleChange} className="input-field" required />
-            </div>
-            <div>
-              <label className="form-label">เวลาเริ่ม</label>
-              <div className="relative">
-                <Clock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="time" name="startTime" value={formData.startTime} onChange={handleChange} className="input-field pl-9" required />
-              </div>
-            </div>
-          </div>
-          {endTime && (
-            <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <Clock size={12} />
-                <span>เวลาสิ้นสุดโดยประมาณ</span>
-              </div>
-              <span className="text-xs font-bold text-brand-dark">{endTime} น.</span>
-            </div>
-          )}
-        </div>
         {!isPracticeModel && (
           <div className="card p-6">
             <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2"><Scissors size={16} className="text-rose-400" /> บริการที่ต้องการ <span className="text-rose-400">*</span></h3>
