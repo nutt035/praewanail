@@ -7,7 +7,7 @@ export interface Service {
   name: string;
   price: number;
   duration: number; // minutes
-  price_per_finger: number | null; 
+  price_per_finger: number | null;
   unit_name: string | null; // e.g., "นิ้ว", "ชิ้น"
   category: string | null;
   created_at: string;
@@ -128,9 +128,10 @@ export interface Promotion {
   description: string | null;
   promotion_type: "buffet" | "bundle" | "discount";
   price: number;
-  excluded_service_ids: string[] | null; // IDs of services NOT included in buffet (must pay extra)
-  valid_from: string | null;  // DATE string
-  valid_to: string | null;    // DATE string
+  duration: number | null; // <-- เพิ่มบรรทัดนี้เข้ามา
+  excluded_service_ids: string[] | null;
+  valid_from: string | null;
+  valid_to: string | null;
   is_active: boolean;
   created_at: string;
 }

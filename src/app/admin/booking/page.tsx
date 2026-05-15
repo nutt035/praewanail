@@ -11,9 +11,6 @@ import { supabase } from "@/lib/supabase";
 import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Booking } from "@/lib/types";
 import toast from "react-hot-toast";
 
-const [services, setServices] = useState<Service[]>([]);
-const [settings, setSettings] = useState<ShopSettings>(DEFAULT_SETTINGS);
-
 const paymentMethods = [
   { value: "cash", label: "💵 เงินสด" },
   { value: "promptpay", label: "📱 พร้อมเพย์" },
@@ -88,10 +85,13 @@ function BookingFormContent() {
 
   const servicesSubtotal = selectedItems.reduce((sum, item) => sum + item.lineTotal, 0);
 
-  // --- Buffet Logic ---
+  // --- Buffet Logic & Promotion Duration ---
   const activePromo = promotions.find(p => p.id === selectedPromotionId);
   const isBuffet = activePromo?.promotion_type === "buffet";
   const buffetBasePrice = isBuffet ? activePromo!.price : 0;
+
+  // ดึงเวลาของโปรโมชั่น (ถ้ามี) ถ้าไม่มีให้เป็น 0
+  const promoDuration = activePromo?.duration || 0;
 
   const subtotal = isPracticeModel ? materialCost : (isBuffet ? buffetBasePrice + servicesSubtotal : servicesSubtotal);
   const discountBaht = isPracticeModel ? 0 : calcDiscountBaht(subtotal, discountValue, discountType);
@@ -99,7 +99,9 @@ function BookingFormContent() {
   const totalPrice = Math.max(0, subtotal - discountBaht - pointsDiscount);
   const remaining = Math.max(0, totalPrice - Number(formData.deposit || 0));
 
-  const totalDuration = selectedItems.reduce((sum, item) => sum + item.service.duration, 0);
+  // คำนวณเวลารวม = (เวลาของบริการย่อยที่เลือก) + (เวลาของโปรโมชั่น)
+  const totalDuration = selectedItems.reduce((sum, item) => sum + item.service.duration, 0) + promoDuration;
+
   const endTime = (() => {
     if (!formData.startTime || totalDuration === 0) return "";
     const [h, m] = formData.startTime.split(":").map(Number);
@@ -109,7 +111,7 @@ function BookingFormContent() {
     return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
   })();
 
-  const isFormValid = formData.customerName && formData.date && formData.startTime && (isPracticeModel || selectedItems.length > 0);
+  const isFormValid = formData.customerName && formData.date && formData.startTime && (isPracticeModel || selectedItems.length > 0 || activePromo);
 
   useEffect(() => {
     fetchServices();
@@ -144,6 +146,10 @@ function BookingFormContent() {
     if (b.customers) setExistingCustomer(b.customers);
     setIsPracticeModel(b.is_practice_model);
     setMaterialCost(b.material_cost || 0);
+
+    // โหลดโปรโมชั่นที่เคยเลือกไว้
+    if (b.promotion_id) setSelectedPromotionId(b.promotion_id);
+
     if (b.discount_amount > 0) {
       setHasDiscount(true);
       setDiscountValue(b.discount_amount);
@@ -269,7 +275,7 @@ function BookingFormContent() {
     setExistingCustomer(null);
     setIsRedeemingPoints(false);
     setRedeemAmount(0);
-    if (editId) router.push("/admin/booking");
+    if (editId) router.push("/admin/calendar");
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -333,7 +339,7 @@ function BookingFormContent() {
         start_time: startDateTime,
         end_time: endDateTime,
         total_price: totalPrice,
-        promotion_id: selectedPromotionId,
+        promotion_id: selectedPromotionId === "custom" ? null : selectedPromotionId,
         deposit: formData.deposit ? Number(formData.deposit) : 0,
         payment_method: formData.paymentMethod,
         notes: isPracticeModel ? `[หุ่นลอง] ${formData.notes || ""}`.trim() : formData.notes || null,
@@ -505,6 +511,33 @@ function BookingFormContent() {
           </div>
         </div>
 
+        <div className="card p-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="form-label">วันที่ <span className="text-rose-400">*</span></label>
+              <div className="relative">
+                <CalendarDays size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="date" name="date" value={formData.date} onChange={handleChange} required className="input-field pl-9" />
+              </div>
+            </div>
+            <div>
+              <label className="form-label">เวลา <span className="text-rose-400">*</span></label>
+              <div className="relative">
+                <Clock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="time" name="startTime" value={formData.startTime} onChange={handleChange} required className="input-field pl-9" />
+              </div>
+            </div>
+          </div>
+          {/* แสดงเวลาสิ้นสุดและระยะเวลารวม */}
+          <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-500 flex items-center gap-2">
+            <Clock size={14} className="text-slate-400" />
+            <span>
+              รวมใช้เวลา: <strong>{totalDuration} นาที</strong>
+              {endTime && ` (สิ้นสุดเวลาประมาณ ${endTime} น.)`}
+            </span>
+          </div>
+        </div>
+
         {!isPracticeModel && (
           <div className="card p-6">
             <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2"><Scissors size={16} className="text-rose-400" /> บริการที่ต้องการ <span className="text-rose-400">*</span></h3>
@@ -542,9 +575,11 @@ function BookingFormContent() {
             <div className="md:col-span-2">
               <label className="form-label">เลือกโปรโมชั่น (ถ้ามี)</label>
               <select value={selectedPromotionId || ""} onChange={(e) => setSelectedPromotionId(e.target.value || null)} className="input-field">
-                <option value="">-- ไม่มีโปรโมชั่น --</option>
+                <option value="custom">-- ไม่มีโปรโมชั่น --</option>
                 {promotions.map(p => (
-                  <option key={p.id} value={p.id}>{p.title} ({p.price === 0 ? "ลดราคา" : `฿${p.price.toLocaleString()}`})</option>
+                  <option key={p.id} value={p.id}>
+                    {p.title} ({p.price === 0 ? "ลดราคา" : `฿${p.price.toLocaleString()}`}{p.duration ? ` - ${p.duration} นาที` : ''})
+                  </option>
                 ))}
               </select>
             </div>

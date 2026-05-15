@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Promotion, Service } from "@/lib/types";
 import {
   Plus, Pencil, Trash2, X, Tag, Calendar, ToggleLeft, ToggleRight,
-  Loader2, Save, Sparkles, Banknote, Megaphone, Percent, ScissorsIcon,
+  Loader2, Save, Sparkles, Banknote, Megaphone, Percent, Clock,
   Scissors
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -17,6 +17,7 @@ const emptyForm = {
   description: "",
   promotion_type: "buffet" as PromoType,
   price: 0,
+  duration: 120, // ค่าเริ่มต้น 120 นาที
   excluded_service_ids: [] as string[],
   valid_from: "",
   valid_to: "",
@@ -91,6 +92,7 @@ export default function PromotionsPage() {
       description: promo.description || "",
       promotion_type: promo.promotion_type,
       price: promo.price,
+      duration: promo.duration || 120, // โหลดค่าเวลาเดิม
       excluded_service_ids: promo.excluded_service_ids || [],
       valid_from: promo.valid_from || "",
       valid_to: promo.valid_to || "",
@@ -111,6 +113,7 @@ export default function PromotionsPage() {
       description: form.description || null,
       promotion_type: form.promotion_type,
       price: form.price,
+      duration: form.promotion_type !== "discount" ? form.duration : null, // บันทึกเวลาเฉพาะที่เป็นโปรเหมา
       excluded_service_ids: form.excluded_service_ids,
       valid_from: form.valid_from || null,
       valid_to: form.valid_to || null,
@@ -252,6 +255,11 @@ export default function PromotionsPage() {
                         {typeCfg.label}
                         {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" ? ` ฿${promo.price}` : ""}
                       </span>
+                      {promo.duration && (
+                        <span className="flex items-center gap-1 text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                          <Clock size={10} /> {promo.duration} นาที
+                        </span>
+                      )}
                     </div>
                     {promo.description && (
                       <p className="text-xs text-slate-500 mb-2 line-clamp-2">{promo.description}</p>
@@ -347,19 +355,39 @@ export default function PromotionsPage() {
                 )}
               </div>
 
-              {/* ราคาโปรโมชั่น */}
-              <div>
-                <label className="form-label">
-                  {form.promotion_type === "discount" ? "มูลค่าส่วนลด (บาท)" : "ราคาโปรโมชั่น (บาท)"}
-                </label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={form.price}
-                  min={0}
-                  onChange={(e) => setForm((f) => ({ ...f, price: Number(e.target.value) }))}
-                  placeholder={form.promotion_type === "discount" ? "เช่น 100" : "เช่น 129"}
-                />
+              {/* ราคาโปรโมชั่น & ระยะเวลา */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label">
+                    {form.promotion_type === "discount" ? "มูลค่าส่วนลด (บาท)" : "ราคาโปรโมชั่น (บาท)"}
+                  </label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={form.price}
+                    min={0}
+                    onChange={(e) => setForm((f) => ({ ...f, price: Number(e.target.value) }))}
+                    placeholder={form.promotion_type === "discount" ? "เช่น 100" : "เช่น 129"}
+                  />
+                </div>
+
+                {/* 📌 ช่องกรอกระยะเวลา (โชว์เฉพาะถ้าไม่ใช่โปรลดราคาธรรมดา) */}
+                {form.promotion_type !== "discount" && (
+                  <div>
+                    <label className="form-label flex items-center gap-1">
+                      <Clock size={12} className="text-slate-400" /> เวลาที่ใช้ (นาที)
+                    </label>
+                    <input
+                      type="number"
+                      className="input-field"
+                      value={form.duration || ""}
+                      min={0}
+                      onChange={(e) => setForm((f) => ({ ...f, duration: Number(e.target.value) }))}
+                      placeholder="เช่น 120"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">เวลาจองคิวสำหรับโปรนี้</p>
+                  </div>
+                )}
               </div>
 
               {/* รายละเอียด */}

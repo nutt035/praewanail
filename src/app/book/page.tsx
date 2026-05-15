@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS, getOpenClose, isClosedDay } from "@/lib/types";
+import { Service, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, getOpenClose, isClosedDay } from "@/lib/types";
 import {
   Sparkles, ChevronLeft, ChevronRight, Check, Scissors, Clock,
   CalendarDays, User, Phone, FileText, Loader2, ArrowRight,
@@ -21,6 +21,10 @@ interface SelectedService { id: string; name: string; duration: number; category
 export default function BookingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+
+  const [services, setServices] = useState<Service[]>([]);
+  const [settings, setSettings] = useState<ShopSettings>(DEFAULT_SETTINGS);
+
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [selected, setSelected] = useState<SelectedService[]>([]);
   const [promotionId, setPromotionId] = useState<string | null>(null);
@@ -70,20 +74,20 @@ export default function BookingPage() {
       const lastDay = new Date(calYear, calMonth + 1, 0).getDate();
       const endStr = `${calYear}-${pad(calMonth + 1)}-${pad(lastDay)}T23:59:59+07:00`;
       const { data } = await supabase.from("bookings").select("start_time, end_time").gte("start_time", startStr).lte("start_time", endStr).neq("status", "cancelled");
-      
+
       const counts: Record<number, number> = {};
       const blockedMap: Record<string, Set<string>> = {};
 
-      (data || []).forEach((b: any) => { 
+      (data || []).forEach((b: any) => {
         const startDate = new Date(b.start_time);
         const endDate = new Date(b.end_time);
-        const d = startDate.getDate(); 
-        counts[d] = (counts[d] || 0) + 1; 
+        const d = startDate.getDate();
+        counts[d] = (counts[d] || 0) + 1;
 
         // คำนวณ Slot ที่ถูกจองไปแล้ว
         const dateStr = `${calYear}-${pad(calMonth + 1)}-${pad(d)}`;
         if (!blockedMap[dateStr]) blockedMap[dateStr] = new Set();
-        
+
         let curr = new Date(startDate.getTime());
         while (curr < endDate) {
           const hours = String(curr.getHours()).padStart(2, "0");
@@ -104,6 +108,9 @@ export default function BookingPage() {
     }
     return Number(settings.weekday_max_bookings || settings.max_bookings_per_day || 8);
   };
+
+  // --- คำนวณเวลาที่ใช้ทั้งหมด ---
+  const totalDuration = selected.reduce((sum, s) => sum + s.duration, 0) + (activePromotion?.duration || 0);
 
   function toggleService(svc: Service) {
     const exists = selected.find(s => s.id === svc.id);
@@ -138,32 +145,44 @@ export default function BookingPage() {
     }
   }
 
-  // Time slots เปลี่ยนตามวันที่เลือก
+  // --- กรองช่วงเวลา (แบบ A) ---
   const selectedDateObj = date ? new Date(date + "T00:00:00") : null;
   const { openTime: openH_str, closeTime: closeH_str } = selectedDateObj
     ? getOpenClose(selectedDateObj, settings)
     : { openTime: settings.weekday_open_time || settings.open_time || "09:00", closeTime: settings.weekday_close_time || settings.close_time || "20:00" };
-  const openH = parseInt(openH_str.split(":")[0]);
-  const closeH = parseInt(closeH_str.split(":")[0]);
+
+  const [openH, openM] = openH_str.split(":").map(Number);
+  const [closeH, closeM] = closeH_str.split(":").map(Number);
+  const closeTotalMins = closeH * 60 + closeM;
+
   const timeSlots: string[] = [];
   const now = new Date();
   const isToday = date === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const currentHour = now.getHours();
   const currentMin = now.getMinutes();
 
-  for (let h = openH; h < closeH; h++) {
-    const time1 = `${String(h).padStart(2, "0")}:00`;
-    const time2 = `${String(h).padStart(2, "0")}:30`;
-    
-    // ถ้าเป็นวันนี้ ไม่ให้จองเวลาที่ผ่านไปแล้ว (เผื่อเวลาเตรียมตัว 30 นาที)
-    const isPast1 = isToday && (h < currentHour || (h === currentHour && currentMin >= -30));
-    const isPast2 = isToday && (h < currentHour || (h === currentHour && currentMin >= 0));
+  for (let h = openH; h <= closeH; h++) {
+    const mins = ["00", "30"];
+    for (const m_str of mins) {
+      const m = parseInt(m_str);
+      const startTotalMins = h * 60 + m;
 
-    if (!isPast1) timeSlots.push(time1);
-    if (!isPast2) timeSlots.push(time2);
+      // 1. เช็คว่าอยู่ในช่วงเวลาเปิดร้าน
+      if (startTotalMins < (openH * 60 + openM)) continue;
+      if (startTotalMins >= closeTotalMins) continue;
+
+      // 2. เช็คแบบ A: เวลาเริ่ม + เวลาทำ ต้องไม่เกินเวลาปิดร้าน
+      if ((startTotalMins + totalDuration) > closeTotalMins) continue;
+
+      // 3. เช็คเวลาที่ผ่านไปแล้ว (กรณีจองวันนี้ เผื่อเวลาเตรียมตัว 30 นาที)
+      if (isToday && startTotalMins <= (currentHour * 60 + currentMin + 30)) continue;
+
+      timeSlots.push(`${String(h).padStart(2, "0")}:${m_str}`);
+    }
   }
 
-  const canNext = step === 0 ? selected.length > 0 : step === 1 ? date && time : step === 2 ? name && phone : true;
+  // อนุญาตให้ผ่าน Step 0 ได้ถ้าเลือกบริการ หรือ เลือกโปรโมชั่นอย่างน้อย 1 อย่าง
+  const canNext = step === 0 ? (selected.length > 0 || promotionId !== null) : step === 1 ? date && time : step === 2 ? name && phone : true;
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -273,6 +292,9 @@ export default function BookingPage() {
                   {activePromotion.promotion_type === "buffet" && (
                     <p className="text-xs text-rose-400 mt-1">ราคาเริ่มต้น ฿{activePromotion.price.toLocaleString()} (เลือกเฉพาะบริการพิเศษเพิ่มเติมด้านล่าง)</p>
                   )}
+                  {activePromotion.duration && (
+                    <p className="text-[10px] text-rose-400 mt-1">เวลาเหมาประมาณ {activePromotion.duration} นาที</p>
+                  )}
                 </div>
               )}
               {Object.entries(grouped).map(([cat, items]) => {
@@ -311,7 +333,7 @@ export default function BookingPage() {
               })}
               {activePromotion?.promotion_type === "buffet" && grouped[Object.keys(grouped)[0]]?.length > 0 && selected.length === 0 && (
                 <div className="text-center p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                  <p className="text-xs text-slate-400">คุณไม่ได้เลือกบริการเพิ่มเติม <br/> ระบบจะจองเป็นแพ็กเกจบุฟเฟต์พื้นฐานค่ะ</p>
+                  <p className="text-xs text-slate-400">คุณไม่ได้เลือกบริการเพิ่มเติม <br /> ระบบจะจองเป็นแพ็กเกจบุฟเฟต์พื้นฐานค่ะ</p>
                 </div>
               )}
             </div>
@@ -343,13 +365,12 @@ export default function BookingPage() {
                   const isDisabled = isPast || isFull || isClosed;
                   return (
                     <button key={day} disabled={isDisabled} onClick={() => setDate(dateStr)}
-                      className={`py-2 rounded-xl text-sm font-medium transition-all ${
-                        isSel ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md"
-                        : isPast ? "text-slate-200"
-                        : isClosed ? "text-slate-300 bg-slate-50 line-through"
-                        : isFull ? "text-slate-300 bg-slate-50"
-                        : "hover:bg-pink-50 text-slate-600"
-                      }`}>
+                      className={`py-2 rounded-xl text-sm font-medium transition-all ${isSel ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md"
+                          : isPast ? "text-slate-200"
+                            : isClosed ? "text-slate-300 bg-slate-50 line-through"
+                              : isFull ? "text-slate-300 bg-slate-50"
+                                : "hover:bg-pink-50 text-slate-600"
+                        }`}>
                       {day}
                       {isClosed && !isPast && <p className="text-[8px] text-slate-300">ปิด</p>}
                       {isFull && !isClosed && !isPast && <p className="text-[8px] text-slate-300">เต็ม</p>}
@@ -367,15 +388,19 @@ export default function BookingPage() {
                     const isBlocked = blockedSlotsMap[date]?.has(t);
                     return (
                       <button key={t} disabled={isBlocked} onClick={() => setTime(t)}
-                        className={`py-2 rounded-xl text-sm font-medium border transition-all ${
-                          isBlocked ? "bg-slate-50 text-slate-300 border-slate-100 line-through cursor-not-allowed" 
-                          : time === t ? "bg-rose-400 text-white border-transparent shadow-sm" 
-                          : "bg-white text-slate-600 border-pink-100 hover:border-rose-300"
-                        }`}>
+                        className={`py-2 rounded-xl text-sm font-medium border transition-all ${isBlocked ? "bg-slate-50 text-slate-300 border-slate-100 line-through cursor-not-allowed"
+                            : time === t ? "bg-rose-400 text-white border-transparent shadow-sm"
+                              : "bg-white text-slate-600 border-pink-100 hover:border-rose-300"
+                          }`}>
                         {t}
                       </button>
                     );
                   })}
+                  {timeSlots.length === 0 && (
+                    <p className="col-span-4 text-center text-xs text-rose-400 py-4">
+                      ขออภัยค่ะ ไม่มีช่วงเวลาที่ทำทันร้านปิดสำหรับบริการที่คุณเลือก
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -409,6 +434,7 @@ export default function BookingPage() {
           </div>
         )}
 
+        {/* Step 3: Summary */}
         {step === 3 && (
           <div className="space-y-4">
             {/* สรุปบริการ */}
@@ -435,7 +461,7 @@ export default function BookingPage() {
             </div>
             {/* วัน-เวลา + ข้อมูลจอง */}
             <div className="bg-white rounded-2xl border border-pink-100 p-5 space-y-2 text-sm">
-              <div className="flex items-center gap-2"><CalendarDays size={14} className="text-rose-400" /><span>{new Date(date).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span></div>
+              <div className="flex items-center gap-2"><CalendarDays size={14} className="text-rose-400" /><span>{date ? new Date(date).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : ""}</span></div>
               <div className="flex items-center gap-2"><Clock size={14} className="text-rose-400" /><span>{time} น.</span></div>
               <div className="flex items-center gap-2"><User size={14} className="text-rose-400" /><span>{name}</span></div>
               <div className="flex items-center gap-2"><Phone size={14} className="text-rose-400" /><span>{phone}</span></div>
