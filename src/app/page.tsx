@@ -106,20 +106,20 @@ export default async function Home() {
                 <div key={promo.id} className="snap-center shrink-0 w-[280px] bg-gradient-to-br from-rose-400 via-pink-500 to-fuchsia-500 rounded-3xl p-[2px] shadow-lg shadow-pink-200/50">
                   <div className="bg-white/95 backdrop-blur-sm rounded-[22px] h-full p-4 flex flex-col">
                     <div className="flex items-start gap-3 mb-2">
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${promo.discount_type === "percent" ? "bg-violet-100" :
-                        promo.discount_type === "amount" ? "bg-emerald-100" : "bg-rose-100"
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${promo.promotion_type === "discount" ? "bg-violet-100" :
+                        promo.promotion_type === "buffet" || promo.promotion_type === "bundle" ? "bg-emerald-100" : "bg-rose-100"
                         }`}>
-                        {promo.discount_type === "percent" && <Percent size={20} className="text-violet-600" />}
-                        {promo.discount_type === "amount" && <Banknote size={20} className="text-emerald-600" />}
-                        {promo.discount_type === "announcement" && <Megaphone size={20} className="text-rose-600" />}
+                        {promo.promotion_type === "discount" && <Percent size={20} className="text-violet-600" />}
+                        {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" && <Banknote size={20} className="text-emerald-600" />}
+                        {promo.promotion_type !== "discount" && promo.promotion_type !== "buffet" && promo.promotion_type !== "bundle" && <Megaphone size={20} className="text-rose-600" />}
                       </div>
                       <div>
                         <h3 className="font-bold text-gray-900 line-clamp-1">{promo.title}</h3>
-                        {promo.discount_type === "percent" && promo.discount_value > 0 && (
-                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">ลด {promo.discount_value}%</span>
+                        {promo.promotion_type === "discount" && promo.price > 0 && (
+                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">ลด {promo.price}%</span>
                         )}
-                        {promo.discount_type === "amount" && promo.discount_value > 0 && (
-                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">ลด ฿{promo.discount_value}</span>
+                        {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" && promo.price > 0 && (
+                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">ราคา ฿{promo.price}</span>
                         )}
                       </div>
                     </div>

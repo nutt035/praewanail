@@ -81,24 +81,24 @@ export default async function ServicesPage() {
                 >
                   <div className="bg-white rounded-[15px] px-4 py-3.5 flex items-start gap-3">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                      promo.discount_type === "percent" ? "bg-violet-50" :
-                      promo.discount_type === "amount" ? "bg-emerald-50" : "bg-rose-50"
+                      promo.promotion_type === "discount" ? "bg-violet-50" :
+                      promo.promotion_type === "buffet" || promo.promotion_type === "bundle" ? "bg-emerald-50" : "bg-rose-50"
                     }`}>
-                      {promo.discount_type === "percent" && <Percent size={16} className="text-violet-500" />}
-                      {promo.discount_type === "amount" && <Banknote size={16} className="text-emerald-500" />}
-                      {promo.discount_type === "announcement" && <Megaphone size={16} className="text-rose-400" />}
+                      {promo.promotion_type === "discount" && <Percent size={16} className="text-violet-500" />}
+                      {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" && <Banknote size={16} className="text-emerald-500" />}
+                      {promo.promotion_type !== "discount" && promo.promotion_type !== "buffet" && promo.promotion_type !== "bundle" && <Megaphone size={16} className="text-rose-400" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-bold text-sm text-brand-dark">{promo.title}</p>
-                        {promo.discount_type === "percent" && promo.discount_value > 0 && (
+                        {promo.promotion_type === "discount" && promo.price > 0 && (
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">
-                            ลด {promo.discount_value}%
+                            ลด {promo.price}%
                           </span>
                         )}
-                        {promo.discount_type === "amount" && promo.discount_value > 0 && (
+                        {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" && promo.price > 0 && (
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600">
-                            ลด ฿{promo.discount_value}
+                            ราคา ฿{promo.price}
                           </span>
                         )}
                       </div>
