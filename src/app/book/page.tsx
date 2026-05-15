@@ -21,9 +21,10 @@ interface SelectedService { id: string; name: string; duration: number; category
 export default function BookingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [services, setServices] = useState<Service[]>([]);
-  const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [selected, setSelected] = useState<SelectedService[]>([]);
+  const [promotionId, setPromotionId] = useState<string | null>(null);
+  const [activePromotion, setActivePromotion] = useState<Promotion | null>(null);
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [name, setName] = useState("");
@@ -38,12 +39,25 @@ export default function BookingPage() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: svcData }, { data: setData }] = await Promise.all([
+      const params = new URLSearchParams(window.location.search);
+      const promoId = params.get("promo");
+
+      const [{ data: svcData }, { data: setData }, { data: promoData }] = await Promise.all([
         supabase.from("services").select("*").order("category").order("price", { ascending: true }),
         supabase.from("shop_settings").select("*"),
+        supabase.from("promotions").select("*").eq("is_active", true),
       ]);
+
       setServices((svcData as Service[]) || []);
+      setPromotions((promoData as Promotion[]) || []);
       if (setData && setData.length > 0) setSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(setData as ShopSettings[]) });
+
+      if (promoId) {
+        setPromotionId(promoId);
+        const { data: promo } = await supabase.from("promotions").select("*").eq("id", promoId).single();
+        if (promo) setActivePromotion(promo as Promotion);
+      }
+
       setLoading(false);
     })();
   }, []);
@@ -96,6 +110,15 @@ export default function BookingPage() {
     if (exists) {
       setSelected(selected.filter(s => s.id !== svc.id));
     } else {
+      // If Buffet: Only allow selecting excluded services as add-ons
+      if (activePromotion?.promotion_type === "buffet") {
+        const excluded = activePromotion.excluded_service_ids || [];
+        if (!excluded.includes(svc.id)) {
+          toast.error("บริการนี้รวมอยู่ในบุฟเฟต์แล้วค่ะ");
+          return;
+        }
+      }
+
       setSelected([...selected, {
         id: svc.id, name: svc.name,
         duration: svc.duration, category: svc.category || null,
@@ -103,7 +126,17 @@ export default function BookingPage() {
     }
   }
 
-  const totalDuration = selected.reduce((sum, s) => sum + s.duration, 0);
+  function selectPromotion(promo: Promotion) {
+    if (promotionId === promo.id) {
+      setPromotionId(null);
+      setActivePromotion(null);
+      setSelected([]);
+    } else {
+      setPromotionId(promo.id);
+      setActivePromotion(promo);
+      setSelected([]); // Clear services when switching promos to avoid mix-ups
+    }
+  }
 
   // Time slots เปลี่ยนตามวันที่เลือก
   const selectedDateObj = date ? new Date(date + "T00:00:00") : null;
@@ -142,6 +175,7 @@ export default function BookingPage() {
           customerName: name, phone,
           services: selected.map(s => ({ id: s.id })),
           date, startTime: time, notes,
+          promotionId: promotionId,
         }),
       });
       const data = await res.json();
@@ -202,31 +236,85 @@ export default function BookingPage() {
 
         {/* Step 0: Select Services */}
         {step === 0 && (
-          <div className="space-y-5">
-            {Object.entries(grouped).map(([cat, items]) => (
-              <div key={cat}>
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{cat}</h3>
-                <div className="space-y-2">
-                  {items.map(svc => {
-                    const isSelected = selected.some(s => s.id === svc.id);
-                    return (
-                      <button key={svc.id} onClick={() => toggleService(svc)}
-                        className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${isSelected ? "border-rose-400 bg-rose-50 shadow-sm" : "border-pink-100 bg-white hover:border-rose-200"}`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? "border-rose-400 bg-rose-400" : "border-slate-300"}`}>
-                            {isSelected && <Check size={12} className="text-white" />}
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-semibold text-sm text-brand-dark">{svc.name}</p>
-                            <p className="text-xs text-slate-400"><Clock size={10} className="inline" /> {svc.duration} นาที</p>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+          <div className="space-y-6">
+            {/* Promotion Selector */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">เลือกโปรโมชั่น (ถ้ามี)</h3>
+              <div className="grid grid-cols-1 gap-3">
+                {promotions.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => selectPromotion(p)}
+                    className={`p-4 rounded-2xl border-2 transition-all text-left flex items-center justify-between ${promotionId === p.id ? "border-rose-400 bg-rose-50 shadow-sm" : "border-pink-100 bg-white hover:border-rose-200"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${promotionId === p.id ? "bg-rose-400 text-white" : "bg-pink-100 text-rose-400"}`}>
+                        <Sparkles size={14} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-brand-dark">{p.title}</p>
+                        <p className="text-[10px] text-slate-400">{p.description || "โปรโมชั่นพิเศษ"}</p>
+                      </div>
+                    </div>
+                    <span className="text-sm font-bold text-rose-500">฿{p.price}</span>
+                  </button>
+                ))}
+                {promotions.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">ไม่มีโปรโมชั่นในขณะนี้</p>}
               </div>
-            ))}
+            </div>
+
+            <div className="h-px bg-pink-100" />
+
+            {/* Service Selection */}
+            <div className="space-y-5">
+              {activePromotion && (
+                <div className="p-4 bg-gradient-to-r from-rose-100 to-pink-100 rounded-2xl border border-rose-200 text-center mb-6">
+                  <p className="text-rose-600 font-bold text-sm">🎁 คุณกำลังใช้โปรโมชั่น: {activePromotion.title}</p>
+                  {activePromotion.promotion_type === "buffet" && (
+                    <p className="text-xs text-rose-400 mt-1">ราคาเริ่มต้น ฿{activePromotion.price.toLocaleString()} (เลือกเฉพาะบริการพิเศษเพิ่มเติมด้านล่าง)</p>
+                  )}
+                </div>
+              )}
+              {Object.entries(grouped).map(([cat, items]) => {
+                const filteredItems = activePromotion?.promotion_type === "buffet"
+                  ? items.filter(svc => (activePromotion.excluded_service_ids || []).includes(svc.id))
+                  : items;
+
+                if (filteredItems.length === 0) return null;
+
+                return (
+                  <div key={cat}>
+                    <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 ${activePromotion?.promotion_type === "buffet" ? "text-rose-500" : "text-slate-400"}`}>
+                      {activePromotion?.promotion_type === "buffet" ? "บริการพิเศษเพิ่มเติม (Add-ons)" : cat}
+                    </h3>
+                    <div className="space-y-2">
+                      {filteredItems.map(svc => {
+                        const isSelected = selected.some(s => s.id === svc.id);
+                        return (
+                          <button key={svc.id} onClick={() => toggleService(svc)}
+                            className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${isSelected ? "border-rose-400 bg-rose-50 shadow-sm" : "border-pink-100 bg-white hover:border-rose-200"}`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? "border-rose-400 bg-rose-400" : "border-slate-300"}`}>
+                                {isSelected && <Check size={12} className="text-white" />}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-semibold text-sm text-brand-dark">{svc.name}</p>
+                                <p className="text-xs text-slate-400"><Clock size={10} className="inline" /> {svc.duration} นาที</p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+              {activePromotion?.promotion_type === "buffet" && grouped[Object.keys(grouped)[0]]?.length > 0 && selected.length === 0 && (
+                <div className="text-center p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  <p className="text-xs text-slate-400">คุณไม่ได้เลือกบริการเพิ่มเติม <br/> ระบบจะจองเป็นแพ็กเกจบุฟเฟต์พื้นฐานค่ะ</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

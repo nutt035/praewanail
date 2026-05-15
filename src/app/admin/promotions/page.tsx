@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Promotion } from "@/lib/types";
+import { Promotion, Service } from "@/lib/types";
 import {
   Plus, Pencil, Trash2, X, Tag, Calendar, ToggleLeft, ToggleRight,
-  Loader2, Save, Sparkles, Banknote, Megaphone, Percent,
+  Loader2, Save, Sparkles, Banknote, Megaphone, Percent, ScissorsIcon,
+  Scissors
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -16,6 +17,7 @@ const emptyForm = {
   description: "",
   promotion_type: "buffet" as PromoType,
   price: 0,
+  excluded_service_ids: [] as string[],
   valid_from: "",
   valid_to: "",
   is_active: true,
@@ -49,13 +51,22 @@ function formatDate(iso: string | null) {
 
 export default function PromotionsPage() {
   const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingPromo, setEditingPromo] = useState<Promotion | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchPromotions(); }, []);
+  useEffect(() => {
+    fetchPromotions();
+    fetchServices();
+  }, []);
+
+  async function fetchServices() {
+    const { data } = await supabase.from("services").select("*").order("name");
+    setServices((data as Service[]) || []);
+  }
 
   async function fetchPromotions() {
     setLoading(true);
@@ -80,6 +91,7 @@ export default function PromotionsPage() {
       description: promo.description || "",
       promotion_type: promo.promotion_type,
       price: promo.price,
+      excluded_service_ids: promo.excluded_service_ids || [],
       valid_from: promo.valid_from || "",
       valid_to: promo.valid_to || "",
       is_active: promo.is_active,
@@ -99,6 +111,7 @@ export default function PromotionsPage() {
       description: form.description || null,
       promotion_type: form.promotion_type,
       price: form.price,
+      excluded_service_ids: form.excluded_service_ids,
       valid_from: form.valid_from || null,
       valid_to: form.valid_to || null,
       is_active: form.is_active,
@@ -231,6 +244,7 @@ export default function PromotionsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <p className="font-semibold text-brand-dark text-sm">{promo.title}</p>
+                      <span className={`text-[10px] text-slate-400 font-mono bg-slate-100 px-1 rounded`}>{promo.id.slice(0, 8)}...</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${statusCfg.class}`}>
                         {statusCfg.label}
                       </span>
@@ -320,7 +334,7 @@ export default function PromotionsPage() {
                         className={`py-2 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${form.promotion_type === type
                           ? "bg-rose-400 text-white border-transparent"
                           : "bg-white text-slate-500 border-pink-100 hover:border-rose-200"
-                        }`}
+                          }`}
                       >
                         {cfg.icon}
                         {cfg.label}
@@ -383,6 +397,40 @@ export default function PromotionsPage() {
                   <p className="text-xs text-slate-400 mt-1">ว่างไว้ = ไม่มีกำหนด</p>
                 </div>
               </div>
+
+              {/* บริการที่ยกเว้น (สำหรับ Buffet) */}
+              {form.promotion_type === "buffet" && (
+                <div className="space-y-2">
+                  <label className="form-label flex items-center gap-1.5">
+                    <Scissors size={14} className="text-rose-400" />
+                    บริการที่ "ไม่รวม" ในบุฟเฟต์ (ต้องจ่ายเพิ่ม)
+                  </label>
+                  <div className="max-h-40 overflow-y-auto border border-pink-100 rounded-xl p-2 space-y-1 bg-pink-50/30">
+                    {services.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-2">กำลังโหลดรายการบริการ...</p>
+                    ) : (
+                      services.map(svc => (
+                        <label key={svc.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            className="rounded border-pink-300 text-rose-500 focus:ring-rose-400"
+                            checked={form.excluded_service_ids.includes(svc.id)}
+                            onChange={(e) => {
+                              const next = e.target.checked
+                                ? [...form.excluded_service_ids, svc.id]
+                                : form.excluded_service_ids.filter(id => id !== svc.id);
+                              setForm(f => ({ ...f, excluded_service_ids: next }));
+                            }}
+                          />
+                          <span className="text-xs text-slate-600 truncate flex-1">{svc.name}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">฿{svc.price}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 italic">* บริการที่ไม่ได้เลือกจะถูกนับรวมในราคาบุฟเฟต์ (ฟรี)</p>
+                </div>
+              )}
 
               {/* เปิด/ปิด */}
               <div

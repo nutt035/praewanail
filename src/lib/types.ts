@@ -128,6 +128,7 @@ export interface Promotion {
   description: string | null;
   promotion_type: "buffet" | "bundle" | "discount";
   price: number;
+  excluded_service_ids: string[] | null; // IDs of services NOT included in buffet (must pay extra)
   valid_from: string | null;  // DATE string
   valid_to: string | null;    // DATE string
   is_active: boolean;

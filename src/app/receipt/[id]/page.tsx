@@ -24,10 +24,10 @@ export default function PublicReceiptPage() {
   async function fetchBooking() {
     const { data, error } = await supabase
       .from("bookings")
-      .select("*, customers(name, phone), booking_services(service_name, unit_price, line_total, finger_count)")
+      .select("*, customers(name, phone), booking_services(service_name, unit_price, line_total, finger_count), promotions(title, price)")
       .eq("id", id)
       .single();
-    
+
     if (data) setBooking(data as Booking);
     setLoading(false);
   }
@@ -60,7 +60,22 @@ export default function PublicReceiptPage() {
 
   const isCompleted = booking.status === "completed";
   const bsList = (booking as any).booking_services || [];
-  const totalPrice = booking.total_price || bsList.reduce((s: number, b: any) => s + b.line_total, 0) || 0;
+  const promo = (booking as any).promotions;
+
+  // Calculate total based on the la-system:
+  // If it's a buffet, the price is promo.price + any service with price > 0 in bsList
+  let subtotal = 0;
+  if (promo && promo.promotion_type === "buffet") {
+    subtotal = promo.price;
+    // Only add services that were charged extra (unit_price > 0)
+    const addOnsTotal = bsList.reduce((sum: number, b: any) => sum + b.line_total, 0);
+    subtotal += addOnsTotal;
+  } else {
+    subtotal = bsList.reduce((s: number, b: any) => s + b.line_total, 0) || booking.total_price || 0;
+  }
+
+  const discount = booking.discount_amount || 0;
+  const totalPrice = Math.max(0, subtotal - discount);
   const deposit = booking.deposit || 0;
   const remaining = isCompleted ? 0 : totalPrice - deposit;
 
@@ -133,18 +148,43 @@ export default function PublicReceiptPage() {
             {/* Price Breakdown */}
             <div className="bg-slate-50 rounded-2xl p-5 space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-slate-500 font-medium">ราคาบริการรวม</span>
-                <span className="text-slate-800 font-bold">฿{totalPrice.toLocaleString()}</span>
+                <span className="text-slate-500 font-medium">
+                  {promo?.promotion_type === "buffet" ? "ราคาบุฟเฟต์พื้นฐาน" : "ราคาบริการรวม"}
+                </span>
+                <span className="text-slate-800 font-bold">฿{(promo?.promotion_type === "buffet" ? promo.price : bsList.reduce((s: number, b: any) => s + b.line_total, 0) || 0).toLocaleString()}</span>
               </div>
-              {deposit > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-emerald-600 font-medium italic">หักมัดจำแล้ว</span>
-                  <span className="text-emerald-600 font-bold">-฿{deposit.toLocaleString()}</span>
+
+              {promo?.promotion_type === "buffet" && bsList.some((b: any) => b.line_total > 0) && (
+                <div className="space-y-1 border-t border-slate-200 pt-2">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">บริการเพิ่มเติม (Add-ons)</p>
+                  {bsList.filter((b: any) => b.line_total > 0).map((b: any, i: number) => (
+                    <div key={i} className="flex justify-between text-xs text-slate-600">
+                      <span>{b.service_name}</span>
+                      <span>฿{b.line_total.toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
               )}
-              <div className="h-px bg-slate-200 my-1" />
+
+              {discount > 0 && (
+                <div className="flex justify-between text-sm text-emerald-600 font-medium italic pt-2">
+                  <span>{promo ? `ส่วนลดโปร ${promo.title}` : "ส่วนลดพิเศษ"}</span>
+                  <span>-฿{discount.toLocaleString()}</span>
+                </div>
+              )}
+
+              {deposit > 0 && (
+                <div className="flex justify-between text-sm text-slate-500 italic">
+                  <span>หักมัดจำแล้ว</span>
+                  <span>-฿{deposit.toLocaleString()}</span>
+                </div>
+              )}
+
+              <div className="h-px bg-slate-200 my-2" />
               <div className="flex justify-between items-center">
-                <span className="text-brand-dark font-bold">{isCompleted ? "ยอดชำระรวม" : "ยอดคงเหลือ"}</span>
+                <span className="text-brand-dark font-bold">
+                  {isCompleted ? "ยอดชำระรวม" : "ยอดคงเหลือที่ต้องชำระ"}
+                </span>
                 <span className="text-2xl font-black text-rose-500">฿{remaining.toLocaleString()}</span>
               </div>
             </div>

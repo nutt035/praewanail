@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import {
   Save, Loader2, User, Phone, Scissors, CalendarDays, Clock, CreditCard,
   FileText, ChevronDown, Banknote, Plus, Trash2, Fingerprint, Tag, Heart, X, CheckCircle2, Trophy, Star,
+  Sparkles, Gift, Users, ScissorsIcon
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Booking } from "@/lib/types";
@@ -48,10 +49,10 @@ function BookingFormContent() {
   const [services, setServices] = useState<Service[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  
+
   const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
   const [activeSearchField, setActiveSearchField] = useState<"phone" | "name" | null>(null);
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [shopSettings, setShopSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -83,7 +84,13 @@ function BookingFormContent() {
   });
 
   const servicesSubtotal = selectedItems.reduce((sum, item) => sum + item.lineTotal, 0);
-  const subtotal = isPracticeModel ? materialCost : servicesSubtotal;
+
+  // --- Buffet Logic ---
+  const activePromo = promotions.find(p => p.id === selectedPromotionId);
+  const isBuffet = activePromo?.promotion_type === "buffet";
+  const buffetBasePrice = isBuffet ? activePromo!.price : 0;
+
+  const subtotal = isPracticeModel ? materialCost : (isBuffet ? buffetBasePrice + servicesSubtotal : servicesSubtotal);
   const discountBaht = isPracticeModel ? 0 : calcDiscountBaht(subtotal, discountValue, discountType);
   const pointsDiscount = isRedeemingPoints ? redeemAmount : 0;
   const totalPrice = Math.max(0, subtotal - discountBaht - pointsDiscount);
@@ -101,8 +108,8 @@ function BookingFormContent() {
 
   const isFormValid = formData.customerName && formData.date && formData.startTime && (isPracticeModel || selectedItems.length > 0);
 
-  useEffect(() => { 
-    fetchServices(); 
+  useEffect(() => {
+    fetchServices();
     fetchCustomers();
     fetchPromotions();
     fetchShopSettings();
@@ -213,6 +220,16 @@ function BookingFormContent() {
   function addServiceItem() {
     const service = services.find((s) => s.id === addServiceId);
     if (!service) return;
+
+    // If buffet, only add if it's an excluded service
+    if (isBuffet && activePromo) {
+      const excluded = activePromo.excluded_service_ids || [];
+      if (!excluded.includes(service.id)) {
+        toast.error(`บริการ ${service.name} รวมอยู่ในบุฟเฟต์แล้วค่ะ`);
+        return;
+      }
+    }
+
     const fingerCount = service.price_per_finger != null ? 1 : null;
     const lineTotal = calcLineTotal(service, fingerCount);
     setSelectedItems((prev) => [...prev, { tempId: crypto.randomUUID(), service, fingerCount, lineTotal }]);
@@ -303,7 +320,7 @@ function BookingFormContent() {
       const [year, month, day] = formData.date.split("-").map(Number);
       const [hour, min] = formData.startTime.split(":").map(Number);
       const startObj = new Date(year, month - 1, day, hour, min);
-      
+
       const startDateTime = startObj.toISOString();
       const durationMs = (totalDuration || 60) * 60 * 1000;
       const endDateTime = new Date(startObj.getTime() + durationMs).toISOString();
@@ -313,6 +330,7 @@ function BookingFormContent() {
         start_time: startDateTime,
         end_time: endDateTime,
         total_price: totalPrice,
+        promotion_id: selectedPromotionId,
         deposit: formData.deposit ? Number(formData.deposit) : 0,
         payment_method: formData.paymentMethod,
         notes: isPracticeModel ? `[หุ่นลอง] ${formData.notes || ""}`.trim() : formData.notes || null,
@@ -344,7 +362,7 @@ function BookingFormContent() {
 
       if (!editId && shopSettings.line_channel_token && shopSettings.admin_line_uid) {
         const message = `💅 มีคิวจองใหม่!\n👤 ลูกค้า: ${formData.customerName}\n📅 วันที่: ${new Date(formData.date).toLocaleDateString("th-TH")}\n⏰ เวลา: ${formData.startTime} น.\n💰 ยอดรวม: ฿${totalPrice.toLocaleString()}\n💸 มัดจำ: ฿${Number(formData.deposit || 0).toLocaleString()}\n📝 หมายเหตุ: ${formData.notes || "-"}`;
-        fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ channelToken: shopSettings.line_channel_token, adminUid: shopSettings.admin_line_uid, message }) }).catch(err => console.error("LINE Notify Error:", err));
+        fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) }).catch(err => console.error("Notify Error:", err));
       }
 
       toast.success(editId ? "อัพเดตคิวเรียบร้อยแล้ว!" : "บันทึกคิวเรียบร้อยแล้ว! 🎉", { id: toastId });
@@ -460,19 +478,19 @@ function BookingFormContent() {
                   <Star size={12} fill="currentColor" /> ใช้แต้มแลกส่วนลด
                 </p>
                 <div className="flex gap-3">
-                  <button 
-                    type="button" 
-                    onClick={() => toggleRedeem(Number(shopSettings.redeem_5_points_value || 50))} 
-                    disabled={(existingCustomer.points || 0) < 5} 
+                  <button
+                    type="button"
+                    onClick={() => toggleRedeem(Number(shopSettings.redeem_5_points_value || 50))}
+                    disabled={(existingCustomer.points || 0) < 5}
                     className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all ${isRedeemingPoints && redeemAmount === Number(shopSettings.redeem_5_points_value || 50) ? "bg-yellow-50 border-yellow-400 text-yellow-700" : "bg-white border-yellow-100 text-slate-500"}`}
                   >
                     <span className="text-sm font-bold">แลก 5 แต้ม</span>
                     <span className="text-[10px]">ลด ฿{shopSettings.redeem_5_points_value || 50}</span>
                   </button>
-                  <button 
-                    type="button" 
-                    onClick={() => toggleRedeem(Number(shopSettings.redeem_10_points_value || 100))} 
-                    disabled={(existingCustomer.points || 0) < 10} 
+                  <button
+                    type="button"
+                    onClick={() => toggleRedeem(Number(shopSettings.redeem_10_points_value || 100))}
+                    disabled={(existingCustomer.points || 0) < 10}
                     className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all ${isRedeemingPoints && redeemAmount === Number(shopSettings.redeem_10_points_value || 100) ? "bg-yellow-50 border-yellow-400 text-yellow-700" : "bg-white border-yellow-100 text-slate-500"}`}
                   >
                     <span className="text-sm font-bold">แลก 10 แต้ม</span>
@@ -484,6 +502,31 @@ function BookingFormContent() {
           </div>
         </div>
 
+        <div className="card p-6">
+          <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2"><CalendarDays size={16} className="text-rose-400" /> วันที่และเวลา</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="form-label">วันที่</label>
+              <input type="date" name="date" value={formData.date} onChange={handleChange} className="input-field" required />
+            </div>
+            <div>
+              <label className="form-label">เวลาเริ่ม</label>
+              <div className="relative">
+                <Clock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="time" name="startTime" value={formData.startTime} onChange={handleChange} className="input-field pl-9" required />
+              </div>
+            </div>
+          </div>
+          {endTime && (
+            <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <Clock size={12} />
+                <span>เวลาสิ้นสุดโดยประมาณ</span>
+              </div>
+              <span className="text-xs font-bold text-brand-dark">{endTime} น.</span>
+            </div>
+          )}
+        </div>
         {!isPracticeModel && (
           <div className="card p-6">
             <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2"><Scissors size={16} className="text-rose-400" /> บริการที่ต้องการ <span className="text-rose-400">*</span></h3>
@@ -516,11 +559,24 @@ function BookingFormContent() {
         )}
 
         <div className="card p-6">
-          <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2"><CalendarDays size={16} className="text-rose-400" /> วันที่และเวลา</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="form-label">วันที่ทำเล็บ <span className="text-rose-400">*</span></label><input type="date" name="date" value={formData.date} onChange={handleChange} required className="input-field" /></div>
-            <div><label className="form-label">เวลาเริ่ม <span className="text-rose-400">*</span></label><input type="time" name="startTime" value={formData.startTime} onChange={handleChange} required className="input-field" /></div>
+          <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2"><Tag size={16} className="text-rose-400" /> โปรโมชั่น</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="form-label">เลือกโปรโมชั่น (ถ้ามี)</label>
+              <select value={selectedPromotionId || ""} onChange={(e) => setSelectedPromotionId(e.target.value || null)} className="input-field">
+                <option value="">-- ไม่มีโปรโมชั่น --</option>
+                {promotions.map(p => (
+                  <option key={p.id} value={p.id}>{p.title} ({p.price === 0 ? "ลดราคา" : `฿${p.price.toLocaleString()}`})</option>
+                ))}
+              </select>
+            </div>
           </div>
+          {isBuffet && (
+            <div className="mt-3 p-3 bg-rose-50 rounded-xl border border-rose-100 text-xs text-rose-600 flex items-center gap-2">
+              <Sparkles size={14} />
+              <span>โหมดบุฟเฟต์: ราคาเริ่มต้น ฿{buffetBasePrice.toLocaleString()} (บริการส่วนใหญ่ฟรี! จ่ายเพิ่มเฉพาะรายการพิเศษ)</span>
+            </div>
+          )}
         </div>
 
         {!isPracticeModel && (
@@ -583,7 +639,7 @@ function BookingFormContent() {
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4"><div className="p-3 bg-slate-50 rounded-2xl border border-slate-100"><p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">ยอดรวม</p><p className="text-lg font-bold text-brand-dark">฿{lastBooking.total.toLocaleString()}</p></div><div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100"><p className="text-[10px] text-emerald-500 uppercase font-bold tracking-wider mb-1">มัดจำ</p><p className="text-lg font-bold text-emerald-600">฿{lastBooking.deposit.toLocaleString()}</p></div></div>
-               <button onClick={() => setShowSuccessModal(false)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-2xl">ปิดหน้าต่างนี้</button>
+              <button onClick={() => setShowSuccessModal(false)} className="w-full py-4 bg-slate-800 text-white font-bold rounded-2xl">ปิดหน้าต่างนี้</button>
             </div>
           </div>
         </div>

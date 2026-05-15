@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateUniqueBookingCode } from "@/lib/booking-code";
+import { Promotion, Service } from "@/lib/types";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +12,16 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { customerName, phone, email, services: selectedServices, date, startTime, notes } = body;
+    const {
+      customerName,
+      phone,
+      email,
+      services: selectedServices,
+      date,
+      startTime,
+      notes,
+      promotionId
+    } = body;
 
     if (!customerName || !phone || !selectedServices?.length || !date || !startTime) {
       return NextResponse.json({ error: "ข้อมูลไม่ครบ" }, { status: 400 });
@@ -39,7 +49,7 @@ export async function POST(req: NextRequest) {
       customerId = newCust.id;
     }
 
-    // 2. ดึงข้อมูลบริการ
+    // 2. ดึงข้อมูลบริการที่เลือก
     const serviceIds = selectedServices.map((s: any) => s.id);
     const { data: svcData } = await supabase
       .from("services")
@@ -50,30 +60,64 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ไม่พบบริการที่เลือก" }, { status: 400 });
     }
 
-    // 3. คำนวณเวลารวม (ไม่คิดราคา แอดมินใส่เองตอนปิดคิว)
+    // 3. คำนวณราคาและเวลา
+    let totalPrice = 0;
     let totalDuration = 0;
     const bookingServiceRows: any[] = [];
+
+    // ตรวจสอบว่าใช้โปรโมชั่นแบบ Buffet หรือไม่
+    let activePromotion: Promotion | null = null;
+    if (promotionId) {
+      const { data: promo } = await supabase
+        .from("promotions")
+        .select("*")
+        .eq("id", promotionId)
+        .single();
+      activePromotion = promo;
+    }
+
+    const isBuffet = activePromotion?.promotion_type === "buffet";
+
+    if (isBuffet && activePromotion) {
+      totalPrice = activePromotion.price; // เริ่มต้นด้วยราคาเหมา
+    }
 
     for (const sel of selectedServices) {
       const svc = svcData.find((s: any) => s.id === sel.id);
       if (!svc) continue;
+
       totalDuration += svc.duration;
+
+      let itemPrice = svc.price;
+
+      // ถ้าเป็น Buffet: ตรวจสอบว่าบริการนี้ "ไม่อยู่ในโปร" (ต้องจ่ายเพิ่ม) หรือไม่
+      if (isBuffet && activePromotion) {
+        const excludedIds = activePromotion.excluded_service_ids || [];
+        if (excludedIds.includes(svc.id)) {
+          // เป็นบริการพิเศษที่ต้องจ่ายเพิ่ม
+          itemPrice = svc.price;
+          totalPrice += itemPrice;
+        } else {
+          // อยู่ในบุฟเฟต์ -> ราคาเป็น 0 ในรายการย่อย
+          itemPrice = 0;
+        }
+      }
+
       bookingServiceRows.push({
         service_id: svc.id,
         service_name: svc.name,
         finger_count: null,
-        unit_price: 0,
-        line_total: 0,
+        unit_price: itemPrice,
+        line_total: itemPrice,
       });
     }
 
     // 4. สร้าง booking
-    // ใช้ +07:00 offset เพื่อให้ server (Vercel UTC) แปลงเวลาออกเป็นเวลาไทยถูกต้อง
     const startObj = new Date(`${date}T${startTime}:00+07:00`);
     const endObj = new Date(startObj.getTime() + (totalDuration || 60) * 60 * 1000);
 
     const bookingCode = await generateUniqueBookingCode(supabase);
-    const DEPOSIT_AMOUNT = 50; // มัดจำตายตัวทุกคน
+    const DEPOSIT_AMOUNT = 50;
 
     const { data: booking, error: bookErr } = await supabase
       .from("bookings")
@@ -82,7 +126,8 @@ export async function POST(req: NextRequest) {
         start_time: startObj.toISOString(),
         end_time: endObj.toISOString(),
         status: "pending",
-        total_price: 0,
+        total_price: totalPrice,
+        promotion_id: promotionId || null,
         booking_code: bookingCode,
         deposit_required: DEPOSIT_AMOUNT,
         deposit_paid: false,
@@ -99,13 +144,6 @@ export async function POST(req: NextRequest) {
 
     if (bookErr || !booking) {
       const errMsg = bookErr?.message || "unknown";
-      console.error("[BOOKING_INSERT_ERROR]:", errMsg);
-      // ถ้า column ไม่มี (migration ยังไม่รัน)
-      if (errMsg.includes("column") || errMsg.includes("does not exist")) {
-        return NextResponse.json({
-          error: "โครงสร้างฐานข้อมูลยังไม่อัพเดต กรุณารันไฟล์ migrations/phase2_full_system.sql ใน Supabase ก่อน"
-        }, { status: 500 });
-      }
       return NextResponse.json({ error: `ไม่สามารถสร้างการจองได้: ${errMsg}` }, { status: 500 });
     }
 
@@ -113,39 +151,24 @@ export async function POST(req: NextRequest) {
     const bsRows = bookingServiceRows.map(r => ({ ...r, booking_id: booking.id }));
     await supabase.from("booking_services").insert(bsRows);
 
-    // 6. แจ้งเตือนแอดมินผ่าน LINE & Telegram
+    // 6. แจ้งเตือนแอดมินผ่าน /api/notify (Dispatcher)
     try {
-      const { data: settingsRows } = await supabase
-        .from("shop_settings")
-        .select("key, value")
-        .in("key", ["line_channel_token", "admin_line_uid", "telegram_bot_token", "telegram_chat_id"]);
-
-      const cfg: Record<string, string> = {};
-      (settingsRows || []).forEach((s: any) => { cfg[s.key] = s.value; });
-
       const svcNames = bookingServiceRows.map(r => r.service_name).join(", ");
       const thDate = new Date(`${date}T${startTime}:00+07:00`);
       const dateStr = thDate.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", weekday: "short", day: "numeric", month: "short" });
       const timeStr = thDate.toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
-      
-      const message = `💅 <b>คิวใหม่! (Online)</b>\n\n👤 ${customerName}\n📞 ${phone}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n🆔 ${bookingCode}\n\n✨ <i>ยืนยันคิวในหน้าระบบได้เลยค่ะ</i>`;
 
-      // 6.1 ส่งเข้า Telegram
-      if (cfg.telegram_bot_token && cfg.telegram_chat_id) {
-        const url = `https://api.telegram.org/bot${cfg.telegram_bot_token}/sendMessage`;
-        const chatIds = String(cfg.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
-        
-        await Promise.all(chatIds.map(id => fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: id, text: message, parse_mode: "HTML", disable_web_page_preview: true })
-        })));
-      }
+      const promoText = activePromotion ? `\n🎁 โปรโมชั่น: ${activePromotion.title}` : "";
+      const message = `💅 <b>คิวใหม่! (Online)</b>\n\n👤 ${customerName}\n📞 ${phone}${promoText}\n✂️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n🆔 ${bookingCode}\n\n✨ <i>ยืนยันคิวในหน้าระบบได้เลยค่ะ</i>`;
 
-      // 6.2 ส่งเข้า LINE (Fallback) - ลบออกตามที่ขอ
-      // if (cfg.line_channel_token && cfg.admin_line_uid) { ... }
+      // เรียกใช้ notify route ภายใน server
+      await fetch(new URL("/api/notify", req.url), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, imageUrl: null })
+      });
     } catch (notifyErr) {
-      console.error("[NOTIFY_ERROR]:", notifyErr); // ไม่ให้ผิดพลาด booking flow
+      console.error("[NOTIFY_ERROR]:", notifyErr);
     }
 
     return NextResponse.json({
@@ -153,6 +176,7 @@ export async function POST(req: NextRequest) {
       bookingCode,
       bookingId: booking.id,
       depositRequired: DEPOSIT_AMOUNT,
+      totalPrice,
     }, { status: 201 });
 
   } catch (error: any) {
