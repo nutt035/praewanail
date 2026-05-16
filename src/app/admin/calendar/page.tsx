@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift, Tag, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 const STATUS_LABELS = {
@@ -344,11 +344,80 @@ export default function CalendarPage() {
       const customerLineId = booking.customers?.line_id;
       if (shopSettings.line_channel_token && customerLineId) {
         const pointsEarned = newPoints - currentPoints;
-        let custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsEarned} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
-        if (selectedCoupon) {
-          custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}\n💰 ยอดชำระหลังหักส่วนลด: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsEarned} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
-        }
-        
+        const flexMessage = {
+          type: "flex",
+          altText: `ใบเสร็จรับเงินจาก ${shopSettings.shop_name}`,
+          contents: {
+            type: "bubble",
+            size: "md",
+            header: {
+              type: "box",
+              layout: "vertical",
+              backgroundColor: "#B76E79",
+              contents: [
+                { type: "text", text: "RECEIPT", color: "#ffffff", weight: "bold", size: "sm", letterSpacing: "0.2em" },
+                { type: "text", text: shopSettings.shop_name || "Nail Studio", color: "#ffffff", weight: "bold", size: "xl", margin: "md" }
+              ],
+              paddingAll: "20px"
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "box", layout: "horizontal", contents: [
+                    { type: "text", text: "Customer", color: "#aaaaaa", size: "xs" },
+                    { type: "text", text: booking.customers?.name || "Customer", align: "end", size: "xs", weight: "bold", color: "#555555" }
+                  ]
+                },
+                {
+                  type: "box", layout: "horizontal", contents: [
+                    { type: "text", text: "Date", color: "#aaaaaa", size: "xs" },
+                    { type: "text", text: new Date().toLocaleDateString("th-TH"), align: "end", size: "xs", color: "#555555" }
+                  ], margin: "md"
+                },
+                { type: "separator", margin: "lg" },
+                {
+                  type: "box", layout: "vertical", margin: "lg", spacing: "sm", contents: [
+                    {
+                      type: "box", layout: "horizontal", contents: [
+                        { type: "text", text: "Total Amount", size: "sm", color: "#555555", weight: "bold" },
+                        { type: "text", text: `฿${finalPrice.toLocaleString()}`, align: "end", size: "sm", weight: "bold", color: "#B76E79" }
+                      ]
+                    },
+                    {
+                      type: "box", layout: "horizontal", contents: [
+                        { type: "text", text: "Points Earned", size: "xs", color: "#aaaaaa" },
+                        { type: "text", text: `+${pointsEarned} pts`, align: "end", size: "xs", color: "#34D399", weight: "bold" }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "box", layout: "vertical", margin: "xxl", contents: [
+                    {
+                      type: "button",
+                      action: { type: "uri", label: "VIEW FULL RECEIPT", uri: receiptUrl },
+                      style: "primary", color: "#B76E79", height: "sm"
+                    },
+                    {
+                      type: "button",
+                      action: { type: "uri", label: "MY POINTS", uri: `${window.location.origin}/member` },
+                      margin: "sm", height: "sm", style: "secondary", color: "#f3f4f6"
+                    }
+                  ]
+                }
+              ],
+              paddingAll: "20px"
+            },
+            footer: {
+              type: "box", layout: "vertical", contents: [
+                { type: "text", text: "Thank you for choosing us! ✨", color: "#aaaaaa", size: "xs", align: "center" }
+              ], paddingBottom: "15px"
+            }
+          }
+        };
+
         await fetch("https://api.line.me/v2/bot/message/push", {
           method: "POST",
           headers: {
@@ -357,10 +426,11 @@ export default function CalendarPage() {
           },
           body: JSON.stringify({
             to: customerLineId,
-            messages: [{ type: "text", text: custMsg }]
+            messages: [flexMessage]
           })
-        }).catch(err => console.error("LINE Notify Customer Error:", err));
+        }).catch(err => console.error("LINE Flex Notify Error:", err));
       }
+
 
       // 5. แสดงใบเสร็จ
       setShowCompleteDialog(null);

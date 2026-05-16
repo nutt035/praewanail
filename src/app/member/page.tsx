@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Search, Trophy, Phone, User, Calendar, Star, Sparkles, ChevronLeft, CreditCard, Gift, Loader2 } from "lucide-react";
+import { Search, Trophy, Phone, User, Calendar, Star, Sparkles, ChevronLeft, CreditCard, Gift, Loader2, Clock, Plus } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import { Reward, CustomerCoupon, Customer, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
 import liff from "@line/liff";
@@ -20,6 +20,7 @@ function MemberContent() {
   const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [myCoupons, setMyCoupons] = useState<CustomerCoupon[]>([]);
+  const [pointsHistory, setPointsHistory] = useState<any[]>([]);
   const [redeeming, setRedeeming] = useState(false);
 
   // Registration & Update state
@@ -112,7 +113,7 @@ function MemberContent() {
       if (existingCust) {
         // มีประวัติแล้ว เข้าสู่ระบบได้เลย
         setCustomer(existingCust);
-        fetchMyCoupons(existingCust.id);
+        fetchCustomerData(existingCust.id);
         
         if (!existingCust.name || !existingCust.birthdate) {
           setRegName(existingCust.name || displayName);
@@ -136,6 +137,11 @@ function MemberContent() {
     }
   }
 
+  async function fetchCustomerData(customerId: string) {
+    fetchMyCoupons(customerId);
+    fetchPointsHistory(customerId);
+  }
+
   async function fetchMyCoupons(customerId: string) {
     const { data } = await supabase
       .from("customer_coupons")
@@ -143,6 +149,36 @@ function MemberContent() {
       .eq("customer_id", customerId)
       .eq("status", "active");
     if (data) setMyCoupons(data as CustomerCoupon[]);
+  }
+
+  async function fetchPointsHistory(customerId: string) {
+    const { data: bookings } = await supabase
+      .from("bookings")
+      .select("id, start_time, total_price, status")
+      .eq("customer_id", customerId)
+      .eq("status", "completed")
+      .order("start_time", { ascending: false });
+
+    const { data: coupons } = await supabase
+      .from("customer_coupons")
+      .select("id, created_at, rewards(title, points_required)")
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false });
+
+    const history: any[] = [];
+    if (bookings) {
+      bookings.forEach(b => {
+        const rate = Number(settings.points_rate_amount || 500);
+        const earned = rate > 0 ? Math.floor((b.total_price || 0) / rate) : Number(settings.points_per_booking || 1);
+        history.push({ id: `bkg-${b.id}`, date: b.start_time, title: "ทำเล็บ", points: Math.max(1, earned), type: "earn" });
+      });
+    }
+    if (coupons) {
+      coupons.forEach(c => {
+        history.push({ id: `cpn-${c.id}`, date: c.created_at, title: `แลกคูปอง: ${c.rewards?.title || "รางวัล"}`, points: -(c.rewards?.points_required || 0), type: "redeem" });
+      });
+    }
+    setPointsHistory(history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
   }
 
   async function handleSearchByPhone(phoneNumber: string) {
@@ -178,7 +214,7 @@ function MemberContent() {
         document.cookie = `customer_phone=${phoneNumber}; path=/; max-age=${60 * 60 * 24 * 30}`;
         
         setCustomer(data);
-        fetchMyCoupons(data.id);
+        fetchCustomerData(data.id);
         
         // เช็คว่าข้อมูลครบไหม
         if (!data.name || !data.birthdate) {
@@ -287,7 +323,7 @@ function MemberContent() {
 
       // 3. Update UI
       setCustomer({ ...customer, points: newPoints });
-      await fetchMyCoupons(customer.id);
+      await fetchCustomerData(customer.id);
       toast.success("แลกคูปองสำเร็จ! ดูได้ที่ 'คูปองของฉัน'", { id: toastId });
     } catch (err) {
       toast.error("เกิดข้อผิดพลาดในการแลกคูปอง", { id: toastId });
@@ -324,30 +360,30 @@ function MemberContent() {
   // คำนวณระดับสมาชิก
   const points = customer?.points || 0;
   let tier = "Classic";
-  let tierColor = "from-slate-300 to-slate-400";
-  let textColor = "text-slate-600";
-  let badgeColor = "bg-slate-100 text-slate-500";
-  let iconColor = "text-slate-400";
+  let tierColor = "from-rose-300 via-pink-400 to-rose-400";
+  let textColor = "text-rose-900";
+  let badgeColor = "bg-rose-100 text-rose-700";
+  let iconColor = "text-rose-100";
 
-  if (points >= 10) {
-    tier = "Gold";
-    tierColor = "from-yellow-300 via-amber-400 to-yellow-500";
-    textColor = "text-yellow-900";
-    badgeColor = "bg-yellow-100 text-yellow-700";
-    iconColor = "text-yellow-100";
-  } else if (points >= 5) {
-    tier = "Silver";
-    tierColor = "from-gray-300 via-slate-300 to-gray-400";
-    textColor = "text-slate-800";
-    badgeColor = "bg-slate-200 text-slate-700";
-    iconColor = "text-slate-100";
-  } else {
-    tier = "Classic";
-    tierColor = "from-rose-300 via-pink-400 to-rose-400";
-    textColor = "text-rose-900";
-    badgeColor = "bg-rose-100 text-rose-700";
-    iconColor = "text-rose-100";
-  }
+  try {
+    const tiers = JSON.parse(settings.membership_tiers || "[]");
+    const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
+    const currentTier = sortedTiers.find((t: any) => points >= (t.min_points || 0));
+
+    if (currentTier) {
+      tier = currentTier.name;
+      if (tier.toLowerCase().includes("gold")) {
+        tierColor = "from-yellow-300 via-amber-400 to-yellow-500";
+        textColor = "text-yellow-900";
+      } else if (tier.toLowerCase().includes("silver")) {
+        tierColor = "from-gray-300 via-slate-300 to-gray-400";
+        textColor = "text-slate-800";
+      } else if (tier.toLowerCase().includes("platinum") || tier.toLowerCase().includes("diamond")) {
+        tierColor = "from-purple-400 via-violet-500 to-purple-600";
+        textColor = "text-white";
+      }
+    }
+  } catch (e) { console.error("Tier calc error:", e); }
 
 
 
@@ -494,7 +530,7 @@ function MemberContent() {
             <div className={`relative overflow-hidden rounded-[2rem] p-6 shadow-xl bg-gradient-to-br ${tierColor} transform transition-transform hover:scale-[1.02] duration-300`}>
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/5 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
-              
+
               <div className="relative z-10">
                 <div className="flex justify-between items-start mb-8">
                   <div>
@@ -518,6 +554,41 @@ function MemberContent() {
                 </div>
               </div>
             </div>
+
+            {/* Points History */}
+            {pointsHistory.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                    <Clock size={16} className="text-blue-500" /> ประวัติแต้มสะสม
+                  </h4>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ล่าสุด {pointsHistory.length} รายการ</span>
+                </div>
+                <div className="bg-white rounded-[2rem] border border-pink-100 overflow-hidden divide-y divide-pink-50">
+                  {pointsHistory.slice(0, 5).map((item) => (
+                    <div key={item.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.type === "earn" ? "bg-emerald-50 text-emerald-500" : "bg-rose-50 text-rose-500"}`}>
+                          {item.type === "earn" ? <Plus size={18} /> : <Gift size={18} />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-700">{item.title}</p>
+                          <p className="text-[10px] text-slate-400">{new Date(item.date).toLocaleDateString("th-TH", { day: 'numeric', month: 'short', year: '2-digit' })} · {new Date(item.date).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit' })} น.</p>
+                        </div>
+                      </div>
+                      <div className={`font-black text-sm ${item.type === "earn" ? "text-emerald-500" : "text-rose-500"}`}>
+                        {item.type === "earn" ? "+" : ""}{item.points} pts
+                      </div>
+                    </div>
+                  ))}
+                  {pointsHistory.length > 5 && (
+                    <div className="p-3 text-center">
+                      <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">ดูประวัติทั้งหมดได้ที่หน้าร้าน</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* My Coupons */}
             {myCoupons.length > 0 && (
