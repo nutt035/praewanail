@@ -418,12 +418,10 @@ export default function CalendarPage() {
           }
         };
 
-        await fetch("https://api.line.me/v2/bot/message/push", {
+        // เรียกใช้ API หลังบ้านแทนการยิง LINE ตรงๆ
+        await fetch("/api/notify", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${shopSettings.line_channel_token}`
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: customerLineId,
             messages: [flexMessage]
