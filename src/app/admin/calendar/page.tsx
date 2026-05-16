@@ -271,7 +271,9 @@ export default function CalendarPage() {
       // 3. ระบบสะสมแต้ม
       let currentPoints = 0;
       let newPoints = 1;
+      
       const pointsPerBooking = Number(shopSettings.points_per_booking || 1);
+      const pointsRate = Number(shopSettings.points_rate_amount || 0);
 
       if (booking.customer_id) {
         const { data: customer } = await supabase
@@ -282,16 +284,35 @@ export default function CalendarPage() {
         
         if (customer) {
           currentPoints = customer.points || 0;
-          newPoints = currentPoints + pointsPerBooking;
+          
+          // คำนวณแต้มพื้นฐาน
+          const baseEarned = pointsRate > 0 ? Math.floor(finalPrice / pointsRate) : pointsPerBooking;
+          
+          // คำนวณ Multiplier ตาม Tier
+          let multiplier = 1;
+          try {
+            const tiers = JSON.parse(shopSettings.membership_tiers || "[]");
+            // เรียงลำดับจากแต้มมากไปน้อยเพื่อหาขั้นสูงสุดที่ลูกค้าถึง
+            const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
+            const currentTier = sortedTiers.find((t: any) => currentPoints >= (t.min_points || 0));
+            if (currentTier) multiplier = currentTier.multiplier || 1;
+          } catch (e) { console.error("Tier calc error:", e); }
+
+          const pointsEarned = Math.max(1, Math.floor(baseEarned * multiplier));
+          newPoints = currentPoints + pointsEarned;
+          
           await supabase
             .from("customers")
             .update({ points: newPoints })
             .eq("id", booking.customer_id);
+          
+          toast.success(`จบงานเรียบร้อย! ได้รับ ${pointsEarned} แต้ม (รวม ${newPoints} แต้ม)`, { id: toastId });
         }
+      } else {
+        toast.success(`จบงานเรียบร้อย!`, { id: toastId });
       }
 
       const payLabel = PAYMENT_OPTIONS.find((p) => p.value === completePaymentMethod)?.label || completePaymentMethod;
-      toast.success(`จบงานเรียบร้อย! ได้รับ ${pointsPerBooking} แต้ม (รวม ${newPoints} แต้ม)`, { id: toastId });
 
       // 4. ส่งการแจ้งเตือน
       const receiptUrl = `${window.location.origin}/receipt/${booking.id}`;
@@ -309,23 +330,26 @@ export default function CalendarPage() {
 
         const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
         const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
-        chatIds.forEach(id => fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: "HTML" })
-        }).catch(() => {}));
+        await Promise.all(chatIds.map(id => 
+          fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: "HTML" })
+          }).catch(() => {})
+        ));
       }
 
 
       // 4.2 หาลูกค้า (LINE) ถ้าลูกค้ามี line_id
       const customerLineId = booking.customers?.line_id;
       if (shopSettings.line_channel_token && customerLineId) {
-        let custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
+        const pointsEarned = newPoints - currentPoints;
+        let custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsEarned} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
         if (selectedCoupon) {
-          custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}\n💰 ยอดชำระหลังหักส่วนลด: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsPerBooking} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
+          custMsg = `✅ ทำเล็บเสร็จเรียบร้อยค่าา!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ 💕\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title}\n💰 ยอดชำระหลังหักส่วนลด: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับ ${pointsEarned} แต้ม (สะสมทั้งหมด ${newPoints} แต้ม)\n\nดูใบเสร็จออนไลน์ได้ที่นี่เลยค่ะ:\n${receiptUrl}`;
         }
         
-        fetch("https://api.line.me/v2/bot/message/push", {
+        await fetch("https://api.line.me/v2/bot/message/push", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -670,46 +694,55 @@ export default function CalendarPage() {
 
       {/* ===== Complete Booking Dialog (เลือกวิธีชำระ) ===== */}
       {showCompleteDialog && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-slide-up">
-            <div className="px-6 py-4 border-b border-pink-100 flex items-center justify-between">
-              <h4 className="font-bold text-brand-dark flex items-center gap-2">
-                <CreditCard size={16} className="text-rose-400" /> จบงาน & ชำระเงิน
-              </h4>
-              <button onClick={() => setShowCompleteDialog(null)} className="btn-ghost py-1 px-2"><X size={16} /></button>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-slide-up">
+            <div className="px-8 py-6 border-b border-rose-50 flex items-center justify-between bg-gradient-to-r from-rose-50/30 to-transparent">
+              <div>
+                <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                  <CreditCard size={20} className="text-rose-400" /> สรุปยอดและชำระเงิน
+                </h4>
+                <p className="text-xs text-slate-400 font-medium">ยืนยันการจบงานสำหรับคุณ {showCompleteDialog.customers?.name}</p>
+              </div>
+              <button onClick={() => setShowCompleteDialog(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"><X size={20} /></button>
             </div>
 
-            <div className="p-6 space-y-4">
-              {/* สรุปยอด */}
-              <div className="bg-gradient-to-r from-rose-50 to-pink-50 rounded-xl p-4 border border-rose-100 space-y-3">
-                <div className="text-sm text-slate-500 font-medium">
-                  <p>{showCompleteDialog.customers?.name || "-"}</p>
-                  <p className="text-xs text-slate-400">
-                    {((showCompleteDialog as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "บริการ"}
-                  </p>
-                </div>
+            <div className="p-8 space-y-6">
+              {/* รายการบริการสรุป */}
+              <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Service Summary</p>
+                <p className="text-sm font-bold text-slate-700 leading-relaxed">
+                  {((showCompleteDialog as any).booking_services || []).map((s: any) => s.service_name).join(", ") || "บริการทำเล็บ"}
+                </p>
+              </div>
 
-                {/* ช่องใส่ราคาจริง */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">ราคาทำเล็บ (฿) *</label>
+              {/* ช่องใส่ราคาจริง */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">ราคาค่าบริการจริง (฿) *</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 font-bold text-xl group-focus-within:text-rose-400 transition-colors">฿</div>
                   <input
                     type="number"
                     min={0}
                     value={completeFinalPrice}
                     onChange={e => {
                       setCompleteFinalPrice(Number(e.target.value));
-                      setSelectedCoupon(null); // ยกเลิกคูปองถ้าแอดมินเปลี่ยนราคาเอง
+                      setSelectedCoupon(null);
                     }}
-                    className="w-full px-4 py-2.5 rounded-xl border border-pink-200 bg-white text-sm font-bold text-brand-dark focus:ring-2 focus:ring-rose-400 focus:border-transparent outline-none text-right text-lg"
+                    className="w-full pl-10 pr-6 py-4 rounded-2xl border-2 border-slate-100 bg-white text-2xl font-black text-slate-800 focus:border-rose-200 focus:ring-4 focus:ring-rose-50 transition-all outline-none text-right"
                     placeholder="0"
                     autoFocus
                   />
                 </div>
+              </div>
 
+              {/* สรุปส่วนลดและมัดจำ */}
+              <div className="space-y-3 px-2">
                 {customerCoupons.length > 0 && (
-                  <div className="border-t border-rose-100 pt-3 mt-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">คูปองของลูกค้า</p>
-                    <div className="space-y-2">
+                  <div className="pt-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-rose-400 mb-3 flex items-center gap-2">
+                      <Tag size={12} /> คูปองส่วนลดที่ใช้ได้
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
                       {customerCoupons.map(coupon => {
                         const isSelected = selectedCoupon?.id === coupon.id;
                         return (
@@ -718,18 +751,36 @@ export default function CalendarPage() {
                             onClick={() => {
                               if (isSelected) {
                                 setSelectedCoupon(null);
-                                setCompleteFinalPrice(completeFinalPrice + coupon.rewards.discount_value);
+                                const discVal = Number(coupon.rewards?.value) || 0;
+                                if (coupon.rewards?.reward_type === "percent") {
+                                  setCompleteFinalPrice(showCompleteDialog.total_price || 0);
+                                } else {
+                                  setCompleteFinalPrice(completeFinalPrice + discVal);
+                                }
                               } else {
-                                if (selectedCoupon) setCompleteFinalPrice(completeFinalPrice + selectedCoupon.rewards.discount_value - coupon.rewards.discount_value);
-                                else setCompleteFinalPrice(Math.max(0, completeFinalPrice - coupon.rewards.discount_value));
+                                const discVal = Number(coupon.rewards?.value) || 0;
+                                let newPrice = showCompleteDialog.total_price || 0;
+                                if (coupon.rewards?.reward_type === "amount") {
+                                  newPrice = Math.max(0, newPrice - discVal);
+                                } else if (coupon.rewards?.reward_type === "percent") {
+                                  newPrice = Math.max(0, newPrice - Math.round(newPrice * (discVal / 100)));
+                                }
+                                setCompleteFinalPrice(newPrice);
                                 setSelectedCoupon(coupon);
                               }
                             }}
-                            className={`w-full text-left p-2 rounded-lg border transition-all text-xs flex items-center gap-2 ${isSelected ? "bg-rose-500 text-white border-rose-500" : "bg-white border-rose-200 text-slate-600"}`}
+                            className={`w-full text-left p-3 rounded-xl border-2 transition-all flex items-center gap-3 ${isSelected ? "bg-rose-50 border-rose-200 shadow-sm" : "bg-white border-slate-50 hover:border-rose-100"}`}
                           >
-                            <Gift size={14} className={isSelected ? "text-white" : "text-rose-400"} />
-                            <span className="flex-1 font-semibold">{coupon.rewards?.title}</span>
-                            <span>{isSelected ? "✅ ใช้คูปองนี้" : "เลือกใช้"}</span>
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? "bg-rose-500 text-white" : "bg-rose-50 text-rose-400"}`}>
+                              <Gift size={16} />
+                            </div>
+                            <div className="flex-1">
+                              <p className={`text-xs font-bold ${isSelected ? "text-rose-600" : "text-slate-600"}`}>{coupon.rewards?.title}</p>
+                              <p className="text-[10px] text-slate-400">
+                                {coupon.rewards?.reward_type === "amount" ? `ลดทันที ฿${coupon.rewards.value}` : `ลด ${coupon.rewards.value}%`}
+                              </p>
+                            </div>
+                            {isSelected && <CheckCircle2 size={16} className="text-rose-500" />}
                           </button>
                         );
                       })}
@@ -737,47 +788,58 @@ export default function CalendarPage() {
                   </div>
                 )}
 
-                {showCompleteDialog.deposit > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-emerald-600">มัดจำแล้ว</span>
-                    <span className="text-emerald-600">-฿{showCompleteDialog.deposit.toLocaleString()}</span>
+                <div className="pt-4 space-y-2 border-t border-slate-50">
+                  {showCompleteDialog.deposit > 0 && (
+                    <div className="flex justify-between text-sm font-medium">
+                      <span className="text-slate-400">หักมัดจำออนไลน์</span>
+                      <span className="text-emerald-500">-฿{showCompleteDialog.deposit.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {selectedCoupon && (
+                    <div className="flex justify-between text-sm font-medium">
+                      <span className="text-slate-400">ส่วนลดคูปอง</span>
+                      <span className="text-rose-400">
+                        {selectedCoupon.rewards?.reward_type === "amount" 
+                          ? `-฿${Number(selectedCoupon.rewards.value).toLocaleString()}` 
+                          : `-฿${Math.round((showCompleteDialog.total_price || 0) * (Number(selectedCoupon.rewards.value) / 100)).toLocaleString()}`}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="font-bold text-slate-700">ยอดที่ต้องชำระเพิ่ม</span>
+                    <span className="text-3xl font-black text-rose-500 tracking-tighter">
+                      ฿{Math.max(0, completeFinalPrice - (showCompleteDialog.deposit || 0)).toLocaleString()}
+                    </span>
                   </div>
-                )}
-                <div className="h-px bg-rose-200" />
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-brand-dark">ยอดชำระวันนี้</span>
-                  <span className="text-xl font-black text-rose-600">
-                    ฿{Math.max(0, completeFinalPrice - (showCompleteDialog.deposit || 0)).toLocaleString()}
-                  </span>
                 </div>
               </div>
 
               {/* เลือกวิธีชำระ */}
-              <div>
-                <label className="form-label">เลือกวิธีชำระเงิน</label>
-                <div className="grid grid-cols-3 gap-2 mt-2">
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">วิธีชำระเงิน</label>
+                <div className="grid grid-cols-3 gap-2">
                   {PAYMENT_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       onClick={() => setCompletePaymentMethod(opt.value)}
-                      className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 transition-all text-sm font-medium
-                        ${completePaymentMethod === opt.value
-                          ? "border-rose-400 bg-rose-50 text-rose-600 shadow-sm"
-                          : "border-pink-100 bg-white text-slate-500 hover:border-rose-200"
-                        }`}
+                      className={`py-3 px-2 rounded-xl text-[10px] font-bold uppercase tracking-wider border-2 transition-all ${
+                        completePaymentMethod === opt.value
+                          ? "bg-slate-800 border-slate-800 text-white shadow-lg"
+                          : "bg-white border-slate-100 text-slate-400 hover:border-rose-100"
+                      }`}
                     >
-                      <span className="text-lg">{opt.icon}</span>
-                      <span className="text-xs">{opt.value === "cash" ? "เงินสด" : opt.value === "promptpay" ? "พร้อมเพย์" : "โอนเงิน"}</span>
+                      {opt.label}
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
 
-            <div className="px-6 pb-5 flex gap-2">
-              <button onClick={() => setShowCompleteDialog(null)} className="btn-ghost flex-1">ยกเลิก</button>
-              <button onClick={confirmComplete} disabled={completing} className="btn-primary flex-1 justify-center">
-                {completing ? "กำลังบันทึก..." : "✓ ยืนยันจบงาน"}
+              <button
+                onClick={confirmComplete}
+                disabled={completing || completeFinalPrice <= 0}
+                className="w-full py-4 bg-gradient-to-r from-rose-400 to-pink-500 text-white font-black rounded-2xl shadow-xl shadow-rose-200/50 hover:shadow-rose-300/60 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {completing ? <Loader2 size={20} className="animate-spin" /> : <><CheckCircle2 size={20} /> ยืนยันจบงาน & รับเงิน</>}
               </button>
             </div>
           </div>

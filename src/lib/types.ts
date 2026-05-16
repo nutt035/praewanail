@@ -205,6 +205,12 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   line_channel_token: "",
   admin_line_uid: "",
   points_per_booking: "1",
+  points_rate_amount: "500", // จ่ายทุกๆ 500 บาท ได้ 1 แต้ม
+  membership_tiers: JSON.stringify([
+    { name: "Silver", min_points: 0, multiplier: 1 },
+    { name: "Gold", min_points: 100, multiplier: 1.2 },
+    { name: "Platinum", min_points: 500, multiplier: 1.5 }
+  ]),
   redeem_5_points_value: "50",
   redeem_10_points_value: "100",
   ai_pricing_rules: "ทาสีเจลพื้นฐาน (สีพื้น/ลูกแก้ว/แฟลช): 250 บาท\nงานเพ้นท์ลาย (Hand-drawn): เริ่มต้นนิ้วละ 30 - 50 บาท (ตามความยาก)\nงานปั้นนูน 3D / ขัดผง: นิ้วละ 50 บาท\nติดอะไหล่/เพชร: ชิ้นเล็ก 10 บาท, ชิ้นใหญ่/อะไหล่พรีเมียม 30 - 50 บาท",

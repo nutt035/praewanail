@@ -80,14 +80,27 @@ export default function RewardsAdminPage() {
       return;
     }
 
+    // แก้ไข: ถ้าเป็นบริการฟรี ให้เก็บชื่อบริการใน title หรือ description แล้วเซ็ต value เป็น 0 เพื่อไม่ให้ DB Error (ถ้าคอลัมน์เป็น numeric)
+    const finalData = { ...formData };
+    if (formData.reward_type === "free_service") {
+      finalData.description = `[บริการฟรี] ${formData.value}\n${formData.description}`;
+      finalData.value = 0; // เซ็ตเป็น 0 เพื่อป้องกัน numeric error ใน DB
+    }
+
     const t = toast.loading("กำลังบันทึก...");
     if (editingId) {
-      const { error } = await supabase.from("rewards").update(formData).eq("id", editingId);
-      if (error) toast.error("เกิดข้อผิดพลาด", { id: t });
+      const { error } = await supabase.from("rewards").update(finalData).eq("id", editingId);
+      if (error) {
+        console.error("Save Error:", error);
+        toast.error(`เกิดข้อผิดพลาด: ${error.message}`, { id: t });
+      }
       else toast.success("อัปเดตเรียบร้อย", { id: t });
     } else {
-      const { error } = await supabase.from("rewards").insert([formData]);
-      if (error) toast.error("เกิดข้อผิดพลาด", { id: t });
+      const { error } = await supabase.from("rewards").insert([finalData]);
+      if (error) {
+        console.error("Insert Error:", error);
+        toast.error(`เกิดข้อผิดพลาด: ${error.message}`, { id: t });
+      }
       else toast.success("เพิ่มเรียบร้อย", { id: t });
     }
 
@@ -149,7 +162,7 @@ export default function RewardsAdminPage() {
                 <span className="font-bold text-emerald-500">
                   {r.reward_type === "amount" && `ส่วนลด ฿${r.value}`}
                   {r.reward_type === "percent" && `ส่วนลด ${r.value}%`}
-                  {r.reward_type === "free_service" && `บริการฟรี: ${r.value}`}
+                  {r.reward_type === "free_service" && "ทำบริการฟรี (ตามเงื่อนไข)"}
                   {r.reward_type === "points" && `แลกแต้ม: ${r.value} แต้ม`}
                 </span>
               </div>

@@ -62,12 +62,12 @@ export default function PublicReceiptPage() {
   const bsList = (booking as any).booking_services || [];
   const promo = (booking as any).promotions;
 
-  // Calculate total based on the la-system:
-  // If it's a buffet, the price is promo.price + any service with price > 0 in bsList
+  // Calculate total based on the system:
+  // If it's a buffet, the base price is promo.price
   let subtotal = 0;
   if (promo && promo.promotion_type === "buffet") {
     subtotal = promo.price;
-    // Only add services that were charged extra (unit_price > 0)
+    // Add all services (If unit_price > 0, they are add-ons)
     const addOnsTotal = bsList.reduce((sum: number, b: any) => sum + b.line_total, 0);
     subtotal += addOnsTotal;
   } else {
@@ -80,149 +80,211 @@ export default function PublicReceiptPage() {
   const remaining = isCompleted ? 0 : totalPrice - deposit;
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4">
+    <div className="min-h-screen bg-[#FDFBF9] py-12 px-4 font-sans text-slate-900">
       <div className="max-w-md mx-auto">
-        {/* Success Header */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-500 shadow-sm">
-            <CheckCircle2 size={40} />
+        {/* Luxury Header */}
+        <div className="text-center mb-10">
+          <div className="inline-block px-4 py-1.5 bg-rose-50 rounded-full mb-4">
+            <span className="text-[10px] font-bold text-rose-400 uppercase tracking-[0.2em]">Official Digital Receipt</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">{isCompleted ? "ชำระเงินเรียบร้อย" : "จองคิวสำเร็จแล้ว"}</h1>
-          <p className="text-slate-500 mt-1">ขอบคุณที่ใช้บริการ {shopSettings.shop_name} นะคะ ✨</p>
+          <h1 className="text-3xl font-serif text-slate-800 tracking-tight">
+            {shopSettings.shop_name}
+          </h1>
+          <p className="text-slate-400 text-sm mt-2 font-medium">ขอบคุณที่วางใจให้เราดูแลความงามให้นะคะ ✨</p>
         </div>
 
         {/* Main Receipt Card */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden border border-slate-100 relative">
+        <div className="bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(183,110,121,0.08)] overflow-hidden border border-rose-50/50 relative">
           {/* Decorative Top Bar */}
-          <div className="h-2 bg-gradient-to-r from-rose-400 to-pink-500" />
+          <div className="h-3 bg-gradient-to-r from-[#B76E79] via-[#D4A5A5] to-[#B76E79]" />
           
-          <div className="p-8">
-            {/* Shop Info */}
-            <div className="text-center border-b border-slate-100 pb-6 mb-6">
-              <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">ใบสรุปรายการ</h2>
-              <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest">ID: #{booking.id.slice(0, 8).toUpperCase()}</p>
+          <div className="p-8 md:p-10">
+            {/* Status & ID */}
+            <div className="flex justify-between items-start mb-10">
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Receipt Number</p>
+                <p className="text-sm font-mono font-bold text-slate-700">#{booking.id.slice(0, 8).toUpperCase()}</p>
+              </div>
+              <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${isCompleted ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-amber-50 text-amber-600 border border-amber-100"}`}>
+                {isCompleted ? "Completed" : "Deposited"}
+              </div>
             </div>
 
-            {/* Service Details */}
-            <div className="space-y-4 mb-8">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 shrink-0">
-                  <Scissors size={20} />
+            {/* Service & Details Section */}
+            <div className="space-y-8 mb-10">
+              {/* Promotion (If any) */}
+              {promo && (
+                <div className="relative p-5 rounded-3xl bg-gradient-to-br from-rose-50/50 to-transparent border border-rose-100/50">
+                  <div className="absolute -top-2.5 -right-2.5 bg-[#B76E79] text-white text-[8px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">
+                    Promotion
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-rose-400 shrink-0">
+                      <Sparkles size={24} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">โปรโมชั่นที่ใช้</p>
+                      <p className="text-slate-800 font-bold leading-tight">{promo.title}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">บริการ</p>
-                  <p className="text-brand-dark font-semibold">
-                    {bsList.length > 0
-                      ? bsList.map((s: any) => `${s.service_name}${s.finger_count ? ` (${s.finger_count} หน่วย)` : ""}`).join(", ")
-                      : "ไม่ระบุบริการ"}
-                  </p>
-                </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Main Services List */}
+              <div className="space-y-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
-                    <Calendar size={20} />
+                  <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100">
+                    <Scissors size={22} />
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">วันที่</p>
-                    <p className="text-brand-dark font-semibold text-sm">
-                      {new Date(booking.start_time).toLocaleDateString("th-TH", { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">รายการบริการ</p>
+                    <div className="space-y-2">
+                      {bsList.length > 0 ? (
+                        bsList.map((s: any, idx: number) => (
+                          <div key={idx} className="flex justify-between items-baseline group">
+                            <span className="text-slate-700 font-semibold text-sm group-hover:text-rose-400 transition-colors">
+                              {s.service_name}
+                              {s.finger_count ? <span className="text-[10px] text-slate-400 ml-1.5 font-medium">({s.finger_count} {s.unit_name || "หน่วย"})</span> : ""}
+                            </span>
+                            <span className="text-slate-400 text-xs font-medium">฿{s.line_total.toLocaleString()}</span>
+                          </div>
+                        ))
+                      ) : !promo ? (
+                        <p className="text-slate-400 text-sm italic">ไม่ระบุบริการ</p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
-                    <Clock size={20} />
+
+                <div className="grid grid-cols-2 gap-8 pt-2">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100">
+                      <Calendar size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">วันที่</p>
+                      <p className="text-slate-800 font-bold text-sm tracking-tight">
+                        {new Date(booking.start_time).toLocaleDateString("th-TH", { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-0.5">เวลา</p>
-                    <p className="text-brand-dark font-semibold text-sm">
-                      {new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit' })} น.
-                    </p>
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 shrink-0 border border-slate-100">
+                      <Clock size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">เวลา</p>
+                      <p className="text-slate-800 font-bold text-sm tracking-tight">
+                        {new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit' })} น.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Price Breakdown */}
-            <div className="bg-slate-50 rounded-2xl p-5 space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500 font-medium">
-                  {promo?.promotion_type === "buffet" ? "ราคาบุฟเฟต์พื้นฐาน" : "ราคาบริการรวม"}
-                </span>
-                <span className="text-slate-800 font-bold">฿{(promo?.promotion_type === "buffet" ? promo.price : bsList.reduce((s: number, b: any) => s + b.line_total, 0) || 0).toLocaleString()}</span>
-              </div>
-
-              {promo?.promotion_type === "buffet" && bsList.some((b: any) => b.line_total > 0) && (
-                <div className="space-y-1 border-t border-slate-200 pt-2">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">บริการเพิ่มเติม (Add-ons)</p>
-                  {bsList.filter((b: any) => b.line_total > 0).map((b: any, i: number) => (
-                    <div key={i} className="flex justify-between text-xs text-slate-600">
-                      <span>{b.service_name}</span>
-                      <span>฿{b.line_total.toLocaleString()}</span>
-                    </div>
-                  ))}
+            <div className="bg-[#1A1A1A] rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-slate-900/20">
+              {/* Decorative circle */}
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl" />
+              
+              <div className="space-y-4 relative z-10">
+                <div className="flex justify-between text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">
+                  <span>Description</span>
+                  <span>Amount</span>
                 </div>
-              )}
+                
+                <div className="h-px bg-white/10" />
 
-              {discount > 0 && (
-                <div className="flex justify-between text-sm text-emerald-600 font-medium italic pt-2">
-                  <span>{promo ? `ส่วนลดโปร ${promo.title}` : "ส่วนลดพิเศษ"}</span>
-                  <span>-฿{discount.toLocaleString()}</span>
+                {promo && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400 font-medium">Base Promotion</span>
+                    <span className="font-bold">฿{promo.price.toLocaleString()}</span>
+                  </div>
+                )}
+
+                {!promo && bsList.length > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400 font-medium">Services Subtotal</span>
+                    <span className="font-bold">฿{bsList.reduce((s: number, b: any) => s + b.line_total, 0).toLocaleString()}</span>
+                  </div>
+                )}
+
+                {promo && bsList.some((b: any) => b.line_total > 0) && (
+                  <div className="flex justify-between text-sm border-t border-white/5 pt-3">
+                    <span className="text-slate-400 font-medium">Additional Add-ons</span>
+                    <span className="font-bold">฿{bsList.reduce((s: number, b: any) => s + b.line_total, 0).toLocaleString()}</span>
+                  </div>
+                )}
+
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm text-rose-300 font-bold italic">
+                    <span>Discount Applied</span>
+                    <span>-฿{discount.toLocaleString()}</span>
+                  </div>
+                )}
+
+                {deposit > 0 && (
+                  <div className="flex justify-between text-sm text-slate-400 italic">
+                    <span>Deposit Paid</span>
+                    <span>-฿{deposit.toLocaleString()}</span>
+                  </div>
+                )}
+
+                <div className="h-px bg-white/20 my-4" />
+                
+                <div className="flex justify-between items-center">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-300 mb-1">
+                      {isCompleted ? "Total Paid" : "Balance Due"}
+                    </span>
+                    <span className="text-xs text-slate-500">Net Amount (THB)</span>
+                  </div>
+                  <span className="text-4xl font-serif font-black tracking-tighter">
+                    ฿{remaining.toLocaleString()}
+                  </span>
                 </div>
-              )}
-
-              {deposit > 0 && (
-                <div className="flex justify-between text-sm text-slate-500 italic">
-                  <span>หักมัดจำแล้ว</span>
-                  <span>-฿{deposit.toLocaleString()}</span>
-                </div>
-              )}
-
-              <div className="h-px bg-slate-200 my-2" />
-              <div className="flex justify-between items-center">
-                <span className="text-brand-dark font-bold">
-                  {isCompleted ? "ยอดชำระรวม" : "ยอดคงเหลือที่ต้องชำระ"}
-                </span>
-                <span className="text-2xl font-black text-rose-500">฿{remaining.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
-          {/* Cut-out circles for receipt look */}
-          <div className="absolute left-0 bottom-1/4 w-4 h-8 bg-slate-50 rounded-r-full -translate-x-1" />
-          <div className="absolute right-0 bottom-1/4 w-4 h-8 bg-slate-50 rounded-l-full translate-x-1" />
+          {/* Luxury Cut-out decoration */}
+          <div className="absolute left-0 bottom-1/4 w-3 h-6 bg-[#FDFBF9] rounded-r-full" />
+          <div className="absolute right-0 bottom-1/4 w-3 h-6 bg-[#FDFBF9] rounded-l-full" />
         </div>
 
         {/* Shop Contact Footer */}
-        <div className="mt-8 text-center space-y-4">
-          <div className="flex items-center justify-center gap-6 text-slate-400">
+        <div className="mt-12 text-center">
+          <div className="flex items-center justify-center gap-10 mb-8">
             {shopSettings.shop_phone && (
-              <a href={`tel:${shopSettings.shop_phone}`} className="flex flex-col items-center gap-1 hover:text-rose-500 transition-colors">
-                <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center">
+              <a href={`tel:${shopSettings.shop_phone}`} className="group">
+                <div className="w-12 h-12 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 group-hover:border-rose-400 group-hover:text-rose-400 transition-all">
                   <Phone size={18} />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest">โทร</span>
+                <p className="text-[9px] font-black uppercase tracking-widest mt-2 text-slate-300 group-hover:text-rose-400">Call</p>
               </a>
             )}
-            <a href={shopSettings.shop_location_url || "https://maps.app.goo.gl/your-link"} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1 hover:text-rose-500 transition-colors">
-              <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center">
+            <a href={shopSettings.shop_location_url || "#"} target="_blank" rel="noopener noreferrer" className="group">
+              <div className="w-12 h-12 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 group-hover:border-rose-400 group-hover:text-rose-400 transition-all">
                 <MapPin size={18} />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest">พิกัดร้าน</span>
+              <p className="text-[9px] font-black uppercase tracking-widest mt-2 text-slate-300 group-hover:text-rose-400">Map</p>
             </a>
-            <a href={shopSettings.shop_review_url || "https://facebook.com/your-reviews"} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-1 hover:text-rose-500 transition-colors">
-              <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center">
+            <a href={shopSettings.shop_review_url || "#"} target="_blank" rel="noopener noreferrer" className="group">
+              <div className="w-12 h-12 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 group-hover:border-rose-400 group-hover:text-rose-400 transition-all">
                 <Sparkles size={18} />
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest">รีวิว</span>
+              <p className="text-[9px] font-black uppercase tracking-widest mt-2 text-slate-300 group-hover:text-rose-400">Review</p>
             </a>
           </div>
           
-          <p className="text-[10px] text-slate-300 font-medium uppercase tracking-[0.2em]">
-            {shopSettings.shop_name} · Professional Nail Art
-          </p>
+          <div className="flex items-center justify-center gap-3 text-slate-200">
+            <div className="h-px w-8 bg-slate-100" />
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] whitespace-nowrap">
+              {shopSettings.shop_name}
+            </p>
+            <div className="h-px w-8 bg-slate-100" />
+          </div>
         </div>
       </div>
     </div>
