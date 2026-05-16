@@ -419,14 +419,23 @@ export default function CalendarPage() {
         };
 
         // เรียกใช้ API หลังบ้านแทนการยิง LINE ตรงๆ
-        await fetch("/api/notify", {
+        const response = await fetch("/api/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: customerLineId,
+            message: `✨ จบงานเรียบร้อย! ขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ`, // fallback message
             messages: [flexMessage]
           })
-        }).catch(err => console.error("LINE Flex Notify Error:", err));
+        });
+        
+        const notifyResult = await response.json();
+        console.log("Notification Result:", notifyResult);
+        
+        if (!response.ok || (notifyResult.results && notifyResult.results.some((r: any) => !r.ok))) {
+          console.error("LINE Notification might have failed:", notifyResult);
+          toast.error("ส่ง LINE หาลูกค้าไม่สำเร็จ กรุณาเช็ค Token หรือ User ID");
+        }
       }
 
 

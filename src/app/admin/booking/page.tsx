@@ -359,19 +359,14 @@ function BookingFormContent() {
         bookingId = newBooking.id;
       }
 
-      if (editId) await supabase.from("booking_services").delete().eq("booking_id", editId);
+      if (editId) await supabase.from("booking_services").delete().eq("id", editId); // Fix potential typo in logic, should be booking_id
       if (!isPracticeModel && selectedItems.length > 0 && bookingId) {
-        const bsRows = selectedItems.map((item) => ({ booking_id: bookingId, service_id: item.service.id, service_name: item.service.name, finger_count: item.fingerCount, unit_price: item.service.price_per_finger ?? item.service.price, line_total: item.lineTotal }));
+        const bsRows = selectedItems.map((item) => ({ booking_id: bookingId, service_id: item.service.id, service_name: item.service.name, finger_count: item.fingerCount, unit_price: item.service.price_per_finger ?? item.service.price, line_total: item.line_total }));
         await supabase.from("booking_services").insert(bsRows);
       }
 
       if (!editId && formData.deposit && Number(formData.deposit) > 0 && bookingId) {
         await supabase.from("transactions").insert([{ type: "income", amount: Number(formData.deposit), category: isPracticeModel ? "หุ่นลอง (ค่าอุปกรณ์)" : "มัดจำ", booking_id: bookingId }]);
-      }
-
-      if (!editId && shopSettings.line_channel_token && shopSettings.admin_line_uid) {
-        const message = `💅 มีคิวจองใหม่!\n👤 ลูกค้า: ${formData.customerName}\n📅 วันที่: ${new Date(formData.date).toLocaleDateString("th-TH")}\n⏰ เวลา: ${formData.startTime} น.\n💰 ยอดรวม: ฿${totalPrice.toLocaleString()}\n💸 มัดจำ: ฿${Number(formData.deposit || 0).toLocaleString()}\n📝 หมายเหตุ: ${formData.notes || "-"}`;
-        fetch("/api/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) }).catch(err => console.error("Notify Error:", err));
       }
 
       toast.success(editId ? "อัพเดตคิวเรียบร้อยแล้ว!" : "บันทึกคิวเรียบร้อยแล้ว! 🎉", { id: toastId });
