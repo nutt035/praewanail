@@ -68,8 +68,23 @@ export async function POST(request: Request) {
           },
           body: JSON.stringify({ to: target, messages: lineMessages }),
         });
-        return { uid: target, ok: res.ok, status: res.status };
-      } catch (err) { return { uid: target, ok: false, error: err }; }
+        
+        let errorBody = null;
+        if (!res.ok) {
+          errorBody = await res.json().catch(() => null);
+          console.error(`[LINE_API_ERROR] Status: ${res.status}`, errorBody);
+        }
+
+        return { 
+          uid: target, 
+          ok: res.ok, 
+          status: res.status,
+          error: errorBody
+        };
+      } catch (err: any) { 
+        console.error(`[LINE_FETCH_ERROR]`, err);
+        return { uid: target, ok: false, error: err.message || err }; 
+      }
     }));
 
     return NextResponse.json({ success: true, results });
