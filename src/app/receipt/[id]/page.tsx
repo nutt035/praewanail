@@ -10,7 +10,7 @@ import Link from "next/link";
 export default function PublicReceiptPage() {
   const params = useParams();
   const id = params.id as string;
-  
+
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [shopSettings, setShopSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
@@ -110,13 +110,13 @@ export default function PublicReceiptPage() {
         <div className="relative group animate-slide-up">
           {/* Decorative Back Elements */}
           <div className="absolute inset-0 bg-gradient-to-br from-rose-200/20 to-pink-300/20 rounded-[3rem] blur-2xl -z-10 transform group-hover:scale-105 transition-transform duration-500" />
-          
+
           <div className="bg-white rounded-[2.5rem] shadow-[0_10px_40px_-10px_rgba(183,110,121,0.2)] overflow-hidden border border-white relative">
             {/* Header Pattern */}
             <div className="h-32 bg-gradient-to-br from-[#B76E79] to-[#E5B5B5] relative overflow-hidden">
               <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_2px_2px,_white_1px,_transparent_0)] bg-[length:24px_24px]" />
               <div className="absolute -bottom-1 left-0 right-0 h-8 bg-white rounded-t-[2.5rem]" />
-              
+
               <div className="absolute top-8 left-8 right-8 flex justify-between items-start text-white">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Receipt ID</p>
@@ -148,7 +148,7 @@ export default function PublicReceiptPage() {
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Service Details</span>
                   <div className="flex-1 h-px bg-rose-50" />
                 </div>
-                
+
                 <div className="space-y-3">
                   {promo && (
                     <div className="flex justify-between items-center p-3 bg-rose-50/50 rounded-2xl border border-rose-100/50">
@@ -200,11 +200,11 @@ export default function PublicReceiptPage() {
               {/* Pricing Breakdown */}
               <div className="bg-slate-900 rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-rose-400/10 rounded-full blur-3xl" />
-                
+
                 <div className="space-y-3 relative z-10">
                   <div className="flex justify-between text-xs font-bold text-slate-500">
                     <span>Subtotal</span>
-                    <span>฿{subtotal.toLocaleString()}</span>
+                    <span>฿{totalPrice.toLocaleString()}</span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-xs font-bold text-rose-400">
@@ -218,9 +218,9 @@ export default function PublicReceiptPage() {
                       <span>-฿{deposit.toLocaleString()}</span>
                     </div>
                   )}
-                  
+
                   <div className="h-px bg-white/10 my-2" />
-                  
+
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="text-[10px] font-black text-rose-300 uppercase tracking-widest mb-0.5">Total Amount</p>
@@ -259,7 +259,7 @@ export default function PublicReceiptPage() {
               </div>
             </div>
           </div>
-          
+
           {/* Paper cut effect circles */}
           <div className="absolute left-0 bottom-[24%] w-4 h-8 bg-[#FDF2F8] rounded-r-full -translate-x-1" />
           <div className="absolute right-0 bottom-[24%] w-4 h-8 bg-[#FDF2F8] rounded-l-full translate-x-1" />
