@@ -25,9 +25,15 @@ export default function PublicReceiptPage() {
   async function fetchBooking() {
     const { data, error } = await supabase
       .from("bookings")
-      .select("*, customers(*), booking_services(service_name, unit_price, line_total, finger_count, unit_name), promotions(title, price, promotion_type)")
+      .select("*, customers(*), booking_services(service_name, unit_price, line_total, finger_count), promotions(title, price, promotion_type)")
       .eq("id", id)
       .single();
+
+    if (error) {
+      console.error("Error fetching booking:", error);
+      setLoading(false);
+      return;
+    }
 
     if (data) setBooking(data as Booking);
     setLoading(false);
