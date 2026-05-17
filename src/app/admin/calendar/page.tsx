@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Booking, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift, Tag, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift, Tag, Loader2, Link as LinkIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
 const STATUS_LABELS = {
@@ -355,7 +355,7 @@ export default function CalendarPage() {
       const payLabel = PAYMENT_OPTIONS.find((p) => p.value === completePaymentMethod)?.label || completePaymentMethod;
 
       // 4. ส่งการแจ้งเตือน
-      // ตรวจสอบว่า origin เป็น https หรือไม่ (LINE ต้องการ https สำหรับ Link)
+      // บังคับ HTTPS สำหรับ LINE
       const origin = window.location.origin.replace("http://", "https://");
       const receiptUrl = `${origin}/receipt/${booking.id}`;
 
@@ -387,8 +387,92 @@ export default function CalendarPage() {
       if (shopSettings.line_channel_token && customerLineId) {
         const pointsEarned = newPoints - currentPoints;
         
-        // ส่งเป็นข้อความธรรมดาก่อนเพื่อความชัวร์ (เนื่องจาก Flex Message อาจมีปัญหาเรื่องรูปแบบ)
-        const textMessage = `✨ จบงานเรียบร้อย!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับแต้มสะสม: +${pointsEarned} แต้ม\n\n📄 ดูใบเสร็จของคุณได้ที่:\n${receiptUrl}\n\nแล้วพบกันใหม่นะคะ! 💅✨`;
+        // ดีไซน์ Flex Message แบบพรีเมียม (ระวังเรื่อง Validation)
+        const flexMessage = {
+          type: "flex",
+          altText: `ใบเสร็จรับเงินจาก ${shopSettings.shop_name}`,
+          contents: {
+            type: "bubble",
+            size: "md",
+            header: {
+              type: "box",
+              layout: "vertical",
+              backgroundColor: "#B76E79",
+              contents: [
+                { type: "text", text: "OFFICIAL RECEIPT", color: "#ffffff", weight: "bold", size: "xxs", letterSpacing: "2px" },
+                { type: "text", text: shopSettings.shop_name || "Antonette Nail", color: "#ffffff", weight: "bold", size: "xl", margin: "md" }
+              ],
+              paddingAll: "20px"
+            },
+            body: {
+              type: "box",
+              layout: "vertical",
+              contents: [
+                {
+                  type: "text",
+                  text: `สวัสดีค่ะ คุณ ${booking.customers?.name || "ลูกค้า"} ✨`,
+                  weight: "bold",
+                  size: "sm",
+                  color: "#111111"
+                },
+                {
+                  type: "text",
+                  text: "ขอบคุณที่มาทำสวยกับเราในวันนี้นะคะ",
+                  size: "xs",
+                  color: "#aaaaaa",
+                  margin: "xs"
+                },
+                { type: "separator", margin: "xl" },
+                {
+                  type: "box",
+                  layout: "vertical",
+                  margin: "xl",
+                  spacing: "sm",
+                  contents: [
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        { type: "text", text: "ยอดชำระสุทธิ", size: "sm", color: "#555555" },
+                        { type: "text", text: `฿${finalPrice.toLocaleString()}`, align: "end", size: "sm", weight: "bold", color: "#B76E79" }
+                      ]
+                    },
+                    {
+                      type: "box",
+                      layout: "horizontal",
+                      contents: [
+                        { type: "text", text: "แต้มที่ได้รับ", size: "xs", color: "#aaaaaa" },
+                        { type: "text", text: `+${pointsEarned} pts`, align: "end", size: "xs", color: "#34D399", weight: "bold" }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  type: "box",
+                  layout: "vertical",
+                  margin: "xxl",
+                  spacing: "sm",
+                  contents: [
+                    {
+                      type: "button",
+                      action: { type: "uri", label: "ดูใบเสร็จตัวเต็ม", uri: receiptUrl },
+                      style: "primary",
+                      color: "#B76E79",
+                      height: "sm"
+                    },
+                    {
+                      type: "button",
+                      action: { type: "uri", label: "เช็คแต้มสะสม", uri: `${origin}/member` },
+                      style: "secondary",
+                      height: "sm"
+                    }
+                  ]
+                }
+              ],
+              paddingAll: "20px"
+            }
+          }
+        };
 
         // เรียกใช้ API หลังบ้าน
         const response = await fetch("/api/notify", {
@@ -396,12 +480,12 @@ export default function CalendarPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: customerLineId,
-            message: textMessage
+            message: `✨ จบงานเรียบร้อย! ขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ`, // fallback
+            messages: [flexMessage]
           })
         });
         
         const notifyResult = await response.json();
-        console.log("Notification Result:", notifyResult);
         
         if (!response.ok || (notifyResult.results && notifyResult.results.some((r: any) => !r.ok))) {
           const firstError = notifyResult.results?.[0]?.error;
@@ -670,12 +754,25 @@ export default function CalendarPage() {
                 </>
               )}
               {selectedBooking.status === "completed" && (
-                <button
-                  onClick={() => { setReceiptPaymentMethod(selectedBooking.payment_method || "cash"); setSelectedBooking(null); setShowReceipt(selectedBooking); }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors border border-blue-200"
-                >
-                  <Receipt size={15} /> ดูใบเสร็จ
-                </button>
+                <div className="flex flex-wrap gap-2 w-full">
+                  <button
+                    onClick={() => { setReceiptPaymentMethod(selectedBooking.payment_method || "cash"); setSelectedBooking(null); setShowReceipt(selectedBooking); }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-50 text-blue-700 text-sm font-bold hover:bg-blue-100 transition-all border border-blue-200"
+                  >
+                    <Receipt size={15} /> ดูใบเสร็จ
+                  </button>
+                  <button
+                    onClick={() => {
+                      const origin = window.location.origin.replace("http://", "https://");
+                      const url = `${origin}/receipt/${selectedBooking.id}`;
+                      navigator.clipboard.writeText(url);
+                      toast.success("คัดลอกลิงก์ใบเสร็จแล้ว! ✨");
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition-all shadow-md"
+                  >
+                    <LinkIcon size={15} /> คัดลอกลิงก์
+                  </button>
+                </div>
               )}
               {selectedBooking.status !== "confirmed" && selectedBooking.status !== "completed" && (
                 <button
