@@ -169,8 +169,21 @@ function MemberContent() {
     if (bookings) {
       bookings.forEach(b => {
         const rate = Number(settings.points_rate_amount || 500);
-        const earned = rate > 0 ? Math.floor((b.total_price || 0) / rate) : Number(settings.points_per_booking || 1);
-        history.push({ id: `bkg-${b.id}`, date: b.start_time, title: "ทำเล็บ", points: Math.max(1, earned), type: "earn" });
+        const pointsPerBooking = Number(settings.points_per_booking || 1);
+        const baseEarned = rate > 0 ? Math.floor((b.total_price || 0) / rate) : pointsPerBooking;
+        
+        // คำนวณ Multiplier (ใช้แต้มปัจจุบันของลูกค้าเพื่อจำลองสถานะตอนที่จอง)
+        let multiplier = 1;
+        try {
+          const tiers = JSON.parse(settings.membership_tiers || "[]");
+          const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
+          // หมายเหตุ: ในประวัติ เราใช้แต้มปัจจุบันหา Tier (อาจจะไม่เป๊ะเท่าตอนจองจริง แต่ดีกว่า x1 ตลอด)
+          const currentTier = sortedTiers.find((t: any) => (customer?.points || 0) >= (t.min_points || 0));
+          if (currentTier) multiplier = currentTier.multiplier || 1;
+        } catch (e) { console.error("Tier calc error in history:", e); }
+
+        const earned = Math.max(1, Math.floor(baseEarned * multiplier));
+        history.push({ id: `bkg-${b.id}`, date: b.start_time, title: "ทำเล็บ", points: earned, type: "earn" });
       });
     }
     if (coupons) {

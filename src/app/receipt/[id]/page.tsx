@@ -67,24 +67,41 @@ export default function PublicReceiptPage() {
   const bsList = (booking as any).booking_services || [];
   const promo = (booking as any).promotions;
 
-  // คำนวณยอดรวม
+  // คำนวณยอดรวม: โปรโมชั่น + บริการเสริมทั้งหมด
   let subtotal = 0;
-  if (promo && promo.promotion_type === "buffet") {
-    subtotal = promo.price;
-    const addOnsTotal = bsList.reduce((sum: number, b: any) => sum + b.line_total, 0);
-    subtotal += addOnsTotal;
-  } else {
-    subtotal = bsList.reduce((s: number, b: any) => s + b.line_total, 0) || booking.total_price || 0;
+  
+  // 1. บวกราคาโปรโมชั่น (ถ้ามี)
+  if (promo) {
+    subtotal += Number(promo.price || 0);
+  }
+  
+  // 2. บวกราคาสุดสุทธิของแต่ละบริการเสริม
+  if (bsList.length > 0) {
+    const servicesTotal = bsList.reduce((sum: number, item: any) => sum + Number(item.line_total || 0), 0);
+    subtotal += servicesTotal;
   }
 
-  const discount = booking.discount_amount || 0;
+  // 3. หักลบส่วนลดและมัดจำ
+  const discount = Number(booking.discount_amount || 0);
   const totalPrice = Math.max(0, subtotal - discount);
-  const deposit = booking.deposit || 0;
-  const remaining = isCompleted ? 0 : totalPrice - deposit;
+  const deposit = Number(booking.deposit || 0);
+  const remaining = isCompleted ? 0 : Math.max(0, totalPrice - deposit);
 
-  // คำนวณแต้มที่ได้รับ (จำลอง logic จากหน้าแอดมิน)
+  // คำนวณแต้มที่ได้รับ (รวมระบบ Tier Multiplier)
   const pointsRate = Number(shopSettings.points_rate_amount || 500);
-  const pointsEarned = pointsRate > 0 ? Math.floor(totalPrice / pointsRate) : Number(shopSettings.points_per_booking || 1);
+  const pointsPerBooking = Number(shopSettings.points_per_booking || 1);
+  const baseEarned = pointsRate > 0 ? Math.floor(totalPrice / pointsRate) : pointsPerBooking;
+
+  let multiplier = 1;
+  try {
+    const tiers = JSON.parse(shopSettings.membership_tiers || "[]");
+    const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
+    const customerPoints = booking.customers?.points || 0;
+    const currentTier = sortedTiers.find((t: any) => customerPoints >= (t.min_points || 0));
+    if (currentTier) multiplier = currentTier.multiplier || 1;
+  } catch (e) { console.error("Tier calc error:", e); }
+
+  const pointsEarned = Math.max(1, Math.floor(baseEarned * multiplier));
 
   return (
     <div className="min-h-screen bg-[#FDF2F8] py-8 px-5 font-sans">
