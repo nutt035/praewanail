@@ -113,7 +113,11 @@ function MemberContent() {
       if (existingCust) {
         // มีประวัติแล้ว เข้าสู่ระบบได้เลย
         setCustomer(existingCust);
-        fetchCustomerData(existingCust.id);
+        // ดึงข้อมูลการตั้งค่าล่าสุดด้วยเพื่อให้คำนวณประวัติแต้มถูก
+        const { data: latestSettings } = await supabase.from("shop_settings").select("*");
+        const settingsMap = latestSettings ? { ...DEFAULT_SETTINGS, ...settingsToMap(latestSettings) } : settings;
+        
+        fetchCustomerData(existingCust.id, existingCust.points, settingsMap);
         
         if (!existingCust.name || !existingCust.birthdate) {
           setRegName(existingCust.name || displayName);
@@ -137,9 +141,9 @@ function MemberContent() {
     }
   }
 
-  async function fetchCustomerData(customerId: string) {
+  async function fetchCustomerData(customerId: string, currentPoints: number, currentSettings: Record<string, string>) {
     fetchMyCoupons(customerId);
-    fetchPointsHistory(customerId);
+    fetchPointsHistory(customerId, currentPoints, currentSettings);
   }
 
   async function fetchMyCoupons(customerId: string) {
@@ -151,10 +155,10 @@ function MemberContent() {
     if (data) setMyCoupons(data as CustomerCoupon[]);
   }
 
-  async function fetchPointsHistory(customerId: string) {
+  async function fetchPointsHistory(customerId: string, currentPoints: number, currentSettings: Record<string, string>) {
     const { data: bookings } = await supabase
       .from("bookings")
-      .select("id, start_time, total_price, status")
+      .select("id, start_time, total_price, discount_amount, status")
       .eq("customer_id", customerId)
       .eq("status", "completed")
       .order("start_time", { ascending: false });
@@ -168,17 +172,19 @@ function MemberContent() {
     const history: any[] = [];
     if (bookings) {
       bookings.forEach(b => {
-        const rate = Number(settings.points_rate_amount || 500);
-        const pointsPerBooking = Number(settings.points_per_booking || 1);
-        const baseEarned = rate > 0 ? Math.floor((b.total_price || 0) / rate) : pointsPerBooking;
+        const rate = Number(currentSettings.points_rate_amount || 500);
+        const pointsPerBooking = Number(currentSettings.points_per_booking || 1);
         
-        // คำนวณ Multiplier (ใช้แต้มปัจจุบันของลูกค้าเพื่อจำลองสถานะตอนที่จอง)
+        // ราคาหลังหักส่วนลด (สำหรับคำนวณแต้ม)
+        const finalPrice = (b.total_price || 0) - (b.discount_amount || 0);
+        const baseEarned = rate > 0 ? Math.floor(finalPrice / rate) : pointsPerBooking;
+        
+        // คำนวณ Multiplier
         let multiplier = 1;
         try {
-          const tiers = JSON.parse(settings.membership_tiers || "[]");
+          const tiers = JSON.parse(currentSettings.membership_tiers || "[]");
           const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
-          // หมายเหตุ: ในประวัติ เราใช้แต้มปัจจุบันหา Tier (อาจจะไม่เป๊ะเท่าตอนจองจริง แต่ดีกว่า x1 ตลอด)
-          const currentTier = sortedTiers.find((t: any) => (customer?.points || 0) >= (t.min_points || 0));
+          const currentTier = sortedTiers.find((t: any) => currentPoints >= (t.min_points || 0));
           if (currentTier) multiplier = currentTier.multiplier || 1;
         } catch (e) { console.error("Tier calc error in history:", e); }
 
@@ -227,7 +233,12 @@ function MemberContent() {
         document.cookie = `customer_phone=${phoneNumber}; path=/; max-age=${60 * 60 * 24 * 30}`;
         
         setCustomer(data);
-        fetchCustomerData(data.id);
+        
+        // ดึงข้อมูลการตั้งค่าล่าสุดด้วยเพื่อให้คำนวณประวัติแต้มถูก
+        const { data: latestSettings } = await supabase.from("shop_settings").select("*");
+        const settingsMap = latestSettings ? { ...DEFAULT_SETTINGS, ...settingsToMap(latestSettings) } : settings;
+
+        fetchCustomerData(data.id, data.points, settingsMap);
         
         // เช็คว่าข้อมูลครบไหม
         if (!data.name || !data.birthdate) {

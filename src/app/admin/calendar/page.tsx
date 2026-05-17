@@ -259,7 +259,7 @@ export default function CalendarPage() {
     } finally { setConfirming(false); }
   }
 
-  // ยืนยันจบงาน
+  // ยืนยันจบงานจริง
   async function confirmComplete() {
     if (!showCompleteDialog) return;
     setCompleting(true);
@@ -267,27 +267,32 @@ export default function CalendarPage() {
     const toastId = toast.loading("กำลังบันทึก...");
 
     try {
-      // 1. อัพเดตสถานะ + ราคาจริง + payment_method
+      // 1. คำนวณส่วนลดจากคูปอง (ถ้ามี)
+      let couponDiscount = 0;
+      if (selectedCoupon && selectedCoupon.rewards) {
+        const reward = selectedCoupon.rewards;
+        if (reward.reward_type === "amount") {
+          couponDiscount = Number(reward.value) || 0;
+        } else if (reward.reward_type === "percent") {
+          couponDiscount = Math.round(completeFinalPrice * ((Number(reward.value) || 0) / 100));
+        }
+      }
+
+      // 2. อัพเดตสถานะ + ราคาจริง + payment_method + ส่วนลด
       const { error: updateError } = await supabase
         .from("bookings")
         .update({
           status: "completed",
           payment_method: completePaymentMethod,
-          total_price: completeFinalPrice,  // บันทึกราคาจริง
+          total_price: completeFinalPrice,  // ราคาเต็มก่อนหักคูปอง
+          discount_amount: couponDiscount,  // บันทึกส่วนลดจากคูปองลงไปด้วย
+          discount_type: "amount"
         })
         .eq("id", booking.id);
       if (updateError) throw updateError;
 
-      // 2. บันทึก transaction รายรับ (ยอดที่เหลือหลังหักมัดจำ)
-      let finalPrice = completeFinalPrice;
-      if (selectedCoupon && selectedCoupon.rewards) {
-        const reward = selectedCoupon.rewards;
-        if (reward.reward_type === "amount") {
-          finalPrice = Math.max(0, finalPrice - (Number(reward.value) || 0));
-        } else if (reward.reward_type === "percent") {
-          finalPrice = Math.max(0, finalPrice - Math.round(completeFinalPrice * ((Number(reward.value) || 0) / 100)));
-        }
-      }
+      // 3. บันทึก transaction รายรับ (ยอดที่เหลือหลังหักมัดจำและคูปอง)
+      const finalPrice = Math.max(0, completeFinalPrice - couponDiscount);
       const deposit = booking.deposit || 0;
       const remaining = Math.max(0, finalPrice - deposit);
 
@@ -300,7 +305,7 @@ export default function CalendarPage() {
         }]);
       }
 
-      // 2.5 ใช้คูปอง (ถ้ามีการเลือก)
+      // 3.5 ใช้คูปอง (ถ้ามีการเลือก)
       if (selectedCoupon) {
         await supabase
           .from("customer_coupons")
@@ -308,7 +313,7 @@ export default function CalendarPage() {
           .eq("id", selectedCoupon.id);
       }
 
-      // 3. ระบบสะสมแต้ม
+      // 4. ระบบสะสมแต้ม
       let currentPoints = 0;
       let newPoints = 1;
       
@@ -318,21 +323,20 @@ export default function CalendarPage() {
       if (booking.customer_id) {
         const { data: customer } = await supabase
           .from("customers")
-          .select("points, name")
+          .select("points, name, line_id")
           .eq("id", booking.customer_id)
           .single();
         
         if (customer) {
           currentPoints = customer.points || 0;
           
-          // คำนวณแต้มพื้นฐาน
+          // คำนวณแต้มพื้นฐานจากราคาที่จ่ายจริง (หลังหักคูปอง)
           const baseEarned = pointsRate > 0 ? Math.floor(finalPrice / pointsRate) : pointsPerBooking;
           
           // คำนวณ Multiplier ตาม Tier
           let multiplier = 1;
           try {
             const tiers = JSON.parse(shopSettings.membership_tiers || "[]");
-            // เรียงลำดับจากแต้มมากไปน้อยเพื่อหาขั้นสูงสุดที่ลูกค้าถึง
             const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
             const currentTier = sortedTiers.find((t: any) => currentPoints >= (t.min_points || 0));
             if (currentTier) multiplier = currentTier.multiplier || 1;
@@ -354,19 +358,16 @@ export default function CalendarPage() {
 
       const payLabel = PAYMENT_OPTIONS.find((p) => p.value === completePaymentMethod)?.label || completePaymentMethod;
 
-      // 4. ส่งการแจ้งเตือน
+      // 5. ส่งการแจ้งเตือน
       // บังคับ HTTPS สำหรับ LINE
       const origin = window.location.origin.replace("http://", "https://");
       const receiptUrl = `${origin}/receipt/${booking.id}`;
 
-      // 4.1 หาแอดมิน (Telegram)
+      // 5.1 หาแอดมิน (Telegram)
       if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
         let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
         if (selectedCoupon) {
-          const reward = selectedCoupon.rewards;
-          const val = Number(reward.value) || 0;
-          const disc = reward.reward_type === "amount" ? val : (reward.reward_type === "percent" ? Math.round(completeFinalPrice * (val / 100)) : 0);
-          adminMsg += `\n🎟️ ใช้คูปอง: ${reward.title} (-฿${disc.toLocaleString()})`;
+          adminMsg += `\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title} (-฿${couponDiscount.toLocaleString()})`;
         }
         adminMsg += `\n\n📄 ดูใบเสร็จ: ${receiptUrl}`;
 
@@ -382,8 +383,8 @@ export default function CalendarPage() {
       }
 
 
-      // 4.2 หาลูกค้า (LINE) ถ้าลูกค้ามี line_id
-      const customerLineId = booking.customers?.line_id;
+      // 5.2 หาลูกค้า (LINE) ถ้าลูกค้ามี line_id
+      const customerLineId = (booking.customers as any)?.line_id;
       if (shopSettings.line_channel_token && customerLineId) {
         const pointsEarned = newPoints - currentPoints;
         

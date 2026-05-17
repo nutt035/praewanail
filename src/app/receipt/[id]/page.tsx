@@ -67,35 +67,23 @@ export default function PublicReceiptPage() {
   const bsList = (booking as any).booking_services || [];
   const promo = (booking as any).promotions;
 
-  // คำนวณยอดรวม: โปรโมชั่น + บริการเสริมทั้งหมด
-  let subtotal = 0;
-  
-  // 1. บวกราคาโปรโมชั่น (ถ้ามี)
-  if (promo) {
-    subtotal += Number(promo.price || 0);
-  }
-  
-  // 2. บวกราคาสุดสุทธิของแต่ละบริการเสริม
-  if (bsList.length > 0) {
-    const servicesTotal = bsList.reduce((sum: number, item: any) => sum + Number(item.line_total || 0), 0);
-    subtotal += servicesTotal;
-  }
-
-  // 3. หักลบส่วนลดและมัดจำ
+  // ใช้ค่าจาก Database โดยตรงเพื่อความแม่นยำ
+  const totalPrice = Number(booking.total_price || 0);
   const discount = Number(booking.discount_amount || 0);
-  const totalPrice = Math.max(0, subtotal - discount);
+  const finalPaidPrice = Math.max(0, totalPrice - discount);
   const deposit = Number(booking.deposit || 0);
-  const remaining = isCompleted ? 0 : Math.max(0, totalPrice - deposit);
+  const remaining = isCompleted ? 0 : Math.max(0, finalPaidPrice - deposit);
 
   // คำนวณแต้มที่ได้รับ (รวมระบบ Tier Multiplier)
   const pointsRate = Number(shopSettings.points_rate_amount || 500);
   const pointsPerBooking = Number(shopSettings.points_per_booking || 1);
-  const baseEarned = pointsRate > 0 ? Math.floor(totalPrice / pointsRate) : pointsPerBooking;
+  const baseEarned = pointsRate > 0 ? Math.floor(finalPaidPrice / pointsRate) : pointsPerBooking;
 
   let multiplier = 1;
   try {
     const tiers = JSON.parse(shopSettings.membership_tiers || "[]");
     const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
+    // ใช้แต้มล่าสุดของลูกค้าเพื่อหา Tier
     const customerPoints = booking.customers?.points || 0;
     const currentTier = sortedTiers.find((t: any) => customerPoints >= (t.min_points || 0));
     if (currentTier) multiplier = currentTier.multiplier || 1;
