@@ -260,25 +260,53 @@ function MemberContent() {
         if (linkLineId) window.history.replaceState({}, "", "/member");
 
       } else {
-        // สมัครใหม่
-        const { data: newCust, error } = await supabase
+        // สมัครใหม่ -> เช็คก่อนว่าเบอร์นี้มีในระบบหรือยัง (กรณีแอดมินเคยจองให้)
+        const { data: existing } = await supabase
           .from("customers")
-          .insert([{
-            name: regName,
-            phone: cleanPhone,
-            line_id: linkLineId || null,
-            birthdate: regBirthdate || null,
-            points: 0
-          }])
-          .select()
-          .single();
+          .select("*")
+          .eq("phone", cleanPhone)
+          .maybeSingle();
+
+        if (existing) {
+          // ถ้ามีเบอร์นี้แล้ว ให้ "ผูกบัญชี" แทนการสร้างใหม่
+          const { data: updatedCust, error: linkErr } = await supabase
+            .from("customers")
+            .update({ 
+              line_id: linkLineId || existing.line_id,
+              name: regName || existing.name,
+              birthdate: regBirthdate || existing.birthdate
+            })
+            .eq("id", existing.id)
+            .select()
+            .single();
+
+          if (linkErr) throw linkErr;
           
-        if (error) throw error;
-        
-        document.cookie = `customer_phone=${cleanPhone}; path=/; max-age=${60 * 60 * 24 * 30}`;
-        setCustomer(newCust);
-        setIsRegistering(false);
-        toast.success("สมัครสมาชิกสำเร็จ!", { id: toastId });
+          document.cookie = `customer_phone=${cleanPhone}; path=/; max-age=${60 * 60 * 24 * 30}`;
+          setCustomer(updatedCust);
+          setIsRegistering(false);
+          toast.success("ผูกบัญชีสมาชิกเดิมของคุณเรียบร้อยค่ะ! ✨", { id: toastId });
+        } else {
+          // ถ้าไม่มีจริงๆ ถึงจะสร้างใหม่
+          const { data: newCust, error } = await supabase
+            .from("customers")
+            .insert([{
+              name: regName,
+              phone: cleanPhone,
+              line_id: linkLineId || null,
+              birthdate: regBirthdate || null,
+              points: 0
+            }])
+            .select()
+            .single();
+            
+          if (error) throw error;
+          
+          document.cookie = `customer_phone=${cleanPhone}; path=/; max-age=${60 * 60 * 24 * 30}`;
+          setCustomer(newCust);
+          setIsRegistering(false);
+          toast.success("สมัครสมาชิกสำเร็จ!", { id: toastId });
+        }
         
         if (linkLineId) window.history.replaceState({}, "", "/member");
       }

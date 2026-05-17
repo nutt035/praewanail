@@ -355,7 +355,9 @@ export default function CalendarPage() {
       const payLabel = PAYMENT_OPTIONS.find((p) => p.value === completePaymentMethod)?.label || completePaymentMethod;
 
       // 4. ส่งการแจ้งเตือน
-      const receiptUrl = `${window.location.origin}/receipt/${booking.id}`;
+      // ตรวจสอบว่า origin เป็น https หรือไม่ (LINE ต้องการ https สำหรับ Link)
+      const origin = window.location.origin.replace("http://", "https://");
+      const receiptUrl = `${origin}/receipt/${booking.id}`;
 
       // 4.1 หาแอดมิน (Telegram)
       if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
@@ -384,88 +386,17 @@ export default function CalendarPage() {
       const customerLineId = booking.customers?.line_id;
       if (shopSettings.line_channel_token && customerLineId) {
         const pointsEarned = newPoints - currentPoints;
-        const flexMessage = {
-          type: "flex",
-          altText: `ใบเสร็จรับเงินจาก ${shopSettings.shop_name}`,
-          contents: {
-            type: "bubble",
-            size: "md",
-            header: {
-              type: "box",
-              layout: "vertical",
-              backgroundColor: "#B76E79",
-              contents: [
-                { type: "text", text: "RECEIPT", color: "#ffffff", weight: "bold", size: "sm", letterSpacing: "0.2em" },
-                { type: "text", text: shopSettings.shop_name || "Nail Studio", color: "#ffffff", weight: "bold", size: "xl", margin: "md" }
-              ],
-              paddingAll: "20px"
-            },
-            body: {
-              type: "box",
-              layout: "vertical",
-              contents: [
-                {
-                  type: "box", layout: "horizontal", contents: [
-                    { type: "text", text: "Customer", color: "#aaaaaa", size: "xs" },
-                    { type: "text", text: booking.customers?.name || "Customer", align: "end", size: "xs", weight: "bold", color: "#555555" }
-                  ]
-                },
-                {
-                  type: "box", layout: "horizontal", contents: [
-                    { type: "text", text: "Date", color: "#aaaaaa", size: "xs" },
-                    { type: "text", text: new Date().toLocaleDateString("th-TH"), align: "end", size: "xs", color: "#555555" }
-                  ], margin: "md"
-                },
-                { type: "separator", margin: "lg" },
-                {
-                  type: "box", layout: "vertical", margin: "lg", spacing: "sm", contents: [
-                    {
-                      type: "box", layout: "horizontal", contents: [
-                        { type: "text", text: "Total Amount", size: "sm", color: "#555555", weight: "bold" },
-                        { type: "text", text: `฿${finalPrice.toLocaleString()}`, align: "end", size: "sm", weight: "bold", color: "#B76E79" }
-                      ]
-                    },
-                    {
-                      type: "box", layout: "horizontal", contents: [
-                        { type: "text", text: "Points Earned", size: "xs", color: "#aaaaaa" },
-                        { type: "text", text: `+${pointsEarned} pts`, align: "end", size: "xs", color: "#34D399", weight: "bold" }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  type: "box", layout: "vertical", margin: "xxl", contents: [
-                    {
-                      type: "button",
-                      action: { type: "uri", label: "VIEW FULL RECEIPT", uri: receiptUrl },
-                      style: "primary", color: "#B76E79", height: "sm"
-                    },
-                    {
-                      type: "button",
-                      action: { type: "uri", label: "MY POINTS", uri: `${window.location.origin}/member` },
-                      margin: "sm", height: "sm", style: "secondary", color: "#f3f4f6"
-                    }
-                  ]
-                }
-              ],
-              paddingAll: "20px"
-            },
-            footer: {
-              type: "box", layout: "vertical", contents: [
-                { type: "text", text: "Thank you for choosing us! ✨", color: "#aaaaaa", size: "xs", align: "center" }
-              ], paddingBottom: "15px"
-            }
-          }
-        };
+        
+        // ส่งเป็นข้อความธรรมดาก่อนเพื่อความชัวร์ (เนื่องจาก Flex Message อาจมีปัญหาเรื่องรูปแบบ)
+        const textMessage = `✨ จบงานเรียบร้อย!\n\nขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n⭐️ ได้รับแต้มสะสม: +${pointsEarned} แต้ม\n\n📄 ดูใบเสร็จของคุณได้ที่:\n${receiptUrl}\n\nแล้วพบกันใหม่นะคะ! 💅✨`;
 
-        // เรียกใช้ API หลังบ้านแทนการยิง LINE ตรงๆ
+        // เรียกใช้ API หลังบ้าน
         const response = await fetch("/api/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: customerLineId,
-            message: `✨ จบงานเรียบร้อย! ขอบคุณคุณ ${booking.customers?.name} ที่มาใช้บริการนะคะ`, // fallback message
-            messages: [flexMessage]
+            message: textMessage
           })
         });
         
@@ -473,13 +404,16 @@ export default function CalendarPage() {
         console.log("Notification Result:", notifyResult);
         
         if (!response.ok || (notifyResult.results && notifyResult.results.some((r: any) => !r.ok))) {
-          console.error("LINE Notification might have failed:", notifyResult);
-          toast.error("ส่ง LINE หาลูกค้าไม่สำเร็จ กรุณาเช็ค Token หรือ User ID");
+          const firstError = notifyResult.results?.[0]?.error;
+          const errorMessage = firstError?.message || JSON.stringify(firstError) || "Unknown error";
+          console.error("LINE Notification failed:", notifyResult);
+          toast.error(`ส่ง LINE ไม่สำเร็จ: ${errorMessage}`, { id: toastId });
+        } else {
+          toast.success("จบงานและส่งใบเสร็จเข้า LINE เรียบร้อย! ✨", { id: toastId });
         }
       } else if (!customerLineId) {
-        toast.error("ลูกค้ายังไม่ได้ผูก LINE ระบบจึงไม่สามารถส่งใบเสร็จให้ได้ค่ะ", { icon: "⚠️" });
+        toast.error("ลูกค้ายังไม่ได้ผูก LINE ระบบจึงไม่สามารถส่งใบเสร็จให้ได้ค่ะ", { icon: "⚠️", id: toastId });
       }
-
 
       // 5. แสดงใบเสร็จ
       setShowCompleteDialog(null);
