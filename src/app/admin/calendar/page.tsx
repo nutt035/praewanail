@@ -387,86 +387,86 @@ export default function CalendarPage() {
       if (shopSettings.line_channel_token && customerLineId) {
         const pointsEarned = newPoints - currentPoints;
         
-        // ดีไซน์ Flex Message แบบพรีเมียม (ระวังเรื่อง Validation)
+        // ดีไซน์ Flex Message แบบเรียบง่าย (Safe Mode) เพื่อเลี่ยง Error
         const flexMessage = {
           type: "flex",
           altText: `ใบเสร็จรับเงินจาก ${shopSettings.shop_name}`,
           contents: {
             type: "bubble",
-            size: "md",
             header: {
               type: "box",
               layout: "vertical",
               backgroundColor: "#B76E79",
               contents: [
-                { type: "text", text: "OFFICIAL RECEIPT", color: "#ffffff", weight: "bold", size: "xxs", letterSpacing: "2px" },
-                { type: "text", text: shopSettings.shop_name || "Antonette Nail", color: "#ffffff", weight: "bold", size: "xl", margin: "md" }
+                {
+                  type: "text",
+                  text: shopSettings.shop_name || "Antonette Nail",
+                  color: "#ffffff",
+                  weight: "bold",
+                  size: "lg"
+                }
               ],
               paddingAll: "20px"
             },
             body: {
               type: "box",
               layout: "vertical",
+              spacing: "md",
               contents: [
                 {
                   type: "text",
-                  text: `สวัสดีค่ะ คุณ ${booking.customers?.name || "ลูกค้า"} ✨`,
+                  text: `คุณ ${booking.customers?.name || "ลูกค้า"} ✨`,
                   weight: "bold",
-                  size: "sm",
-                  color: "#111111"
+                  size: "md"
                 },
                 {
                   type: "text",
-                  text: "ขอบคุณที่มาทำสวยกับเราในวันนี้นะคะ",
-                  size: "xs",
-                  color: "#aaaaaa",
-                  margin: "xs"
+                  text: "ขอบคุณที่มาใช้บริการนะคะ",
+                  size: "sm",
+                  color: "#aaaaaa"
                 },
-                { type: "separator", margin: "xl" },
+                {
+                  type: "separator",
+                  margin: "md"
+                },
                 {
                   type: "box",
-                  layout: "vertical",
+                  layout: "horizontal",
+                  margin: "md",
+                  contents: [
+                    { type: "text", text: "ยอดชำระสุทธิ", size: "sm", color: "#555555" },
+                    { type: "text", text: `${finalPrice} บาท`, align: "end", size: "sm", weight: "bold", color: "#B76E79" }
+                  ]
+                },
+                {
+                  type: "box",
+                  layout: "horizontal",
+                  contents: [
+                    { type: "text", text: "แต้มที่ได้รับ", size: "xs", color: "#aaaaaa" },
+                    { type: "text", text: `+${pointsEarned} pts`, align: "end", size: "xs", color: "#34D399", weight: "bold" }
+                  ]
+                },
+                {
+                  type: "button",
+                  action: {
+                    type: "uri",
+                    label: "ดูใบเสร็จตัวเต็ม",
+                    uri: receiptUrl
+                  },
+                  style: "primary",
+                  color: "#B76E79",
                   margin: "xl",
-                  spacing: "sm",
-                  contents: [
-                    {
-                      type: "box",
-                      layout: "horizontal",
-                      contents: [
-                        { type: "text", text: "ยอดชำระสุทธิ", size: "sm", color: "#555555" },
-                        { type: "text", text: `฿${finalPrice.toLocaleString()}`, align: "end", size: "sm", weight: "bold", color: "#B76E79" }
-                      ]
-                    },
-                    {
-                      type: "box",
-                      layout: "horizontal",
-                      contents: [
-                        { type: "text", text: "แต้มที่ได้รับ", size: "xs", color: "#aaaaaa" },
-                        { type: "text", text: `+${pointsEarned} pts`, align: "end", size: "xs", color: "#34D399", weight: "bold" }
-                      ]
-                    }
-                  ]
+                  height: "sm"
                 },
                 {
-                  type: "box",
-                  layout: "vertical",
-                  margin: "xxl",
-                  spacing: "sm",
-                  contents: [
-                    {
-                      type: "button",
-                      action: { type: "uri", label: "ดูใบเสร็จตัวเต็ม", uri: receiptUrl },
-                      style: "primary",
-                      color: "#B76E79",
-                      height: "sm"
-                    },
-                    {
-                      type: "button",
-                      action: { type: "uri", label: "เช็คแต้มสะสม", uri: `${origin}/member` },
-                      style: "secondary",
-                      height: "sm"
-                    }
-                  ]
+                  type: "button",
+                  action: {
+                    type: "uri",
+                    label: "เช็คแต้มสะสม",
+                    uri: `${origin}/member`
+                  },
+                  style: "secondary",
+                  height: "sm"
                 }
               ],
               paddingAll: "20px"

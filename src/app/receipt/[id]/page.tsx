@@ -1,4 +1,10 @@
-import { CheckCircle2, Scissors, Calendar, Clock, CreditCard, Sparkles, MapPin, Phone, User, Star, Gift, ChevronLeft, Printer } from "lucide-react";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { CheckCircle2, Scissors, Calendar, Clock, CreditCard, Sparkles, MapPin, Phone, User, Star, Gift, ChevronLeft, Printer, Trophy } from "lucide-react";
 import Link from "next/link";
 
 export default function PublicReceiptPage() {
