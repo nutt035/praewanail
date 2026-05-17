@@ -83,13 +83,17 @@ export default function PublicReceiptPage() {
   // คำนวณแต้มที่ได้รับ (รวมระบบ Tier Multiplier)
   const pointsRate = Number(shopSettings.points_rate_amount || 500);
   const pointsPerBooking = Number(shopSettings.points_per_booking || 1);
-  const baseEarned = pointsRate > 0 ? Math.floor(finalPaidPrice / pointsRate) : pointsPerBooking;
+  
+  // ถ้ายอดรวมน้อยกว่าเรทที่ตั้งไว้ (เช่น จ่าย 248 แต่ตั้งไว้ 500) ให้ได้แต้มพื้นฐาน (pointsPerBooking)
+  const baseEarned = (pointsRate > 0 && finalPaidPrice >= pointsRate) 
+    ? Math.floor(finalPaidPrice / pointsRate) 
+    : pointsPerBooking;
 
   let multiplier = 1;
   try {
     const tiers = JSON.parse(shopSettings.membership_tiers || "[]");
     const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
-    // ใช้แต้มล่าสุดของลูกค้าเพื่อหา Tier
+    // ใช้แต้มก่อนหน้าที่ลูกค้ามี (หรือแต้มปัจจุบันถ้าไม่มีข้อมูลแต้มก่อนหน้า)
     const customerPoints = booking.customers?.points || 0;
     const currentTier = sortedTiers.find((t: any) => customerPoints >= (t.min_points || 0));
     if (currentTier) multiplier = currentTier.multiplier || 1;
