@@ -159,33 +159,39 @@ export default function PublicReceiptPage() {
                   <div className="flex-1 h-px bg-rose-50" />
                 </div>
 
-                <div className="space-y-3">
-                  {promo && (
-                    <div className="flex justify-between items-center p-3 bg-rose-50/50 rounded-2xl border border-rose-100/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-rose-400 shadow-sm">
-                          <Sparkles size={16} />
+                  <div className="space-y-3">
+                    {/* 1. โชว์โปรโมชั่นก่อน (ถ้ามี) */}
+                    {promo && (
+                      <div className="flex justify-between items-center p-3 bg-rose-50/50 rounded-2xl border border-rose-100/50">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-rose-400 shadow-sm">
+                            <Sparkles size={16} />
+                          </div>
+                          <span className="text-sm font-bold text-slate-700">{promo.title}</span>
                         </div>
-                        <span className="text-sm font-bold text-slate-700">{promo.title}</span>
+                        <span className="text-xs font-bold text-rose-500">฿{Number(promo.price || 0).toLocaleString()}</span>
                       </div>
-                      <span className="text-xs font-bold text-rose-500">฿{promo.price.toLocaleString()}</span>
-                    </div>
-                  )}
+                    )}
 
-                  {bsList.map((s: any, idx: number) => (
-                    <div key={idx} className="flex justify-between items-center px-2">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-slate-700">
-                          {s.service_name}
-                        </span>
-                        {s.finger_count && (
-                          <span className="text-[10px] text-slate-400 font-medium">({s.finger_count} {s.unit_name || "หน่วย"})</span>
-                        )}
-                      </div>
-                      <span className="text-xs font-bold text-slate-500">฿{s.line_total.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
+                    {/* 2. โชว์บริการเสริมทั้งหมด (ห้ามกรองออกเด็ดขาด!) */}
+                    {bsList.length > 0 ? (
+                      bsList.map((s: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center px-2 py-1">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-slate-700">
+                              {s.service_name}
+                            </span>
+                            {s.finger_count && (
+                              <span className="text-[10px] text-slate-400 font-medium">({s.finger_count} นิ้ว/ชิ้น)</span>
+                            )}
+                          </div>
+                          <span className="text-xs font-bold text-slate-500">฿{Number(s.line_total || 0).toLocaleString()}</span>
+                        </div>
+                      ))
+                    ) : (
+                      !promo && <p className="text-center text-xs text-slate-400 py-2">ไม่มีรายการบริการ</p>
+                    )}
+                  </div>
               </div>
 
               {/* Points Earned Card */}
