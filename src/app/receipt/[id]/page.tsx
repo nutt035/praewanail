@@ -80,6 +80,11 @@ export default function PublicReceiptPage() {
   const deposit = Number(booking.deposit || 0);
   const remaining = isCompleted ? 0 : Math.max(0, finalPaidPrice - deposit);
 
+  // คำนวณยอดรวมของรายการที่มีชื่อชัดเจน
+  const listedTotal = (promo ? Number(promo.price || 0) : 0) + bsList.reduce((sum: number, item: any) => sum + Number(item.line_total || 0), 0);
+  // หาราคาที่แอดมินบวกเพิ่มเข้ามาเองตอนจบงาน (ถ้ามี)
+  const additionalPrice = Math.max(0, totalPrice - listedTotal);
+
   // คำนวณแต้มที่ได้รับ (รวมระบบ Tier Multiplier)
   const pointsRate = Number(shopSettings.points_rate_amount || 500);
   const pointsPerBooking = Number(shopSettings.points_per_booking || 1);
@@ -174,7 +179,7 @@ export default function PublicReceiptPage() {
                     )}
 
                     {/* 2. โชว์บริการเสริมทั้งหมด (ห้ามกรองออกเด็ดขาด!) */}
-                    {bsList.length > 0 ? (
+                    {bsList.length > 0 && (
                       bsList.map((s: any, idx: number) => (
                         <div key={idx} className="flex justify-between items-center px-2 py-1">
                           <div className="flex flex-col">
@@ -188,8 +193,23 @@ export default function PublicReceiptPage() {
                           <span className="text-xs font-bold text-slate-500">฿{Number(s.line_total || 0).toLocaleString()}</span>
                         </div>
                       ))
-                    ) : (
-                      !promo && <p className="text-center text-xs text-slate-400 py-2">ไม่มีรายการบริการ</p>
+                    )}
+
+                    {/* 3. โชว์ยอดเงินที่แอดมินบวกเพิ่มเข้ามาเอง (ส่วนต่าง) */}
+                    {additionalPrice > 0 && (
+                      <div className="flex justify-between items-center px-2 py-1 bg-slate-50 rounded-lg mt-2">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-slate-700">
+                            บริการเพิ่มเติม / ปรับราคา
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">(เพิ่มโดยพนักงาน)</span>
+                        </div>
+                        <span className="text-xs font-bold text-slate-500">฿{additionalPrice.toLocaleString()}</span>
+                      </div>
+                    )}
+
+                    {bsList.length === 0 && !promo && additionalPrice === 0 && (
+                      <p className="text-center text-xs text-slate-400 py-2">ไม่มีรายการบริการ</p>
                     )}
                   </div>
               </div>
