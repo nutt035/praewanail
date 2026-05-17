@@ -73,6 +73,32 @@ export default function CalendarPage() {
   const [shopSettings, setShopSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
   const receiptRef = useRef<HTMLDivElement>(null);
 
+  async function toggleBlockDate() {
+    if (!selectedDate) return;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const dateStr = `${selectedDate.getFullYear()}-${pad(selectedDate.getMonth() + 1)}-${pad(selectedDate.getDate())}`;
+    
+    const existingDates = (shopSettings.closed_dates || "").split(",").filter(Boolean);
+    const isClosed = existingDates.includes(dateStr);
+    
+    let nextDates: string[];
+    if (isClosed) {
+      nextDates = existingDates.filter(d => d !== dateStr);
+    } else {
+      nextDates = [...existingDates, dateStr];
+    }
+    
+    const nextValue = nextDates.join(",");
+    const { error } = await supabase.from("shop_settings").upsert({ key: "closed_dates", value: nextValue }, { onConflict: "key" });
+    
+    if (error) {
+      toast.error("ไม่สามารถบันทึกได้");
+    } else {
+      setShopSettings(prev => ({ ...prev, closed_dates: nextValue }));
+      toast.success(isClosed ? "เปิดรับคิวปกติแล้ว ✓" : "ปิดรับคิววันนี้เรียบร้อย ✓");
+    }
+  }
+
   const fetchBookings = useCallback(async () => {
     setLoading(true);
     // ใช้ offset +07:00 เพื่อให้ได้ช่วงเวลาไทยที่ถูกต้อง
@@ -159,18 +185,32 @@ export default function CalendarPage() {
     setCompleteFinalPrice(booking.total_price || 0);
     setSelectedCoupon(null);
     setCustomerCoupons([]);
-    
-    // ดึงคูปองของลูกค้าคนนี้
+
+    // ดึงข้อมูลลูกค้าล่าสุด (เพื่อเอา line_id และแต้มล่าสุด)
     if (booking.customer_id) {
-      const { data } = await supabase
-        .from("customer_coupons")
-        .select("*, rewards(*)")
-        .eq("customer_id", booking.customer_id)
-        .eq("status", "active");
-      if (data) setCustomerCoupons(data);
+      try {
+        const { data: latestCustomer } = await supabase
+          .from("customers")
+          .select("*")
+          .eq("id", booking.customer_id)
+          .single();
+
+        if (latestCustomer) {
+          // อัพเดตข้อมูลลูกค้าใน booking object (ใน Dialog เท่านั้น)
+          setShowCompleteDialog({ ...booking, customers: latestCustomer });
+        }
+
+        const { data: coupons } = await supabase
+          .from("customer_coupons")
+          .select("*, rewards(*)")
+          .eq("customer_id", booking.customer_id)
+          .eq("status", "active");
+        if (coupons) setCustomerCoupons(coupons);
+      } catch (e) {
+        console.error("Error fetching latest customer data:", e);
+      }
     }
   }
-
   function openConfirmDialog(booking: Booking) {
     setSelectedBooking(null);
     setShowConfirmDialog(booking);
@@ -436,6 +476,8 @@ export default function CalendarPage() {
           console.error("LINE Notification might have failed:", notifyResult);
           toast.error("ส่ง LINE หาลูกค้าไม่สำเร็จ กรุณาเช็ค Token หรือ User ID");
         }
+      } else if (!customerLineId) {
+        toast.error("ลูกค้ายังไม่ได้ผูก LINE ระบบจึงไม่สามารถส่งใบเสร็จให้ได้ค่ะ", { icon: "⚠️" });
       }
 
 
@@ -564,10 +606,27 @@ export default function CalendarPage() {
 
         {/* Day detail */}
         <div className="card p-5">
-          <h3 className="font-semibold text-brand-dark text-sm mb-1">
-            {selectedDate ? formatDate(selectedDate.toISOString()) : "เลือกวันที่"}
-          </h3>
-          <p className="text-xs text-slate-400 mb-4">{dayBookings.length} คิว</p>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-brand-dark text-sm">
+                {selectedDate ? formatDate(selectedDate.toISOString()) : "เลือกวันที่"}
+              </h3>
+              <p className="text-xs text-slate-400">{dayBookings.length} คิว</p>
+            </div>
+            {selectedDate && (
+              <button 
+                onClick={toggleBlockDate}
+                className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all ${
+                  (shopSettings.closed_dates || "").split(",").filter(Boolean).includes(`${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`)
+                  ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                  : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100"
+                }`}
+              >
+                {(shopSettings.closed_dates || "").split(",").filter(Boolean).includes(`${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`)
+                  ? "✕ ปิดรับคิวอยู่" : "🚫 หยุดรับคิววันนี้"}
+              </button>
+            )}
+          </div>
 
           <div className="space-y-2 overflow-y-auto max-h-96">
             {loading ? (

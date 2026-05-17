@@ -16,14 +16,14 @@ export async function POST(req: NextRequest) {
       customerName,
       phone,
       email,
-      services: selectedServices,
+      services: selectedServices = [],
       date,
       startTime,
       notes,
       promotionId
     } = body;
 
-    if (!customerName || !phone || !selectedServices?.length || !date || !startTime) {
+    if (!customerName || !phone || (!selectedServices.length && !promotionId) || !date || !startTime) {
       return NextResponse.json({ error: "ข้อมูลไม่ครบ" }, { status: 400 });
     }
 

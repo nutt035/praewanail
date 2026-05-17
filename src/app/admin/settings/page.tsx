@@ -493,9 +493,69 @@ export default function SettingsPage() {
           <div className="card p-6">
             <h3 className="text-sm font-semibold text-brand-dark mb-4 flex items-center gap-2">
               <CreditCard size={16} className="text-rose-400" />
-              การชำระเงินและแจ้งเตือน LINE OA
+              การชำระเงินและแจ้งเตือน (LINE & Telegram)
             </h3>
-            {/* ... rest of payment settings ... */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="form-label">เลขพร้อมเพย์ (สำหรับสร้าง QR มัดจำ)</label>
+                <input
+                  className="input-field"
+                  value={shopSettings.promptpay_id || ""}
+                  onChange={(e) => setShopSettings((s) => ({ ...s, promptpay_id: e.target.value }))}
+                  placeholder="08XXXXXXXX หรือ เลขบัตรประชาชน"
+                />
+              </div>
+
+              <div className="border-t border-pink-50 pt-4 md:col-span-2">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">LINE Messaging API (สำหรับส่งใบเสร็จ)</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="form-label">LINE Channel Access Token</label>
+                    <input
+                      type="password"
+                      className="input-field"
+                      value={shopSettings.line_channel_token || ""}
+                      onChange={(e) => setShopSettings((s) => ({ ...s, line_channel_token: e.target.value }))}
+                      placeholder="eyJhbGci..."
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Admin LINE User ID (รับแจ้งเตือนทาง LINE)</label>
+                    <input
+                      className="input-field"
+                      value={shopSettings.admin_line_uid || ""}
+                      onChange={(e) => setShopSettings((s) => ({ ...s, admin_line_uid: e.target.value }))}
+                      placeholder="Uxxxxxxxxxxxxxxx"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-pink-50 pt-4 md:col-span-2">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Telegram Notification (Admin)</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="form-label">Bot Token</label>
+                    <input
+                      type="password"
+                      className="input-field"
+                      value={shopSettings.telegram_bot_token || ""}
+                      onChange={(e) => setShopSettings((s) => ({ ...s, telegram_bot_token: e.target.value }))}
+                      placeholder="0000000000:AAxxxxxxxx"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Chat ID</label>
+                    <input
+                      className="input-field"
+                      value={shopSettings.telegram_chat_id || ""}
+                      onChange={(e) => setShopSettings((s) => ({ ...s, telegram_chat_id: e.target.value }))}
+                      placeholder="-100xxxxxxx"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* ระบบสมาชิกและแต้มสะสม */}
