@@ -16,6 +16,7 @@ interface DayInfo {
   maxBookings: number;
   isFull: boolean;
   remaining: number;
+  isClosed: boolean;
 }
 
 export default function CustomerCalendar() {
@@ -67,6 +68,9 @@ export default function CustomerCalendar() {
     const maxBookings = isWeekend 
       ? Number(shopSettings.weekend_max_bookings || shopSettings.max_bookings_per_day || 10)
       : Number(shopSettings.weekday_max_bookings || shopSettings.max_bookings_per_day || 8);
+
+    // ตรวจสอบว่าวันนี้ปิดรับคิวหรือเปล่า
+    const closed = isClosedDay(thisDate, shopSettings);
       
     const count = bookings.filter((b) => {
       const d = new Date(b.start_time);
@@ -75,8 +79,9 @@ export default function CustomerCalendar() {
     return {
       bookingCount: count,
       maxBookings: maxBookings,
-      isFull: count >= maxBookings,
-      remaining: Math.max(0, maxBookings - count),
+      isFull: closed || count >= maxBookings,
+      remaining: closed ? 0 : Math.max(0, maxBookings - count),
+      isClosed: closed,
     };
   }
 
@@ -148,6 +153,7 @@ export default function CustomerCalendar() {
             // สีตามสถานะ
             let dotColor = "bg-emerald-400"; // ว่าง
             if (isPast) dotColor = "";
+            else if (info.isClosed) dotColor = "bg-slate-300"; // ปิดรับคิว
             else if (info.isFull) dotColor = "bg-rose-400"; // เต็ม
             else if (info.bookingCount > 0) dotColor = "bg-amber-400"; // ยังว่างอยู่
 
@@ -155,9 +161,10 @@ export default function CustomerCalendar() {
               <button
                 key={day}
                 onClick={() => setSelectedDay(day)}
-                disabled={isPast}
+                disabled={isPast || info.isClosed}
                 className={`relative flex flex-col items-center py-2 rounded-xl transition-all text-sm font-medium
                   ${isPast ? "text-slate-250 cursor-default" :
+                    info.isClosed ? "text-slate-300 bg-slate-50 cursor-not-allowed" :
                     isSelected ? "bg-gradient-to-br from-rose-400 to-pink-500 text-white shadow-md scale-105" :
                     isToday ? "ring-2 ring-rose-300 bg-rose-50 text-rose-600" :
                     "hover:bg-pink-50 text-slate-600"
@@ -181,6 +188,11 @@ export default function CustomerCalendar() {
           </p>
           {isPastSelected ? (
             <p className="text-xs text-slate-400">วันที่ผ่านมาแล้ว</p>
+          ) : selectedInfo.isClosed ? (
+            <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-xl">
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0" />
+              <p className="text-sm text-slate-600 font-medium">ปิดรับคิววันนี้ค่ะ</p>
+            </div>
           ) : selectedInfo.isFull ? (
             <div className="flex items-center gap-2 bg-rose-100 px-3 py-2 rounded-xl">
               <div className="w-2.5 h-2.5 rounded-full bg-rose-400 shrink-0" />
@@ -213,6 +225,10 @@ export default function CustomerCalendar() {
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
           เต็ม
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+          ปิด
         </div>
       </div>
     </div>

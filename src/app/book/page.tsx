@@ -53,13 +53,32 @@ export default function BookingPage() {
       ]);
 
       setServices((svcData as Service[]) || []);
-      setPromotions((promoData as Promotion[]) || []);
+
+      // กรองโปรโมชั่นที่หมดอายุออก
+      const today = new Date().toISOString().split("T")[0];
+      const activePromos = ((promoData as Promotion[]) || []).filter(p => {
+        if (p.valid_from && p.valid_from > today) return false;
+        if (p.valid_to && p.valid_to < today) return false;
+        return true;
+      });
+      setPromotions(activePromos);
+
       if (setData && setData.length > 0) setSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(setData as ShopSettings[]) });
 
       if (promoId) {
-        setPromotionId(promoId);
         const { data: promo } = await supabase.from("promotions").select("*").eq("id", promoId).single();
-        if (promo) setActivePromotion(promo as Promotion);
+        if (promo) {
+          const promoData = promo as Promotion;
+          // ตรวจสอบว่าโปรโมชั่นยังไม่หมดอายุ
+          const isExpired = (promoData.valid_from && promoData.valid_from > today) || 
+                            (promoData.valid_to && promoData.valid_to < today);
+          if (!isExpired && promoData.is_active) {
+            setPromotionId(promoId);
+            setActivePromotion(promoData);
+          } else {
+            toast.error("โปรโมชั่นนี้หมดอายุแล้วค่ะ");
+          }
+        }
       }
 
       setLoading(false);
@@ -273,6 +292,7 @@ export default function BookingPage() {
                       <div>
                         <p className="font-bold text-sm text-brand-dark">{p.title}</p>
                         <p className="text-[10px] text-slate-400">{p.description || "โปรโมชั่นพิเศษ"}</p>
+                        {p.valid_to && <p className="text-[10px] text-amber-500">หมดเขต {new Date(p.valid_to).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</p>}
                       </div>
                     </div>
                     <span className="text-sm font-bold text-rose-500">฿{p.price}</span>
