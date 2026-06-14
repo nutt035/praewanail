@@ -463,8 +463,16 @@ function BookingFormContent() {
           ));
         }
 
-        // 3. LINE Receipt
-        if (shopSettings.line_channel_token && formData.lineId) {
+        // 3. LINE Receipt Notification
+        let lineIdToSend = formData.lineId;
+        
+        // Fetch fresh customer data to ensure we have the correct line_id
+        if (customerId) {
+          const { data: freshCustomer } = await supabase.from("customers").select("line_id").eq("id", customerId).single();
+          if (freshCustomer?.line_id) lineIdToSend = freshCustomer.line_id;
+        }
+
+        if (shopSettings.line_channel_token && lineIdToSend) {
           const pointsEarned = newPoints - currentPoints;
           const flexMessage = {
             type: "flex",
@@ -485,8 +493,8 @@ function BookingFormContent() {
                 layout: "vertical",
                 spacing: "md",
                 contents: [
-                  { type: "box", layout: "horizontal", contents: [ { type: "text", text: "ชื่อลูกค้า", color: "#aaaaaa", size: "sm" }, { type: "text", text: formData.customerName, color: "#666666", size: "sm", align: "end", wrap: true } ] },
-                  { type: "box", layout: "horizontal", contents: [ { type: "text", text: "วันที่รับบริการ", color: "#aaaaaa", size: "sm" }, { type: "text", text: formData.date, color: "#666666", size: "sm", align: "end" } ] },
+                  { type: "box", layout: "horizontal", contents: [ { type: "text", text: "ชื่อลูกค้า", color: "#aaaaaa", size: "sm" }, { type: "text", text: formData.customerName || "คุณลูกค้า", color: "#666666", size: "sm", align: "end", wrap: true } ] },
+                  { type: "box", layout: "horizontal", contents: [ { type: "text", text: "วันที่รับบริการ", color: "#aaaaaa", size: "sm" }, { type: "text", text: formData.date || "-", color: "#666666", size: "sm", align: "end" } ] },
                   { type: "separator", margin: "md" },
                   { type: "box", layout: "horizontal", contents: [ { type: "text", text: "ยอดรวม", color: "#aaaaaa", size: "sm" }, { type: "text", text: `฿${subtotal.toLocaleString()}`, color: "#666666", size: "sm", align: "end" } ] },
                   ...(discountBaht > 0 ? [{ type: "box", layout: "horizontal", contents: [ { type: "text", text: "ส่วนลด", color: "#aaaaaa", size: "sm" }, { type: "text", text: `-฿${discountBaht.toLocaleString()}`, color: "#ef4444", size: "sm", align: "end" } ] }] : []),
@@ -494,7 +502,7 @@ function BookingFormContent() {
                   ...(couponDiscountBaht > 0 ? [{ type: "box", layout: "horizontal", contents: [ { type: "text", text: "คูปองส่วนลด", color: "#aaaaaa", size: "sm" }, { type: "text", text: `-฿${couponDiscountBaht.toLocaleString()}`, color: "#eab308", size: "sm", align: "end" } ] }] : []),
                   { type: "separator", margin: "md" },
                   { type: "box", layout: "horizontal", contents: [ { type: "text", text: "ยอดสุทธิ", weight: "bold", color: "#333333", size: "md" }, { type: "text", text: `฿${totalPrice.toLocaleString()}`, weight: "bold", color: "#B76E79", size: "md", align: "end" } ] },
-                  { type: "box", layout: "horizontal", margin: "sm", contents: [ { type: "text", text: "ชำระโดย", color: "#aaaaaa", size: "xs" }, { type: "text", text: payLabel, color: "#666666", size: "xs", align: "end" } ] }
+                  { type: "box", layout: "horizontal", margin: "sm", contents: [ { type: "text", text: "ชำระโดย", color: "#aaaaaa", size: "xs" }, { type: "text", text: payLabel || "เงินสด", color: "#666666", size: "xs", align: "end" } ] }
                 ]
               },
               footer: {
@@ -509,17 +517,25 @@ function BookingFormContent() {
             }
           };
 
-          await fetch("https://api.line.me/v2/bot/message/push", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${shopSettings.line_channel_token}`,
-            },
-            body: JSON.stringify({
-              to: formData.lineId,
-              messages: [flexMessage],
-            }),
-          }).catch(console.error);
+          try {
+            const lineRes = await fetch("https://api.line.me/v2/bot/message/push", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${shopSettings.line_channel_token}`,
+              },
+              body: JSON.stringify({
+                to: lineIdToSend,
+                messages: [flexMessage],
+              }),
+            });
+            const lineData = await lineRes.json();
+            if (!lineRes.ok) {
+              console.error("LINE API Error:", lineData);
+            }
+          } catch (err) {
+            console.error("LINE Notification failed:", err);
+          }
         }
       }
 
