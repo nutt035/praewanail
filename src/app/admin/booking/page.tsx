@@ -45,6 +45,7 @@ function BookingFormContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const editId = searchParams.get("edit");
+  const mode = searchParams.get("mode"); // "confirm" | "checkout" | null
 
   const [services, setServices] = useState<Service[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -350,8 +351,12 @@ function BookingFormContent() {
       };
 
       let bookingId = editId;
+      let newStatus = mode === "confirm" ? "confirmed" : (mode === "checkout" ? "completed" : "confirmed");
+      
       if (editId) {
-        const { error: updateError } = await supabase.from("bookings").update(bookingPayload).eq("id", editId);
+        // ถ้าเป็น edit ปกติ ไม่เปลี่ยน status ยกเว้นมีการระบุ mode
+        const updatePayload = mode ? { ...bookingPayload, status: newStatus } : bookingPayload;
+        const { error: updateError } = await supabase.from("bookings").update(updatePayload).eq("id", editId);
         if (updateError) throw updateError;
       } else {
         const { data: newBooking, error: bookingError } = await supabase.from("bookings").insert([{ ...bookingPayload, status: "confirmed" }]).select().single();
@@ -359,14 +364,19 @@ function BookingFormContent() {
         bookingId = newBooking.id;
       }
 
-      if (editId) await supabase.from("booking_services").delete().eq("id", editId); // Fix potential typo in logic, should be booking_id
+      if (editId) await supabase.from("booking_services").delete().eq("booking_id", editId);
       if (!isPracticeModel && selectedItems.length > 0 && bookingId) {
-        const bsRows = selectedItems.map((item) => ({ booking_id: bookingId, service_id: item.service.id, service_name: item.service.name, finger_count: item.fingerCount, unit_price: item.service.price_per_finger ?? item.service.price, line_total: item.line_total }));
+        const bsRows = selectedItems.map((item) => ({ booking_id: bookingId, service_id: item.service.id, service_name: item.service.name, finger_count: item.fingerCount, unit_price: item.service.price_per_finger ?? item.service.price, line_total: item.lineTotal }));
         await supabase.from("booking_services").insert(bsRows);
       }
 
       if (!editId && formData.deposit && Number(formData.deposit) > 0 && bookingId) {
         await supabase.from("transactions").insert([{ type: "income", amount: Number(formData.deposit), category: isPracticeModel ? "หุ่นลอง (ค่าอุปกรณ์)" : "มัดจำ", booking_id: bookingId }]);
+      }
+
+      // ถ้าเป็นการจบงาน (checkout) ให้บันทึกรายรับส่วนที่เหลือ
+      if (mode === "checkout" && remaining > 0 && bookingId) {
+        await supabase.from("transactions").insert([{ type: "income", amount: remaining, category: "ค่าบริการทำเล็บ", booking_id: bookingId }]);
       }
 
       toast.success(editId ? "อัพเดตคิวเรียบร้อยแล้ว!" : "บันทึกคิวเรียบร้อยแล้ว! 🎉", { id: toastId });
@@ -401,8 +411,12 @@ function BookingFormContent() {
     <div className="max-w-2xl mx-auto">
       <div className="mb-7 flex items-center justify-between">
         <div>
-          <h2 className="page-title">{editId ? "แก้ไขคิวงาน ✏️" : "ลงคิวใหม่ 💅"}</h2>
-          <p className="page-subtitle">{editId ? "ปรับเปลี่ยนรายละเอียดการจอง" : "บันทึกข้อมูลการจองคิวของลูกค้า"}</p>
+          <h2 className="page-title">
+            {mode === "checkout" ? "จบงานและชำระเงิน 💳" : mode === "confirm" ? "ยืนยันคิวงาน ✅" : editId ? "แก้ไขคิวงาน ✏️" : "ลงคิวใหม่ 💅"}
+          </h2>
+          <p className="page-subtitle">
+            {mode === "checkout" ? "ตรวจสอบรายการและรับชำระเงินส่วนที่เหลือ" : mode === "confirm" ? "ตรวจสอบข้อมูลบริการและยืนยันคิว" : editId ? "ปรับเปลี่ยนรายละเอียดการจอง" : "บันทึกข้อมูลการจองคิวของลูกค้า"}
+          </p>
         </div>
         {editId && (
           <button onClick={() => router.push("/admin/calendar")} className="btn-ghost text-rose-400 flex items-center gap-1">
@@ -633,7 +647,13 @@ function BookingFormContent() {
 
         <div className="flex justify-end gap-3 pb-8">
           <button type="button" onClick={resetForm} className="btn-ghost">{editId ? "ยกเลิก" : "ล้างฟอร์ม"}</button>
-          <button type="submit" disabled={!isFormValid || isSubmitting} className="btn-primary">{isSubmitting ? <><Loader2 size={16} className="animate-spin" /> กำลังบันทึก...</> : <><Save size={16} /> {editId ? "อัพเดตคิว" : "บันทึกคิว"}</>}</button>
+          <button type="submit" disabled={!isFormValid || isSubmitting} className={`btn-primary ${mode === "checkout" ? "bg-gradient-to-r from-emerald-400 to-teal-500 shadow-emerald-200/50" : ""}`}>
+            {isSubmitting ? <><Loader2 size={16} className="animate-spin" /> กำลังบันทึก...</> : 
+              mode === "checkout" ? <><CheckCircle2 size={16} /> จบงานและชำระเงิน</> : 
+              mode === "confirm" ? <><CheckCircle2 size={16} /> ยืนยันคิวงาน</> : 
+              <><Save size={16} /> {editId ? "อัพเดตคิว" : "บันทึกคิว"}</>
+            }
+          </button>
         </div>
       </form>
 

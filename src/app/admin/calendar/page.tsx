@@ -108,7 +108,7 @@ export default function CalendarPage() {
     const endStr = `${year}-${pad(month + 1)}-${pad(lastDay)}T23:59:59+07:00`;
     const { data } = await supabase
       .from("bookings")
-      .select("*, customers(*), booking_services(service_name, unit_price, line_total, finger_count)")
+      .select("*, customers(*), booking_services(service_name, unit_price, line_total, finger_count), promotions(title)")
       .gte("start_time", startStr)
       .lte("start_time", endStr)
       .order("start_time", { ascending: true });
@@ -667,7 +667,10 @@ export default function CalendarPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-brand-dark truncate">{b.customers?.name || "ลูกค้า"}</p>
-                        <p className="text-xs text-slate-400 truncate">{b.services?.name || "-"}</p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {b.promotions?.title && b.booking_services?.length ? `[${b.promotions.title}] ` : ""}
+                          {b.booking_services?.length ? b.booking_services.map((s:any) => s.service_name).join(", ") : b.promotions?.title || b.notes || "-"}
+                        </p>
                         <p className="text-xs text-rose-400 mt-0.5">{formatTime(b.start_time)} – {formatTime(b.end_time)}</p>
                       </div>
                       <span className={`badge ${cfg.class} shrink-0 text-[10px]`}>{cfg.label}</span>
@@ -703,7 +706,10 @@ export default function CalendarPage() {
               <div className="bg-pink-50/60 rounded-xl p-4 space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <Scissors size={14} className="text-rose-400" />
-                  <span className="text-slate-600">{selectedBooking.services?.name || "-"}</span>
+                  <span className="text-slate-600">
+                    {selectedBooking.promotions?.title && selectedBooking.booking_services?.length ? `[${selectedBooking.promotions.title}] ` : ""}
+                    {selectedBooking.booking_services?.length ? selectedBooking.booking_services.map((s:any) => s.service_name).join(", ") : selectedBooking.promotions?.title || selectedBooking.notes || "-"}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock size={14} className="text-rose-400" />
@@ -740,12 +746,12 @@ export default function CalendarPage() {
                   >
                     <Bell size={15} /> แจ้งเตือน
                   </button>
-                  <button
-                    onClick={() => openCompleteDialog(selectedBooking)}
+                  <Link
+                    href={`/admin/booking?edit=${selectedBooking.id}&mode=checkout`}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition-colors border border-emerald-200"
                   >
                     <CheckCircle2 size={15} /> จบงาน + ชำระเงิน
-                  </button>
+                  </Link>
                   <Link
                     href={`/admin/booking?edit=${selectedBooking.id}`}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-50 text-slate-700 text-sm font-medium hover:bg-slate-100 transition-colors border border-slate-200"
@@ -776,12 +782,12 @@ export default function CalendarPage() {
                 </div>
               )}
               {selectedBooking.status !== "confirmed" && selectedBooking.status !== "completed" && (
-                <button
-                  onClick={() => openConfirmDialog(selectedBooking)}
+                <Link
+                  href={`/admin/booking?edit=${selectedBooking.id}&mode=confirm`}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors border border-blue-200"
                 >
-                  <CheckCircle2 size={15} /> ยืนยัน + ใส่ราคา
-                </button>
+                  <CheckCircle2 size={15} /> ยืนยันคิวงาน
+                </Link>
               )}
               {selectedBooking.status !== "cancelled" && (
                 <button

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       promotionId
     } = body;
 
-    if (!customerName || !phone || (!selectedServices.length && !promotionId) || !date || !startTime) {
+    if (!customerName || !phone || !date || !startTime) {
       return NextResponse.json({ error: "ข้อมูลไม่ครบ" }, { status: 400 });
     }
 
@@ -51,13 +51,13 @@ export async function POST(req: NextRequest) {
 
     // 2. ดึงข้อมูลบริการที่เลือก
     const serviceIds = selectedServices.map((s: any) => s.id);
-    const { data: svcData } = await supabase
-      .from("services")
-      .select("*")
-      .in("id", serviceIds);
-
-    if (!svcData || svcData.length === 0) {
-      return NextResponse.json({ error: "ไม่พบบริการที่เลือก" }, { status: 400 });
+    let svcData: any[] = [];
+    if (serviceIds.length > 0) {
+      const { data } = await supabase
+        .from("services")
+        .select("*")
+        .in("id", serviceIds);
+      svcData = data || [];
     }
 
     // 3. คำนวณราคาและเวลา
@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("bookings")
-    .select("*, customers(*), booking_services(*, services(name, category))")
+    .select("*, customers(*), booking_services(*, services(name, category)), promotions(*)")
     .eq("booking_code", code)
     .single();
 

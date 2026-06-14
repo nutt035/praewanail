@@ -54,7 +54,7 @@ export default function AdminDashboard() {
     // ดึงคิววันนี้ พร้อม join customers + services
     const { data: bookings } = await supabase
       .from("bookings")
-      .select("*, customers(name, phone), booking_services(service_name, unit_price, line_total, finger_count)")
+      .select("*, customers(name, phone), booking_services(service_name, unit_price, line_total, finger_count), promotions(title)")
       .gte("start_time", start)
       .lt("start_time", end)
       .neq("status", "cancelled")
@@ -244,7 +244,14 @@ export default function AdminDashboard() {
               const status = booking.status as keyof typeof statusConfig;
               const cfg = statusConfig[status] || statusConfig.pending;
               const customerName = booking.customers?.name || "ลูกค้า";
-              const serviceName = booking.services?.name || booking.notes || "-";
+              
+              const promoTitle = booking.promotions?.title;
+              const servicesList = booking.booking_services?.map((s: any) => s.service_name).join(", ");
+              let serviceName = "-";
+              if (promoTitle && servicesList) serviceName = `[${promoTitle}] ${servicesList}`;
+              else if (promoTitle) serviceName = promoTitle;
+              else if (servicesList) serviceName = servicesList;
+              else if (booking.notes) serviceName = booking.notes;
 
               return (
                 <div key={booking.id} className="px-6 py-4 flex items-center gap-4 hover:bg-pink-50/50 transition-colors">

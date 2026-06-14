@@ -142,11 +142,22 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
           <h4 className="font-semibold text-brand-dark">รายละเอียดการจอง</h4>
           <div className="flex items-center gap-2 text-slate-600"><CalendarDays size={14} className="text-rose-400" />{new Date(booking.start_time).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long" })}</div>
           <div className="flex items-center gap-2 text-slate-600"><Clock size={14} className="text-rose-400" />{new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.</div>
-          {booking.booking_services?.map((bs: any) => (
-            <div key={bs.id} className="flex justify-between"><span className="text-slate-600">{bs.service_name}{bs.finger_count ? ` (${bs.finger_count} ${bs.services?.unit_name || "นิ้ว"})` : ""}</span><span className="font-semibold">฿{bs.line_total?.toLocaleString()}</span></div>
-          ))}
+          {booking.promotions && (
+            <div className="flex justify-between">
+              <span className="text-slate-600 flex items-center gap-2">
+                <Sparkles size={12} className="text-rose-400" /> โปรโมชั่น: {booking.promotions.title}
+              </span>
+            </div>
+          )}
+          {!booking.promotions && (
+            <div className="flex justify-between">
+              <span className="text-slate-600">จองคิวทำเล็บ (ประเมินราคาหน้าร้าน)</span>
+            </div>
+          )}
           <div className="h-px bg-pink-100" />
-          <div className="flex justify-between font-bold"><span>ยอดรวม</span><span>฿{(booking.total_price || 0).toLocaleString()}</span></div>
+          {booking.promotions && (
+            <div className="flex justify-between font-bold"><span>ราคาเริ่มต้น</span><span>฿{(booking.promotions.price || 0).toLocaleString()}</span></div>
+          )}
           <div className="flex justify-between text-rose-500"><span>มัดจำ</span><span className="font-bold">฿{(booking.deposit_required || 0).toLocaleString()}</span></div>
           {isPaid && <div className="flex items-center gap-2 text-emerald-600 font-semibold"><CheckCircle2 size={14} /> ชำระมัดจำแล้ว ฿{booking.deposit?.toLocaleString()}</div>}
         </div>
@@ -205,11 +216,41 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
           </div>
         )}
 
-        {/* Contact */}
+        {/* Contact & Manage */}
         {settings.shop_phone && (
-          <div className="text-center py-4">
-            <p className="text-xs text-slate-400 mb-2">มีปัญหา? ติดต่อร้านได้เลย</p>
-            <a href={`tel:${settings.shop_phone}`} className="inline-flex items-center gap-2 text-sm text-rose-500 font-medium"><Phone size={14} /> {settings.shop_phone}</a>
+          <div className="text-center py-4 space-y-4">
+            <div>
+              <p className="text-xs text-slate-400 mb-2">มีปัญหา? ติดต่อร้านได้เลย</p>
+              <a href={`tel:${settings.shop_phone}`} className="inline-flex items-center gap-2 text-sm text-rose-500 font-medium"><Phone size={14} /> {settings.shop_phone}</a>
+            </div>
+            
+            <div className="pt-4 border-t border-pink-100 flex flex-col gap-2">
+              <button 
+                onClick={async () => {
+                  if(confirm("คุณต้องการยกเลิกคิวใช่หรือไม่? (ขอสงวนสิทธิ์ไม่คืนมัดจำในทุกกรณี)")) {
+                    try {
+                      const res = await fetch("/api/bookings/manage", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "cancel", bookingCode: code })
+                      });
+                      const data = await res.json();
+                      if(data.success) {
+                        alert(data.message);
+                        window.location.reload();
+                      } else {
+                        alert(data.error);
+                      }
+                    } catch {
+                      alert("เกิดข้อผิดพลาด");
+                    }
+                  }
+                }}
+                className="w-full py-3 bg-white text-rose-500 font-bold rounded-xl border border-rose-200 hover:bg-rose-50 transition-colors text-sm"
+              >
+                ยกเลิกคิว
+              </button>
+            </div>
           </div>
         )}
 

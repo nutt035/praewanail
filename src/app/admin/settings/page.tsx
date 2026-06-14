@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint, MessageCircle, CreditCard, Send, Trophy, CheckCircle2 } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint, MessageCircle, CreditCard, Send, Trophy, CheckCircle2, Image as ImageIcon, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 
 const CATEGORIES = ["ทำเล็บมือ", "ทำเล็บเท้า", "ต่อเล็บ", "สปา", "ถอดเล็บ", "อื่นๆ"];
@@ -27,7 +27,7 @@ const emptyForm = {
   isPerFinger: false,
 };
 
-type Tab = "services" | "shop";
+type Tab = "services" | "shop" | "gallery";
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("services");
@@ -44,6 +44,12 @@ export default function SettingsPage() {
   // === Shop settings state ===
   const [shopSettings, setShopSettings] = useState<Record<string, string>>({ ...DEFAULT_SETTINGS });
   const [savingShop, setSavingShop] = useState(false);
+
+  // === Gallery state ===
+  const [galleryImages, setGalleryImages] = useState<any[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageTags, setImageTags] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchServices();
@@ -128,7 +134,15 @@ export default function SettingsPage() {
   async function fetchShopSettings() {
     const { data } = await supabase.from("shop_settings").select("*");
     if (data && data.length > 0) {
-      setShopSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) });
+      const settingsMap = settingsToMap(data as ShopSettings[]);
+      setShopSettings({ ...DEFAULT_SETTINGS, ...settingsMap });
+      if (settingsMap.gallery_images) {
+        try {
+          setGalleryImages(JSON.parse(settingsMap.gallery_images));
+        } catch {
+          setGalleryImages([]);
+        }
+      }
     }
   }
 
@@ -140,6 +154,52 @@ export default function SettingsPage() {
     }
     toast.success("บันทึกการตั้งค่าร้านเรียบร้อย ✓");
     setSavingShop(false);
+  }
+
+  async function saveGalleryImages(newImages: any[]) {
+    const jsonStr = JSON.stringify(newImages);
+    setGalleryImages(newImages);
+    setShopSettings(prev => ({ ...prev, gallery_images: jsonStr }));
+    await supabase.from("shop_settings").upsert({ key: "gallery_images", value: jsonStr }, { onConflict: "key" });
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/uploads", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      const newImg = {
+        id: crypto.randomUUID(),
+        url: data.url,
+        tags: imageTags.split(",").map(t => t.trim()).filter(Boolean),
+        created_at: new Date().toISOString(),
+      };
+
+      const newImages = [newImg, ...galleryImages];
+      await saveGalleryImages(newImages);
+      toast.success("อัปโหลดรูปภาพสำเร็จ ✓");
+      setImageTags("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (error: any) {
+      toast.error(`อัปโหลดล้มเหลว: ${error.message}`);
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  async function handleDeleteImage(id: string) {
+    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรูปภาพนี้?")) return;
+    const newImages = galleryImages.filter(img => img.id !== id);
+    await saveGalleryImages(newImages);
+    toast.success("ลบรูปภาพสำเร็จ ✓");
   }
 
   const allCategories = ["ทั้งหมด", ...Array.from(new Set(services.map((s) => s.category || "อื่นๆ")))];
@@ -189,6 +249,16 @@ export default function SettingsPage() {
           }`}
         >
           <Store size={15} /> ตั้งค่าร้าน
+        </button>
+        <button
+          onClick={() => setTab("gallery")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            tab === "gallery"
+              ? "bg-gradient-to-r from-rose-400 to-pink-500 text-white shadow-sm"
+              : "text-slate-500 hover:text-brand-dark hover:bg-pink-50"
+          }`}
+        >
+          <ImageIcon size={15} /> พอร์ตผลงาน
         </button>
       </div>
 
@@ -721,6 +791,98 @@ export default function SettingsPage() {
             <button onClick={saveShopSettings} disabled={savingShop} className="btn-primary">
               {savingShop ? <><Loader2 size={16} className="animate-spin" /> กำลังบันทึก...</> : <><Save size={16} /> บันทึกการตั้งค่า</>}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========== TAB: Gallery ========== */}
+      {tab === "gallery" && (
+        <div className="space-y-6">
+          <div className="card p-6">
+            <h3 className="font-semibold text-brand-dark mb-4 flex items-center gap-2">
+              <Upload size={18} className="text-rose-500" />
+              อัปโหลดรูปภาพผลงาน
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="form-label">แท็ก (คั่นด้วยลูกน้ำ เช่น ทำเล็บเจล, ต่อขนตา, ลายหินอ่อน)</label>
+                <input
+                  type="text"
+                  className="input-field mb-3"
+                  value={imageTags}
+                  onChange={(e) => setImageTags(e.target.value)}
+                  placeholder="เช่น สีลูกแก้ว, ต่อเล็บ PVC"
+                />
+              </div>
+              
+              <div className="relative border-2 border-dashed border-pink-200 rounded-2xl p-8 text-center hover:bg-pink-50 transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  ref={fileInputRef}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center">
+                    {uploadingImage ? (
+                      <Loader2 size={24} className="text-rose-500 animate-spin" />
+                    ) : (
+                      <ImageIcon size={24} className="text-rose-500" />
+                    )}
+                  </div>
+                  <p className="font-medium text-brand-dark">
+                    {uploadingImage ? "กำลังอัปโหลด..." : "คลิก หรือลากรูปภาพมาวางที่นี่"}
+                  </p>
+                  <p className="text-xs text-slate-400">รองรับ JPG, PNG (ขนาดไม่เกิน 5MB)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <h3 className="font-semibold text-brand-dark mb-4 flex items-center gap-2">
+              <ImageIcon size={18} className="text-rose-500" />
+              คลังรูปภาพ ({galleryImages.length})
+            </h3>
+
+            {galleryImages.length === 0 ? (
+              <div className="text-center py-12 text-slate-400">
+                <ImageIcon size={32} className="mx-auto mb-3 opacity-20" />
+                <p>ยังไม่มีรูปภาพในพอร์ตผลงาน</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {galleryImages.map((img) => (
+                  <div key={img.id} className="group relative rounded-xl overflow-hidden aspect-square border border-pink-100">
+                    <img src={img.url} alt="Gallery" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                    
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3">
+                      <div className="flex justify-end">
+                        <button 
+                          onClick={() => handleDeleteImage(img.id)}
+                          className="w-8 h-8 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      
+                      {img.tags && img.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {img.tags.map((tag: string, i: number) => (
+                            <span key={i} className="px-2 py-0.5 rounded-md bg-white/90 text-[10px] font-medium text-brand-dark">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

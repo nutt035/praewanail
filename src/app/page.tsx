@@ -1,8 +1,9 @@
-import { Sparkles, MapPin, Camera, Star, BookOpen, CalendarHeart, Award, HelpCircle, ChevronRight, Tag, Percent, Banknote, Megaphone } from "lucide-react";
+import { Sparkles, MapPin, Camera, Star, BookOpen, CalendarHeart, Award, Search, HelpCircle, ChevronRight, Tag, Percent, Banknote, Megaphone } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
 import Link from "next/link";
 import CustomerCalendar from "@/components/CustomerCalendar";
+import GallerySection from "@/components/GallerySection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -169,12 +170,22 @@ export default async function Home() {
             </Link>
 
             <Link href="/how-to" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 group-hover:scale-110 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 group-hover:bg-slate-100 group-hover:scale-110 transition-all">
                 <HelpCircle size={28} />
               </div>
               <div className="w-full">
-                <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">วิธีใช้ <ChevronRight size={16} className="text-blue-300 group-hover:translate-x-1 transition-transform" /></h3>
+                <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">วิธีใช้ <ChevronRight size={16} className="text-slate-300 group-hover:translate-x-1 transition-transform" /></h3>
                 <p className="text-[11px] text-gray-500 mt-0.5">คู่มือจองคิวออนไลน์</p>
+              </div>
+            </Link>
+
+            <Link href="/check" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4 col-span-2">
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 group-hover:scale-110 transition-all">
+                <Search size={28} />
+              </div>
+              <div className="w-full">
+                <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">ค้นหาคิว <ChevronRight size={16} className="text-blue-300 group-hover:translate-x-1 transition-transform" /></h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">เช็คคิว & ยกเลิกคิว</p>
               </div>
             </Link>
           </div>
@@ -192,20 +203,8 @@ export default async function Home() {
           <CustomerCalendar />
         </section>
 
-        {/* 4. Portfolio Embed (Instagram / Feed Placeholder) */}
-        <section className="bg-white rounded-[2rem] shadow-sm border border-pink-50 overflow-hidden">
-          <div className="p-5 border-b border-gray-50 flex items-center justify-between">
-            <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-              <Camera className="text-purple-500" size={20} />
-              ผลงานของเรา
-            </h2>
-          </div>
-          <div className="p-8 bg-gray-50/50 flex flex-col items-center justify-center text-center">
-             <Camera size={32} className="text-gray-300 mb-2" />
-             <p className="text-sm font-medium text-gray-500">รออัพเดทผลงาน</p>
-             <p className="text-xs text-gray-400 mt-1">กำลังเตรียมรูปภาพสวยๆ มาอวดเร็วๆ นี้ค่ะ</p>
-          </div>
-        </section>
+        {/* 4. Portfolio Embed (Gallery Section) */}
+        <GallerySection />
 
         {/* 5. Google Maps Embed */}
         <section className="bg-white rounded-[2rem] shadow-sm border border-pink-50 overflow-hidden">

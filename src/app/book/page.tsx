@@ -2,31 +2,27 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Service, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, getOpenClose, isClosedDay } from "@/lib/types";
+import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, getOpenClose, isClosedDay } from "@/lib/types";
 import {
-  Sparkles, ChevronLeft, ChevronRight, Check, Scissors, Clock,
-  CalendarDays, User, Phone, FileText, Loader2, ArrowRight,
+  Sparkles, ChevronLeft, ChevronRight, Check, Clock,
+  CalendarDays, User, Phone, FileText, Loader2, ArrowRight, AlertCircle
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from "react-hot-toast";
 
-const STEPS = ["เลือกบริการ", "เลือกวัน-เวลา", "กรอกข้อมูล", "ยืนยันการจอง"];
+const STEPS = ["โปรโมชั่น", "วัน-เวลา", "ข้อมูลติดต่อ", "ยืนยันการจอง"];
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 const THAI_DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
 const DEPOSIT = 50; // มัดจำตายตัวทุกคน
-
-interface SelectedService { id: string; name: string; duration: number; category: string | null; }
+const DEFAULT_DURATION = 120; // 120 นาที เป็นค่าเริ่มต้นในการบล็อคปฏิทิน
 
 export default function BookingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
 
-  const [services, setServices] = useState<Service[]>([]);
   const [settings, setSettings] = useState<ShopSettings>(DEFAULT_SETTINGS);
-
   const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [selected, setSelected] = useState<SelectedService[]>([]);
   const [promotionId, setPromotionId] = useState<string | null>(null);
   const [activePromotion, setActivePromotion] = useState<Promotion | null>(null);
   const [date, setDate] = useState("");
@@ -46,13 +42,10 @@ export default function BookingPage() {
       const params = new URLSearchParams(window.location.search);
       const promoId = params.get("promo");
 
-      const [{ data: svcData }, { data: setData }, { data: promoData }] = await Promise.all([
-        supabase.from("services").select("*").order("category").order("price", { ascending: true }),
+      const [{ data: setData }, { data: promoData }] = await Promise.all([
         supabase.from("shop_settings").select("*"),
         supabase.from("promotions").select("*").eq("is_active", true),
       ]);
-
-      setServices((svcData as Service[]) || []);
 
       // กรองโปรโมชั่นที่หมดอายุออก
       const today = new Date().toISOString().split("T")[0];
@@ -128,43 +121,17 @@ export default function BookingPage() {
     return Number(settings.weekday_max_bookings || settings.max_bookings_per_day || 8);
   };
 
-  // --- คำนวณเวลาที่ใช้ทั้งหมด ---
-  const totalDuration = selected.reduce((sum, s) => sum + s.duration, 0) + (activePromotion?.duration || 0);
-
-  function toggleService(svc: Service) {
-    const exists = selected.find(s => s.id === svc.id);
-    if (exists) {
-      setSelected(selected.filter(s => s.id !== svc.id));
-    } else {
-      // If Buffet: Only allow selecting excluded services as add-ons
-      if (activePromotion?.promotion_type === "buffet") {
-        const excluded = activePromotion.excluded_service_ids || [];
-        if (!excluded.includes(svc.id)) {
-          toast.error("บริการนี้รวมอยู่ในบุฟเฟต์แล้วค่ะ");
-          return;
-        }
-      }
-
-      setSelected([...selected, {
-        id: svc.id, name: svc.name,
-        duration: svc.duration, category: svc.category || null,
-      }]);
-    }
-  }
-
   function selectPromotion(promo: Promotion) {
     if (promotionId === promo.id) {
       setPromotionId(null);
       setActivePromotion(null);
-      setSelected([]);
     } else {
       setPromotionId(promo.id);
       setActivePromotion(promo);
-      setSelected([]); // Clear services when switching promos to avoid mix-ups
     }
   }
 
-  // --- กรองช่วงเวลา (แบบ A) ---
+  // --- กรองช่วงเวลา ---
   const selectedDateObj = date ? new Date(date + "T00:00:00") : null;
   const { openTime: openH_str, closeTime: closeH_str } = selectedDateObj
     ? getOpenClose(selectedDateObj, settings)
@@ -180,6 +147,9 @@ export default function BookingPage() {
   const currentHour = now.getHours();
   const currentMin = now.getMinutes();
 
+  // เวลาที่ใช้จองเสมอ คือ DEFAULT_DURATION
+  const totalDuration = DEFAULT_DURATION;
+
   for (let h = openH; h <= closeH; h++) {
     const mins = ["00", "30"];
     for (const m_str of mins) {
@@ -190,18 +160,34 @@ export default function BookingPage() {
       if (startTotalMins < (openH * 60 + openM)) continue;
       if (startTotalMins >= closeTotalMins) continue;
 
-      // 2. เช็คแบบ A: เวลาเริ่ม + เวลาทำ ต้องไม่เกินเวลาปิดร้าน
+      // 2. เวลาเริ่ม + เวลาทำ ต้องไม่เกินเวลาปิดร้าน
       if ((startTotalMins + totalDuration) > closeTotalMins) continue;
 
       // 3. เช็คเวลาที่ผ่านไปแล้ว (กรณีจองวันนี้ เผื่อเวลาเตรียมตัว 30 นาที)
       if (isToday && startTotalMins <= (currentHour * 60 + currentMin + 30)) continue;
 
+      // 4. Smart Gap Closing (ตรวจสอบว่าช่วงเวลาทั้งหมดว่างหรือไม่)
+      let isOverlap = false;
+      for (let offset = 0; offset < totalDuration; offset += 30) {
+        const checkTotalMins = startTotalMins + offset;
+        const checkH = Math.floor(checkTotalMins / 60);
+        const checkM = checkTotalMins % 60;
+        const checkStr = `${String(checkH).padStart(2, "0")}:${String(checkM).padStart(2, "0")}`;
+        
+        if (blockedSlotsMap[date]?.has(checkStr)) {
+          isOverlap = true;
+          break; // ชนกับคิวอื่นในช่วย 120 นาทีนี้
+        }
+      }
+      
+      if (isOverlap) continue;
+
       timeSlots.push(`${String(h).padStart(2, "0")}:${m_str}`);
     }
   }
 
-  // อนุญาตให้ผ่าน Step 0 ได้ถ้าเลือกบริการ หรือ เลือกโปรโมชั่นอย่างน้อย 1 อย่าง
-  const canNext = step === 0 ? (selected.length > 0 || promotionId !== null) : step === 1 ? date && time : step === 2 ? name && phone : true;
+  // ข้ามหน้าโปรโมชั่นได้เลยแม้ไม่เลือกอะไร
+  const canNext = step === 0 ? true : step === 1 ? date && time : step === 2 ? name && phone : true;
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -211,7 +197,7 @@ export default function BookingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerName: name, phone,
-          services: selected.map(s => ({ id: s.id })),
+          services: [], // ไม่มีให้เลือกล่วงหน้าแล้ว
           date, startTime: time, notes,
           promotionId: promotionId,
         }),
@@ -231,11 +217,7 @@ export default function BookingPage() {
   // Calendar helpers
   const firstDay = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const today = new Date();
-
-  // Group services by category
-  const grouped: Record<string, Service[]> = {};
-  services.forEach(s => { const c = s.category || "อื่นๆ"; if (!grouped[c]) grouped[c] = []; grouped[c].push(s); });
+  const todayDate = new Date();
 
   if (loading) return <div className="min-h-screen bg-[#FDF2F8] flex items-center justify-center"><Loader2 className="animate-spin text-rose-400" size={32} /></div>;
 
@@ -272,9 +254,22 @@ export default function BookingPage() {
         </div>
         <p className="text-xs text-slate-400 text-center mb-6">{STEPS[step]}</p>
 
-        {/* Step 0: Select Services */}
+        {/* Step 0: Select Promotion */}
         {step === 0 && (
           <div className="space-y-6">
+            
+            {/* Banner แจ้งมัดจำ */}
+            <div className="p-4 bg-gradient-to-r from-rose-100 to-pink-100 rounded-2xl border border-rose-200 flex items-start gap-3">
+              <div className="mt-1"><AlertCircle size={18} className="text-rose-500" /></div>
+              <div>
+                <p className="text-sm font-bold text-brand-dark">แจ้งเรื่องการจองคิว</p>
+                <p className="text-xs text-slate-600 mt-1">
+                  การจองคิวออนไลน์มีค่ามัดจำ <span className="font-bold text-rose-500">50 บาท</span> เพื่อเป็นการล็อคคิวนะคะ (ใช้ลดเป็นค่าทำเล็บหน้างาน) <br/><br/>
+                  ลูกค้าสามารถกดเลือกเวลาว่างที่ต้องการได้เลย หลังจากจองคิวแล้วให้ส่งรหัสจองและรูปลายเล็บที่ต้องการให้แอดมินทางไลน์ เพื่อประเมินราคาจริงค่ะ
+                </p>
+              </div>
+            </div>
+
             {/* Promotion Selector */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">เลือกโปรโมชั่น (ถ้ามี)</h3>
@@ -302,61 +297,6 @@ export default function BookingPage() {
               </div>
             </div>
 
-            <div className="h-px bg-pink-100" />
-
-            {/* Service Selection */}
-            <div className="space-y-5">
-              {activePromotion && (
-                <div className="p-4 bg-gradient-to-r from-rose-100 to-pink-100 rounded-2xl border border-rose-200 text-center mb-6">
-                  <p className="text-rose-600 font-bold text-sm">🎁 คุณกำลังใช้โปรโมชั่น: {activePromotion.title}</p>
-                  {activePromotion.promotion_type === "buffet" && (
-                    <p className="text-xs text-rose-400 mt-1">ราคาเริ่มต้น ฿{activePromotion.price.toLocaleString()} (เลือกเฉพาะบริการพิเศษเพิ่มเติมด้านล่าง)</p>
-                  )}
-                  {activePromotion.duration && (
-                    <p className="text-[10px] text-rose-400 mt-1">เวลาเหมาประมาณ {activePromotion.duration} นาที</p>
-                  )}
-                </div>
-              )}
-              {Object.entries(grouped).map(([cat, items]) => {
-                const filteredItems = activePromotion?.promotion_type === "buffet"
-                  ? items.filter(svc => (activePromotion.excluded_service_ids || []).includes(svc.id))
-                  : items;
-
-                if (filteredItems.length === 0) return null;
-
-                return (
-                  <div key={cat}>
-                    <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 ${activePromotion?.promotion_type === "buffet" ? "text-rose-500" : "text-slate-400"}`}>
-                      {activePromotion?.promotion_type === "buffet" ? "บริการพิเศษเพิ่มเติม (Add-ons)" : cat}
-                    </h3>
-                    <div className="space-y-2">
-                      {filteredItems.map(svc => {
-                        const isSelected = selected.some(s => s.id === svc.id);
-                        return (
-                          <button key={svc.id} onClick={() => toggleService(svc)}
-                            className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${isSelected ? "border-rose-400 bg-rose-50 shadow-sm" : "border-pink-100 bg-white hover:border-rose-200"}`}>
-                            <div className="flex items-center gap-3">
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? "border-rose-400 bg-rose-400" : "border-slate-300"}`}>
-                                {isSelected && <Check size={12} className="text-white" />}
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-semibold text-sm text-brand-dark">{svc.name}</p>
-                                <p className="text-xs text-slate-400"><Clock size={10} className="inline" /> {svc.duration} นาที</p>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-              {activePromotion?.promotion_type === "buffet" && grouped[Object.keys(grouped)[0]]?.length > 0 && selected.length === 0 && (
-                <div className="text-center p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                  <p className="text-xs text-slate-400">คุณไม่ได้เลือกบริการเพิ่มเติม <br /> ระบบจะจองเป็นแพ็กเกจบุฟเฟต์พื้นฐานค่ะ</p>
-                </div>
-              )}
-            </div>
           </div>
         )}
 
@@ -376,7 +316,7 @@ export default function BookingPage() {
                   const day = i + 1;
                   const thisDate = new Date(calYear, calMonth, day);
                   const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                  const isPast = thisDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                  const isPast = thisDate < new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
                   const isClosed = isClosedDay(thisDate, settings);
                   const isSel = date === dateStr;
                   const bookCount = dayBookingCounts[day] || 0;
@@ -405,12 +345,11 @@ export default function BookingPage() {
                 <h4 className="text-sm font-semibold text-brand-dark mb-3 flex items-center gap-2"><Clock size={14} className="text-rose-400" /> เลือกเวลา</h4>
                 <div className="grid grid-cols-4 gap-2">
                   {timeSlots.map(t => {
-                    const isBlocked = blockedSlotsMap[date]?.has(t);
                     return (
-                      <button key={t} disabled={isBlocked} onClick={() => setTime(t)}
-                        className={`py-2 rounded-xl text-sm font-medium border transition-all ${isBlocked ? "bg-slate-50 text-slate-300 border-slate-100 line-through cursor-not-allowed"
-                            : time === t ? "bg-rose-400 text-white border-transparent shadow-sm"
-                              : "bg-white text-slate-600 border-pink-100 hover:border-rose-300"
+                      <button key={t} onClick={() => setTime(t)}
+                        className={`py-2 rounded-xl text-sm font-medium border transition-all ${
+                            time === t ? "bg-rose-400 text-white border-transparent shadow-sm"
+                                : "bg-white text-slate-600 border-pink-100 hover:border-rose-300"
                           }`}>
                         {t}
                       </button>
@@ -418,7 +357,7 @@ export default function BookingPage() {
                   })}
                   {timeSlots.length === 0 && (
                     <p className="col-span-4 text-center text-xs text-rose-400 py-4">
-                      ขออภัยค่ะ ไม่มีช่วงเวลาที่ทำทันร้านปิดสำหรับบริการที่คุณเลือก
+                      ขออภัยค่ะ ไม่มีช่วงเวลาว่างสำหรับคิวนี้ (หรือติดคิวอื่น)
                     </p>
                   )}
                 </div>
@@ -460,18 +399,18 @@ export default function BookingPage() {
             {/* สรุปบริการ */}
             <div className="bg-white rounded-2xl border border-pink-100 p-5 space-y-3">
               <h4 className="font-semibold text-brand-dark text-sm">สรุปการจอง</h4>
-              {selected.map(s => (
-                <div key={s.id} className="flex items-center gap-2 text-sm">
-                  <Scissors size={12} className="text-rose-400 shrink-0" />
-                  <span className="text-slate-700">{s.name}</span>
-                  <span className="text-xs text-slate-400">({s.duration} นาที)</span>
+              {activePromotion ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <Sparkles size={12} className="text-rose-400 shrink-0" />
+                  <span className="text-slate-700">โปรโมชั่น: {activePromotion.title}</span>
                 </div>
-              ))}
+              ) : (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-slate-700">จองคิวทำเล็บ (เลือกบริการและประเมินราคาที่หน้าร้าน)</span>
+                </div>
+              )}
+              
               <div className="h-px bg-pink-100" />
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">เวลาทำทั้งหมด</span>
-                <span className="font-medium text-slate-700">{totalDuration} นาที</span>
-              </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-rose-500 font-medium">มัดจำ
                   <span className="text-xs text-slate-400 font-normal ml-1">(ชำระก่อนจองคิว)</span>
@@ -490,7 +429,7 @@ export default function BookingPage() {
             {/* ข้อความแจ้งเตือน */}
             <div className="bg-pink-50 rounded-xl p-3 border border-pink-100">
               <p className="text-xs text-center text-slate-600 font-medium">
-                หลังจองคิวจะมีรหัสขึ้นให้คุณลูกค้าส่งมาทางไลน์เพื่อยืนยันการจองและส่งลายเล็บที่ต้องการทำ เพื่อประเมิณราคาจริงค่ะ
+                หลังจองคิวจะมีรหัสขึ้นให้คุณลูกค้าส่งมาทางไลน์เพื่อยืนยันการจองและส่งลายเล็บที่ต้องการทำ เพื่อประเมินราคาจริงค่ะ
               </p>
             </div>
           </div>
