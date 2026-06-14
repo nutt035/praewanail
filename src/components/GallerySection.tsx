@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { ShopSettings, settingsToMap } from "@/lib/types";
-import { Image as ImageIcon, Search } from "lucide-react";
+import { Image as ImageIcon, Search, X, ZoomIn, Heart } from "lucide-react";
+import Link from "next/link";
 
 export default function GallerySection() {
   const [images, setImages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterTag, setFilterTag] = useState<string>("ทั้งหมด");
   const [allTags, setAllTags] = useState<string[]>(["ทั้งหมด"]);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchGallery();
@@ -52,42 +53,27 @@ export default function GallerySection() {
 
   if (images.length === 0) {
     return (
-      <section className="bg-white rounded-[2rem] shadow-sm border border-pink-50 overflow-hidden">
-        <div className="p-5 border-b border-gray-50 flex items-center justify-between">
-          <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-            <ImageIcon className="text-rose-500" size={20} />
-            พอร์ตผลงาน (Gallery)
-          </h2>
-        </div>
-        <div className="p-8 bg-gray-50/50 flex flex-col items-center justify-center text-center">
-           <ImageIcon size={32} className="text-gray-300 mb-2" />
-           <p className="text-sm font-medium text-gray-500">รออัพเดทผลงาน</p>
-           <p className="text-xs text-gray-400 mt-1">กำลังเตรียมรูปภาพสวยๆ มาอวดเร็วๆ นี้ค่ะ</p>
-        </div>
-      </section>
+      <div className="flex flex-col items-center justify-center text-center py-20">
+         <ImageIcon size={48} className="text-pink-200 mb-4" />
+         <p className="text-lg font-bold text-gray-800">รออัพเดทผลงาน</p>
+         <p className="text-sm text-gray-500 mt-2">กำลังเตรียมรูปภาพสวยๆ มาอวดเร็วๆ นี้ค่ะ ✨</p>
+      </div>
     );
   }
 
   return (
-    <section className="bg-white rounded-[2rem] shadow-sm border border-pink-50 p-6">
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-bold text-gray-900 flex items-center gap-2 text-lg">
-            <ImageIcon className="text-rose-500" size={20} />
-            พอร์ตผลงาน (Gallery)
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">ผลงานทำเล็บสวยๆ จากทางร้าน</p>
-        </div>
-        
+    <div className="w-full">
+      {/* 🏷️ Filter Tags (Instagram Story Style or Pills) */}
+      <div className="mb-8 flex justify-center">
         {allTags.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
+          <div className="flex gap-2 overflow-x-auto pb-2 hide-scrollbar">
             {allTags.map(tag => (
               <button
                 key={tag}
                 onClick={() => setFilterTag(tag)}
-                className={`px-4 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all border ${
+                className={`px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border-2 ${
                   filterTag === tag
-                    ? "bg-rose-500 text-white border-transparent shadow-sm"
+                    ? "bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-200"
                     : "bg-white text-slate-500 border-pink-100 hover:border-rose-300"
                 }`}
               >
@@ -98,36 +84,73 @@ export default function GallerySection() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {/* 📸 Feed Layout */}
+      <div className="grid grid-cols-1 gap-10 pb-10">
         {displayedImages.map(img => (
-          <div key={img.id} className="group relative rounded-2xl overflow-hidden aspect-square border border-pink-50 shadow-sm">
-            <img 
-              src={img.url} 
-              alt="Nail Art" 
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-              loading="lazy"
-            />
-            {img.tags && img.tags.length > 0 && (
-              <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="flex flex-wrap gap-1">
-                  {img.tags.map((tag: string, i: number) => (
-                    <span key={i} className="px-2 py-0.5 rounded-md bg-white/90 text-[10px] font-medium text-brand-dark">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+          <div key={img.id} className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-pink-50">
+            {/* Image Container with aspect ratio and zoom */}
+            <div 
+              className="relative aspect-[4/5] bg-gray-50 cursor-pointer group"
+              onClick={() => setLightboxImage(img.url)}
+            >
+              <img 
+                src={img.url} 
+                alt="Nail Art" 
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                <ZoomIn className="text-white opacity-0 group-hover:opacity-100 transition-opacity scale-50 group-hover:scale-100 duration-300" size={48} />
               </div>
-            )}
+            </div>
+
+            {/* Details & CTA */}
+            <div className="p-5">
+              <div className="flex flex-wrap gap-2 mb-4">
+                {img.tags && img.tags.map((tag: string, i: number) => (
+                  <span key={i} className="px-3 py-1 rounded-full bg-rose-50 text-xs font-bold text-rose-600 border border-rose-100">
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+              
+              <Link 
+                href={`/book?notes=${encodeURIComponent(img.tags && img.tags.length > 0 ? `จองทำเล็บสไตล์: ${img.tags.join(', ')}` : "จองทำเล็บลายใน Gallery")}`}
+                className="w-full flex items-center justify-center gap-2 py-3.5 bg-gray-900 text-white rounded-2xl font-bold text-sm hover:bg-rose-600 transition-colors active:scale-[0.98]"
+              >
+                <Heart size={16} /> จองคิวลายนี้เลย
+              </Link>
+            </div>
           </div>
         ))}
       </div>
       
       {displayedImages.length === 0 && (
-        <div className="text-center py-12 text-slate-400">
-          <Search size={32} className="mx-auto mb-3 opacity-20" />
-          <p className="text-sm">ไม่พบรูปภาพในหมวดหมู่ "{filterTag}"</p>
+        <div className="text-center py-16 text-slate-400">
+          <Search size={40} className="mx-auto mb-4 opacity-20" />
+          <p className="text-base font-medium">ไม่พบรูปภาพในหมวดหมู่ "{filterTag}"</p>
         </div>
       )}
-    </section>
+
+      {/* 🔍 Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxImage(null)}
+          >
+            <X size={24} />
+          </button>
+          <img 
+            src={lightboxImage} 
+            alt="Nail Art Fullscreen" 
+            className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+          />
+        </div>
+      )}
+    </div>
   );
 }

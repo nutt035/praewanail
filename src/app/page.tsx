@@ -3,7 +3,6 @@ import { supabase } from "@/lib/supabase";
 import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
 import Link from "next/link";
 import CustomerCalendar from "@/components/CustomerCalendar";
-import GallerySection from "@/components/GallerySection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -179,13 +178,23 @@ export default async function Home() {
               </div>
             </Link>
 
-            <Link href="/check" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4 col-span-2">
+            <Link href="/check" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4">
               <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500 group-hover:bg-blue-100 group-hover:scale-110 transition-all">
                 <Search size={28} />
               </div>
               <div className="w-full">
                 <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">ค้นหาคิว <ChevronRight size={16} className="text-blue-300 group-hover:translate-x-1 transition-transform" /></h3>
                 <p className="text-[11px] text-gray-500 mt-0.5">เช็คคิว & ยกเลิกคิว</p>
+              </div>
+            </Link>
+
+            <Link href="/gallery" className="group relative overflow-hidden bg-white p-5 rounded-[2rem] shadow-sm hover:shadow-xl transition-all active:scale-95 border border-pink-50 flex flex-col items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-fuchsia-50 flex items-center justify-center text-fuchsia-500 group-hover:bg-fuchsia-100 group-hover:scale-110 transition-all">
+                <Camera size={28} />
+              </div>
+              <div className="w-full">
+                <h3 className="font-bold text-gray-900 text-lg flex justify-between items-center w-full">ผลงาน <ChevronRight size={16} className="text-fuchsia-300 group-hover:translate-x-1 transition-transform" /></h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">ดูรูปลายเล็บสวยๆ</p>
               </div>
             </Link>
           </div>
@@ -203,8 +212,7 @@ export default async function Home() {
           <CustomerCalendar />
         </section>
 
-        {/* 4. Portfolio Embed (Gallery Section) */}
-        <GallerySection />
+
 
         {/* 5. Google Maps Embed */}
         <section className="bg-white rounded-[2rem] shadow-sm border border-pink-50 overflow-hidden">

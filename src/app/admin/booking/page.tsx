@@ -70,6 +70,9 @@ function BookingFormContent() {
   const [isRedeemingPoints, setIsRedeemingPoints] = useState(false);
   const [redeemAmount, setRedeemAmount] = useState(0);
 
+  const [customerCoupons, setCustomerCoupons] = useState<any[]>([]);
+  const [selectedCoupon, setSelectedCoupon] = useState<any | null>(null);
+
   const [isPracticeModel, setIsPracticeModel] = useState(false);
   const [materialCost, setMaterialCost] = useState(50);
 
@@ -84,6 +87,8 @@ function BookingFormContent() {
     notes: "",
   });
 
+  const [completePaymentMethod, setCompletePaymentMethod] = useState("transfer");
+
   const servicesSubtotal = selectedItems.reduce((sum, item) => sum + item.lineTotal, 0);
 
   // --- Buffet Logic & Promotion Duration ---
@@ -97,7 +102,17 @@ function BookingFormContent() {
   const subtotal = isPracticeModel ? materialCost : (isBuffet ? buffetBasePrice + servicesSubtotal : servicesSubtotal);
   const discountBaht = isPracticeModel ? 0 : calcDiscountBaht(subtotal, discountValue, discountType);
   const pointsDiscount = isRedeemingPoints ? redeemAmount : 0;
-  const totalPrice = Math.max(0, subtotal - discountBaht - pointsDiscount);
+  
+  let couponDiscountBaht = 0;
+  if (selectedCoupon && selectedCoupon.rewards) {
+    if (selectedCoupon.rewards.reward_type === "amount") {
+      couponDiscountBaht = Number(selectedCoupon.rewards.value) || 0;
+    } else if (selectedCoupon.rewards.reward_type === "percent") {
+      couponDiscountBaht = Math.round((subtotal - discountBaht) * ((Number(selectedCoupon.rewards.value) || 0) / 100));
+    }
+  }
+
+  const totalPrice = Math.max(0, subtotal - discountBaht - pointsDiscount - couponDiscountBaht);
   const remaining = Math.max(0, totalPrice - Number(formData.deposit || 0));
 
   // คำนวณเวลารวม = (เวลาของบริการย่อยที่เลือก) + (เวลาของโปรโมชั่น)
@@ -126,6 +141,24 @@ function BookingFormContent() {
       loadEditData(editId);
     }
   }, [editId, services]);
+
+  useEffect(() => {
+    async function fetchCustomerCoupons() {
+      if (!existingCustomer?.id) {
+        setCustomerCoupons([]);
+        setSelectedCoupon(null);
+        return;
+      }
+      const { data } = await supabase
+        .from("customer_coupons")
+        .select("*, rewards(*)")
+        .eq("customer_id", existingCustomer.id)
+        .eq("status", "active");
+      
+      setCustomerCoupons(data || []);
+    }
+    fetchCustomerCoupons();
+  }, [existingCustomer?.id]);
 
   async function loadEditData(id: string) {
     const { data: booking, error } = await supabase.from("bookings").select("*, customers(*), booking_services(*)").eq("id", id).single();
@@ -374,9 +407,120 @@ function BookingFormContent() {
         await supabase.from("transactions").insert([{ type: "income", amount: Number(formData.deposit), category: isPracticeModel ? "หุ่นลอง (ค่าอุปกรณ์)" : "มัดจำ", booking_id: bookingId }]);
       }
 
-      // ถ้าเป็นการจบงาน (checkout) ให้บันทึกรายรับส่วนที่เหลือ
-      if (mode === "checkout" && remaining > 0 && bookingId) {
-        await supabase.from("transactions").insert([{ type: "income", amount: remaining, category: "ค่าบริการทำเล็บ", booking_id: bookingId }]);
+      // ถ้าเป็นการจบงาน (checkout) ให้บันทึกรายรับส่วนที่เหลือ และทำงานที่เกี่ยวข้อง
+      if (mode === "checkout" && bookingId) {
+        if (remaining > 0) {
+          await supabase.from("transactions").insert([{ type: "income", amount: remaining, category: "ค่าบริการทำเล็บ", booking_id: bookingId }]);
+        }
+
+        if (selectedCoupon) {
+          await supabase.from("customer_coupons").update({ status: "used", used_at: new Date().toISOString() }).eq("id", selectedCoupon.id);
+        }
+
+        // 1. ระบบสะสมแต้ม
+        let currentPoints = existingCustomer?.points || 0;
+        let newPoints = currentPoints;
+        const pointsPerBooking = Number(shopSettings.points_per_booking || 1);
+        const pointsRate = Number(shopSettings.points_rate_amount || 0);
+        
+        if (customerId && !isPracticeModel) {
+          const baseEarned = pointsRate > 0 ? Math.floor(totalPrice / pointsRate) : pointsPerBooking;
+          let multiplier = 1;
+          try {
+            const tiers = JSON.parse(shopSettings.membership_tiers || "[]");
+            const sortedTiers = [...tiers].sort((a: any, b: any) => b.min_points - a.min_points);
+            const currentTier = sortedTiers.find((t: any) => currentPoints >= (t.min_points || 0));
+            if (currentTier) multiplier = currentTier.multiplier || 1;
+          } catch (e) { console.error("Tier calc error:", e); }
+          
+          const pointsEarned = Math.max(1, Math.floor(baseEarned * multiplier));
+          newPoints = currentPoints + pointsEarned;
+          
+          await supabase.from("customers").update({ points: newPoints }).eq("id", customerId);
+          toast.success(`ได้รับ ${pointsEarned} แต้ม (รวม ${newPoints} แต้ม)`, { id: toastId });
+        }
+
+        const payLabel = paymentMethods.find((p) => p.value === completePaymentMethod)?.label || completePaymentMethod;
+        const origin = window.location.origin.replace("http://", "https://");
+        const receiptUrl = `${origin}/receipt/${bookingId}`;
+
+        // 2. Telegram Notification
+        if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
+          let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${formData.customerName}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
+          if (discountBaht > 0) adminMsg += `\nลดไป: ฿${discountBaht.toLocaleString()}`;
+          if (pointsDiscount > 0) adminMsg += `\nแลกแต้ม: -฿${pointsDiscount.toLocaleString()}`;
+          if (couponDiscountBaht > 0) adminMsg += `\n🎟️ ใช้คูปอง: ${selectedCoupon?.rewards?.title} (-฿${couponDiscountBaht.toLocaleString()})`;
+          adminMsg += `\n\n📄 ดูใบเสร็จ: ${receiptUrl}`;
+
+          const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
+          const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
+          await Promise.all(chatIds.map(id => 
+            fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: "HTML" })
+            }).catch(() => {})
+          ));
+        }
+
+        // 3. LINE Receipt
+        if (shopSettings.line_channel_token && formData.lineId) {
+          const pointsEarned = newPoints - currentPoints;
+          const flexMessage = {
+            type: "flex",
+            altText: `ใบเสร็จรับเงินจาก ${shopSettings.shop_name || "ร้านทำเล็บ"}`,
+            contents: {
+              type: "bubble",
+              header: {
+                type: "box",
+                layout: "vertical",
+                backgroundColor: "#B76E79",
+                contents: [
+                  { type: "text", text: shopSettings.shop_name || "Nail Studio", weight: "bold", color: "#FFFFFF", size: "lg", align: "center" },
+                  { type: "text", text: "E-Receipt / ใบเสร็จรับเงิน", color: "#FFFFFFcc", size: "xs", align: "center", margin: "sm" }
+                ]
+              },
+              body: {
+                type: "box",
+                layout: "vertical",
+                spacing: "md",
+                contents: [
+                  { type: "box", layout: "horizontal", contents: [ { type: "text", text: "ชื่อลูกค้า", color: "#aaaaaa", size: "sm" }, { type: "text", text: formData.customerName, color: "#666666", size: "sm", align: "end", wrap: true } ] },
+                  { type: "box", layout: "horizontal", contents: [ { type: "text", text: "วันที่รับบริการ", color: "#aaaaaa", size: "sm" }, { type: "text", text: formData.date, color: "#666666", size: "sm", align: "end" } ] },
+                  { type: "separator", margin: "md" },
+                  { type: "box", layout: "horizontal", contents: [ { type: "text", text: "ยอดรวม", color: "#aaaaaa", size: "sm" }, { type: "text", text: `฿${subtotal.toLocaleString()}`, color: "#666666", size: "sm", align: "end" } ] },
+                  ...(discountBaht > 0 ? [{ type: "box", layout: "horizontal", contents: [ { type: "text", text: "ส่วนลด", color: "#aaaaaa", size: "sm" }, { type: "text", text: `-฿${discountBaht.toLocaleString()}`, color: "#ef4444", size: "sm", align: "end" } ] }] : []),
+                  ...(pointsDiscount > 0 ? [{ type: "box", layout: "horizontal", contents: [ { type: "text", text: "ใช้แต้มแลก", color: "#aaaaaa", size: "sm" }, { type: "text", text: `-฿${pointsDiscount.toLocaleString()}`, color: "#eab308", size: "sm", align: "end" } ] }] : []),
+                  ...(couponDiscountBaht > 0 ? [{ type: "box", layout: "horizontal", contents: [ { type: "text", text: "คูปองส่วนลด", color: "#aaaaaa", size: "sm" }, { type: "text", text: `-฿${couponDiscountBaht.toLocaleString()}`, color: "#eab308", size: "sm", align: "end" } ] }] : []),
+                  { type: "separator", margin: "md" },
+                  { type: "box", layout: "horizontal", contents: [ { type: "text", text: "ยอดสุทธิ", weight: "bold", color: "#333333", size: "md" }, { type: "text", text: `฿${totalPrice.toLocaleString()}`, weight: "bold", color: "#B76E79", size: "md", align: "end" } ] },
+                  { type: "box", layout: "horizontal", margin: "sm", contents: [ { type: "text", text: "ชำระโดย", color: "#aaaaaa", size: "xs" }, { type: "text", text: payLabel, color: "#666666", size: "xs", align: "end" } ] }
+                ]
+              },
+              footer: {
+                type: "box",
+                layout: "vertical",
+                spacing: "sm",
+                contents: [
+                  { type: "button", style: "primary", color: "#B76E79", height: "sm", action: { type: "uri", label: "ดูใบเสร็จฉบับเต็ม", uri: receiptUrl } },
+                  { type: "text", text: `แต้มสะสมของคุณ: ${newPoints} แต้ม (+${pointsEarned})`, color: "#aaaaaa", size: "xs", align: "center", margin: "md" }
+                ]
+              }
+            }
+          };
+
+          await fetch("https://api.line.me/v2/bot/message/push", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${shopSettings.line_channel_token}`,
+            },
+            body: JSON.stringify({
+              to: formData.lineId,
+              messages: [flexMessage],
+            }),
+          }).catch(console.error);
+        }
       }
 
       toast.success(editId ? "อัพเดตคิวเรียบร้อยแล้ว!" : "บันทึกคิวเรียบร้อยแล้ว! 🎉", { id: toastId });
@@ -489,32 +633,59 @@ function BookingFormContent() {
                 </div>
               )}
             </div>
-            {/* ═══ ส่วนใช้แต้มแลกรางวัล ═══ */}
-            {existingCustomer && (existingCustomer.points || 0) >= 5 && !isPracticeModel && (
+            {/* ═══ ส่วนใช้แต้มแลกรางวัล หรือใช้คูปอง ═══ */}
+            {existingCustomer && !isPracticeModel && (
               <div className="md:col-span-2 pt-4 mt-2 border-t border-yellow-100">
                 <p className="text-xs font-bold text-yellow-600 mb-2 flex items-center gap-1.5">
-                  <Star size={12} fill="currentColor" /> ใช้แต้มแลกส่วนลด
+                  <Star size={12} fill="currentColor" /> สิทธิพิเศษของลูกค้า (แลกแต้ม / คูปอง)
                 </p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => toggleRedeem(Number(shopSettings.redeem_5_points_value || 50))}
-                    disabled={(existingCustomer.points || 0) < 5}
-                    className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all ${isRedeemingPoints && redeemAmount === Number(shopSettings.redeem_5_points_value || 50) ? "bg-yellow-50 border-yellow-400 text-yellow-700" : "bg-white border-yellow-100 text-slate-500"}`}
-                  >
-                    <span className="text-sm font-bold">แลก 5 แต้ม</span>
-                    <span className="text-[10px]">ลด ฿{shopSettings.redeem_5_points_value || 50}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleRedeem(Number(shopSettings.redeem_10_points_value || 100))}
-                    disabled={(existingCustomer.points || 0) < 10}
-                    className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all ${isRedeemingPoints && redeemAmount === Number(shopSettings.redeem_10_points_value || 100) ? "bg-yellow-50 border-yellow-400 text-yellow-700" : "bg-white border-yellow-100 text-slate-500"}`}
-                  >
-                    <span className="text-sm font-bold">แลก 10 แต้ม</span>
-                    <span className="text-[10px]">ลด ฿{shopSettings.redeem_10_points_value || 100}</span>
-                  </button>
-                </div>
+                
+                {/* 1. แต้มสะสม */}
+                {(existingCustomer.points || 0) >= 5 && (
+                  <div className="flex gap-3 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleRedeem(Number(shopSettings.redeem_5_points_value || 50))}
+                      disabled={(existingCustomer.points || 0) < 5}
+                      className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all ${isRedeemingPoints && redeemAmount === Number(shopSettings.redeem_5_points_value || 50) ? "bg-yellow-50 border-yellow-400 text-yellow-700" : "bg-white border-yellow-100 text-slate-500"}`}
+                    >
+                      <span className="text-sm font-bold">แลก 5 แต้ม</span>
+                      <span className="text-[10px]">ลด ฿{shopSettings.redeem_5_points_value || 50}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleRedeem(Number(shopSettings.redeem_10_points_value || 100))}
+                      disabled={(existingCustomer.points || 0) < 10}
+                      className={`flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all ${isRedeemingPoints && redeemAmount === Number(shopSettings.redeem_10_points_value || 100) ? "bg-yellow-50 border-yellow-400 text-yellow-700" : "bg-white border-yellow-100 text-slate-500"}`}
+                    >
+                      <span className="text-sm font-bold">แลก 10 แต้ม</span>
+                      <span className="text-[10px]">ลด ฿{shopSettings.redeem_10_points_value || 100}</span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* 2. คูปอง (กดแลกมาจากระบบสมาชิก) */}
+                {customerCoupons.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {customerCoupons.map(coupon => {
+                      const isSelected = selectedCoupon?.id === coupon.id;
+                      return (
+                        <button
+                          key={coupon.id}
+                          type="button"
+                          onClick={() => isSelected ? setSelectedCoupon(null) : setSelectedCoupon(coupon)}
+                          className={`flex flex-col items-start gap-1 p-3 rounded-2xl border-2 transition-all text-left ${isSelected ? "bg-rose-50 border-rose-400 text-rose-700" : "bg-white border-slate-100 text-slate-500 hover:border-rose-200"}`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-xs font-bold truncate pr-2">{coupon.rewards?.title}</span>
+                            <Gift size={14} className={isSelected ? "text-rose-500" : "text-slate-300"} />
+                          </div>
+                          <span className="text-[10px] opacity-70">คูปองจากการแลกแต้ม</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -624,7 +795,8 @@ function BookingFormContent() {
           <div className="mb-4 p-4 bg-gradient-to-r from-rose-50 to-pink-50 rounded-xl border border-rose-100 space-y-1.5">
             <div className="flex justify-between text-sm"><span>ยอดรวมบริการ</span><span className="font-semibold">฿{subtotal.toLocaleString()}</span></div>
             {discountBaht > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>ส่วนลด</span><span>-฿{discountBaht.toLocaleString()}</span></div>}
-            {pointsDiscount > 0 && <div className="flex justify-between text-sm text-yellow-600"><span>แลกแต้มสะสม</span><span>-฿{pointsDiscount.toLocaleString()}</span></div>}
+            {pointsDiscount > 0 && <div className="flex justify-between text-sm text-yellow-600"><span>แลกแต้มสะสมทันที</span><span>-฿{pointsDiscount.toLocaleString()}</span></div>}
+            {couponDiscountBaht > 0 && <div className="flex justify-between text-sm text-yellow-600"><span>ใช้คูปองส่วนลด</span><span>-฿{couponDiscountBaht.toLocaleString()}</span></div>}
             <div className="h-px bg-rose-100 my-1" />
             <div className="flex justify-between text-sm font-bold"><span>ยอดสุทธิ</span><span className="text-rose-600">฿{totalPrice.toLocaleString()}</span></div>
             {formData.deposit && <div className="flex justify-between text-sm text-emerald-600"><span>มัดจำแล้ว</span><span>-฿{Number(formData.deposit).toLocaleString()}</span></div>}
@@ -632,10 +804,18 @@ function BookingFormContent() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><label className="form-label">มัดจำ (บาท)</label><input type="number" name="deposit" value={formData.deposit} onChange={handleChange} placeholder="0" className="input-field" /></div>
-            {Number(formData.deposit) > 0 && (
-              <div><label className="form-label">ชำระผ่าน</label><select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} className="input-field">
+            {Number(formData.deposit) > 0 && mode !== "checkout" && (
+              <div><label className="form-label">ชำระผ่าน (ค่ามัดจำ)</label><select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} className="input-field">
                 {paymentMethods.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select></div>
+            )}
+            {mode === "checkout" && remaining >= 0 && (
+              <div>
+                <label className="form-label text-emerald-600 font-bold">รับชำระส่วนที่เหลือผ่าน</label>
+                <select value={completePaymentMethod} onChange={(e) => setCompletePaymentMethod(e.target.value)} className="input-field border-emerald-200 focus:border-emerald-400 bg-emerald-50/30">
+                  {paymentMethods.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+              </div>
             )}
           </div>
         </div>

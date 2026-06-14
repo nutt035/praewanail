@@ -41,6 +41,8 @@ export default function BookingPage() {
     (async () => {
       const params = new URLSearchParams(window.location.search);
       const promoId = params.get("promo");
+      const notesParam = params.get("notes");
+      if (notesParam) setNotes(notesParam);
 
       const [{ data: setData }, { data: promoData }] = await Promise.all([
         supabase.from("shop_settings").select("*"),
