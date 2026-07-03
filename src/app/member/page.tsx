@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Search, Trophy, Phone, User, Calendar, Star, Sparkles, ChevronLeft, CreditCard, Gift, Loader2, Clock, Plus } from "lucide-react";
@@ -22,6 +22,7 @@ function MemberContent() {
   const [myCoupons, setMyCoupons] = useState<CustomerCoupon[]>([]);
   const [pointsHistory, setPointsHistory] = useState<any[]>([]);
   const [redeeming, setRedeeming] = useState(false);
+  const liffInitialized = useRef(false);
 
   // Registration & Update state
   const [isRegistering, setIsRegistering] = useState(false);
@@ -60,15 +61,21 @@ function MemberContent() {
       }
     })();
 
-    // Auto-init LIFF
+    // Init LIFF เพียงครั้งเดียว
     const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-    if (liffId) {
-      liff.init({ liffId }).then(() => {
-        if (liff.isLoggedIn()) {
-          // If already logged in, automatically run login flow
-          handleLiffLogin();
-        }
-      }).catch(console.error);
+    if (liffId && !liffInitialized.current) {
+      liffInitialized.current = true;
+      liff.init({ liffId })
+        .then(() => {
+          // ถ้า user login ผ่าน LINE มาแล้ว ให้ auto-login เลย
+          if (liff.isLoggedIn()) {
+            handleLiffLogin();
+          }
+        })
+        .catch((err) => {
+          console.error("LIFF init failed:", err);
+          liffInitialized.current = false; // reset เพื่อให้ลองใหม่ได้
+        });
     }
   }, []);
 
@@ -82,28 +89,33 @@ function MemberContent() {
         return;
       }
 
-      await liff.init({ liffId });
-
-      if (!liff.isLoggedIn()) {
-        liff.login();
-        return; // will redirect to login and come back
+      // Init LIFF ถ้ายังไม่ได้ init (กรณีกดปุ่มโดยตรง)
+      if (!liffInitialized.current) {
+        liffInitialized.current = true;
+        await liff.init({ liffId });
       }
 
-      // ใช้วิธีใหม่ถ้าทำงานใน LINE App จะได้โปรไฟล์ไวขึ้น
+      // ถ้ายังไม่ได้ login ให้ redirect ไปหน้า LINE Login
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return; // จะ redirect ออกไป แล้วกลับมาใหม่
+      }
+
+      // ดึงโปรไฟล์
       let profile: any;
       try {
         profile = await liff.getProfile();
       } catch (e) {
-        // ถ้าไม่ได้ ให้ลองวิธีธรรมดา
+        // fallback: ใช้ decoded ID token
         profile = liff.getDecodedIDToken();
         if (!profile) throw new Error("ไม่สามารถดึงข้อมูลโปรไฟล์ได้");
       }
-      
+
       const lineUserId = profile.userId || profile.sub;
       const displayName = profile.displayName || profile.name || "Member";
 
       // ค้นหาลูกค้าจาก LINE ID
-      const { data: existingCust, error } = await supabase
+      const { data: existingCust } = await supabase
         .from("customers")
         .select("*")
         .eq("line_id", lineUserId)
@@ -113,12 +125,10 @@ function MemberContent() {
       if (existingCust) {
         // มีประวัติแล้ว เข้าสู่ระบบได้เลย
         setCustomer(existingCust);
-        // ดึงข้อมูลการตั้งค่าล่าสุดด้วยเพื่อให้คำนวณประวัติแต้มถูก
         const { data: latestSettings } = await supabase.from("shop_settings").select("*");
         const settingsMap = latestSettings ? { ...DEFAULT_SETTINGS, ...settingsToMap(latestSettings) } : settings;
-        
         fetchCustomerData(existingCust.id, existingCust.points, settingsMap);
-        
+
         if (!existingCust.name || !existingCust.birthdate) {
           setRegName(existingCust.name || displayName);
           setRegBirthdate(existingCust.birthdate || "");
@@ -128,14 +138,13 @@ function MemberContent() {
         // ยังไม่เคยเป็นสมาชิก -> พาไปหน้าสมัคร
         setCustomer(null);
         setRegName(displayName);
-        // เก็บ state ไว้ตอนกดบันทึกให้ส่ง lineUserId ไปด้วย (กรณีนี้เราแอบแนบไว้ใน URL หรือ state ก็ได้)
-        // แต่ตอนนี้เราจะเปลี่ยน URL ให้มี link_line เหมือนเดิมเพื่อให้ liff สมูทขึ้น
         window.history.replaceState({}, "", `/member?link_line=${lineUserId}&name=${encodeURIComponent(displayName)}`);
         setIsRegistering(true);
       }
     } catch (err: any) {
-      console.error("LIFF Init Error:", err);
-      toast.error("เข้าสู่ระบบผ่าน LINE ไม่สำเร็จ");
+      console.error("LIFF Login Error:", err);
+      toast.error("เข้าสู่ระบบผ่าน LINE ไม่สำเร็จ กรุณาลองใหม่");
+      liffInitialized.current = false; // reset เพื่อให้ลอง init ใหม่ได้
     } finally {
       setLoading(false);
     }
