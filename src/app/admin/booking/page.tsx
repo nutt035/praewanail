@@ -518,20 +518,19 @@ function BookingFormContent() {
           };
 
           try {
-            const lineRes = await fetch("https://api.line.me/v2/bot/message/push", {
+            const lineRes = await fetch("/api/notify", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${shopSettings.line_channel_token}`,
               },
               body: JSON.stringify({
                 to: lineIdToSend,
                 messages: [flexMessage],
               }),
             });
-            const lineData = await lineRes.json();
-            if (!lineRes.ok) {
-              console.error("LINE API Error:", lineData);
+            const notifyData = await lineRes.json();
+            if (!notifyData.success) {
+              console.error("Notify API Error:", notifyData);
             }
           } catch (err) {
             console.error("LINE Notification failed:", err);
