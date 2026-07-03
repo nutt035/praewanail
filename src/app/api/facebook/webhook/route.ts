@@ -34,13 +34,6 @@ export async function POST(req: NextRequest) {
             
             if (chatUserId) {
               await saveChatMessage(chatUserId, "inbound", text);
-
-              if (text.includes("ติดต่อพนักงาน") || text.includes("แอดมิน")) {
-                await supabase.from("chat_sessions").update({ status: "human" }).eq("chat_user_id", chatUserId);
-                await sendFacebookMessage(senderPsid, "เปลี่ยนเป็นระบบพนักงานแล้วค่ะ แอดมินจะรีบมาตอบนะคะ 👩‍💻");
-                await saveChatMessage(chatUserId, "outbound", "เปลี่ยนเป็นระบบพนักงานแล้วค่ะ แอดมินจะรีบมาตอบนะคะ 👩‍💻");
-                continue;
-              }
             }
           }
         }
