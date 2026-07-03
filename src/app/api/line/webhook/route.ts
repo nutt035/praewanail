@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { LineClient } from "@/lib/line-client";
 import { verifySlip } from "@/lib/slipok";
+import { getOrCreateChatUser, getChatSessionStatus, saveChatMessage } from "@/lib/chat-service";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,6 +34,22 @@ export async function POST(req: NextRequest) {
       // === Text Messages ===
       if (event.type === "message" && event.message.type === "text") {
         const text = event.message.text.trim();
+        
+        // 1. จัดการระบบ Chat (เก็บข้อความ)
+        const profile = await line.getProfile(userId).catch(() => null);
+        const chatUserId = await getOrCreateChatUser("line", userId, profile?.displayName, profile?.pictureUrl);
+        if (chatUserId) {
+          await saveChatMessage(chatUserId, "inbound", text);
+          
+          if (text.includes("ติดต่อพนักงาน") || text.includes("แอดมิน")) {
+            await supabase.from("chat_sessions").update({ status: "human" }).eq("chat_user_id", chatUserId);
+            await line.pushMessage(userId, "เปลี่ยนเป็นระบบพนักงานแล้วค่ะ แอดมินจะรีบมาตอบนะคะ 👩‍💻");
+            await saveChatMessage(chatUserId, "outbound", "เปลี่ยนเป็นระบบพนักงานแล้วค่ะ แอดมินจะรีบมาตอบนะคะ 👩‍💻");
+            continue;
+          }
+        }
+
+        // 2. ระบบจองคิว
         const bookingMatch = text.match(/BKG-([A-Z0-9]{4})/i);
 
         if (bookingMatch) {

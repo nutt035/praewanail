@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   CalendarDays,
+  MessageSquare,
   PlusSquare,
   PackageSearch,
   Users,
@@ -24,6 +25,7 @@ import { Toaster } from "react-hot-toast";
 
 const navItems = [
   { href: "/admin", label: "ภาพรวม", icon: LayoutDashboard, exact: true },
+  { href: "/admin/chat", label: "แชท/ดูแลลูกค้า", icon: MessageSquare, exact: false },
   { href: "/admin/booking", label: "ลงคิวใหม่", icon: PlusSquare, exact: false },
   { href: "/admin/calendar", label: "ตารางคิว", icon: CalendarDays, exact: false },
   { href: "/admin/finance", label: "รายรับ-รายจ่าย", icon: DollarSign, exact: false },
