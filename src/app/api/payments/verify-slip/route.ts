@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { writeAuditLog } from "@/lib/server/audit-log";
 import { resolveSlipOkConfig } from "@/lib/server/slipok-config";
 import { storeBookingSlip } from "@/lib/server/slip-storage";
 import { resolveTelegramConfig } from "@/lib/server/telegram-config";
@@ -146,6 +147,14 @@ export async function POST(req: NextRequest) {
         bookingCode,
         "⚠️ SlipOK ตรวจไม่ผ่าน — กรุณาตรวจสลิปด้วยตนเอง",
       );
+      await writeAuditLog({
+        action: "payment.slip.rejected",
+        actorType: "customer",
+        entityType: "booking",
+        entityId: booking.id,
+        metadata: { bookingCode, reason: "provider_rejected" },
+        request: req,
+      });
       return errorResponse("ตรวจสอบสลิปไม่สำเร็จ กรุณาตรวจสอบภาพแล้วลองใหม่", 400);
     }
 
@@ -179,6 +188,14 @@ export async function POST(req: NextRequest) {
         bookingCode,
         "⚠️ สลิปซ้ำ — เคยใช้ยืนยันการชำระเงินแล้ว",
       );
+      await writeAuditLog({
+        action: "payment.slip.duplicate",
+        actorType: "customer",
+        entityType: "booking",
+        entityId: booking.id,
+        metadata: { bookingCode, transactionId },
+        request: req,
+      });
       return errorResponse("สลิปนี้ถูกใช้ยืนยันการชำระเงินแล้ว", 409);
     }
 
@@ -239,6 +256,23 @@ export async function POST(req: NextRequest) {
         ? `✅ SlipOK ยืนยันแล้ว — ฿${slipAmount.toLocaleString()}`
         : `⚠️ ยอดไม่ครบ — โอน ฿${slipAmount.toLocaleString()} / ต้อง ฿${requiredAmount.toLocaleString()}`,
     );
+
+    await writeAuditLog({
+      action: isAmountOk ? "payment.deposit.verified" : "payment.deposit.underpaid",
+      actorType: "customer",
+      entityType: "booking",
+      entityId: booking.id,
+      afterData: {
+        depositPaid: isAmountOk,
+        amount: slipAmount,
+      },
+      metadata: {
+        bookingCode,
+        requiredAmount,
+        transactionId,
+      },
+      request: req,
+    });
 
     return NextResponse.json({
       success: true,

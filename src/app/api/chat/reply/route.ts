@@ -3,8 +3,9 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { saveChatMessage } from "@/lib/chat-service";
 import { LineClient } from "@/lib/line-client";
+import { writeAuditLog } from "@/lib/server/audit-log";
 import { resolveLineConfig } from "@/lib/server/line-config";
-import { hasOwnerSession } from "@/lib/server/owner-auth";
+import { getOwnerUser } from "@/lib/server/owner-auth";
 
 const replySchema = z.object({
   chatUserId: z.string().trim().min(1).max(100),
@@ -28,7 +29,8 @@ async function loadLineConfig() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await hasOwnerSession())) {
+  const owner = await getOwnerUser();
+  if (!owner) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -81,6 +83,20 @@ export async function POST(req: NextRequest) {
       .from("chat_sessions")
       .update({ status: "human" })
       .eq("chat_user_id", chatUserId);
+
+    await writeAuditLog({
+      action: "chat.reply.sent",
+      actorType: "owner",
+      actorUserId: owner.id,
+      actorEmail: owner.email,
+      entityType: "chat_user",
+      entityId: chatUserId,
+      metadata: {
+        platform: user.platform,
+        messageLength: text.length,
+      },
+      request: req,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
