@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-browser";
-import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, getOpenClose, isClosedDay } from "@/lib/types";
+import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, getOpenClose, isClosedDay, PUBLIC_SHOP_SETTING_KEYS } from "@/lib/types";
 import {
   Sparkles, ChevronLeft, ChevronRight, Check, Clock,
   CalendarDays, User, Phone, FileText, Loader2, ArrowRight, AlertCircle
@@ -45,7 +45,7 @@ export default function BookingPage() {
       if (notesParam) setNotes(notesParam);
 
       const [{ data: setData }, { data: promoData }] = await Promise.all([
-        supabase.from("shop_settings").select("*"),
+        supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]),
         supabase.from("promotions").select("*").eq("is_active", true),
       ]);
 

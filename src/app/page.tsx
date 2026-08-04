@@ -1,6 +1,6 @@
 import { Sparkles, MapPin, Camera, Star, BookOpen, CalendarHeart, Award, Search, HelpCircle, ChevronRight, Tag, Percent, Banknote, Megaphone } from "lucide-react";
 import { supabase } from "@/lib/supabase-browser";
-import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
+import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, PUBLIC_SHOP_SETTING_KEYS, Review } from "@/lib/types";
 import Link from "next/link";
 import CustomerCalendar from "@/components/CustomerCalendar";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 async function getSettings(): Promise<Record<string, string>> {
-  const { data } = await supabase.from("shop_settings").select("*");
+  const { data } = await supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]);
   if (data && data.length > 0) return { ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) };
   return DEFAULT_SETTINGS;
 }

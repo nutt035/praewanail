@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-browser";
-import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS, isClosedDay, getOpenClose } from "@/lib/types";
+import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS, isClosedDay, getOpenClose, PUBLIC_SHOP_SETTING_KEYS } from "@/lib/types";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 
 const THAI_MONTHS = [
@@ -36,7 +36,7 @@ export default function CustomerCalendar() {
     setLoading(true);
 
     // ดึง settings
-    const { data: settingsData } = await supabase.from("shop_settings").select("*");
+    const { data: settingsData } = await supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]);
     if (settingsData && settingsData.length > 0) {
       setShopSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(settingsData as ShopSettings[]) });
     }
