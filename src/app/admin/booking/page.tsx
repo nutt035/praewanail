@@ -8,6 +8,7 @@ import {
   Sparkles, Gift, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase-browser";
+import { sendAdminTelegramNotification } from "@/lib/notify-client";
 import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Booking } from "@/lib/types";
 import toast from "react-hot-toast";
 
@@ -445,22 +446,16 @@ function BookingFormContent() {
         const receiptUrl = `${origin}/receipt/${bookingId}`;
 
         // 2. Telegram Notification
-        if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
+        {
           let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${formData.customerName}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
           if (discountBaht > 0) adminMsg += `\nลดไป: ฿${discountBaht.toLocaleString()}`;
           if (pointsDiscount > 0) adminMsg += `\nแลกแต้ม: -฿${pointsDiscount.toLocaleString()}`;
           if (couponDiscountBaht > 0) adminMsg += `\n🎟️ ใช้คูปอง: ${selectedCoupon?.rewards?.title} (-฿${couponDiscountBaht.toLocaleString()})`;
           adminMsg += `\n\n📄 ดูใบเสร็จ: ${receiptUrl}`;
 
-          const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
-          const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
-          await Promise.all(chatIds.map(id => 
-            fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: "HTML" })
-            }).catch(() => {})
-          ));
+          await sendAdminTelegramNotification(adminMsg).catch((error) => {
+            console.error("Telegram notification failed:", error);
+          });
         }
 
         // 3. LINE Receipt Notification

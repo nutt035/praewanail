@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
+import { sendAdminTelegramNotification } from "@/lib/notify-client";
 import { Booking, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift, Tag, Loader2, Link as LinkIcon } from "lucide-react";
 import toast from "react-hot-toast";
@@ -130,27 +131,13 @@ export default function CalendarPage() {
 
   // ส่งการแจ้งเตือน (ส่งหาแอดมินทาง Telegram)
   async function sendReminder(booking: Booking) {
-    if (!shopSettings.telegram_bot_token || !shopSettings.telegram_chat_id) {
-      toast.error("กรุณาตั้งค่า Telegram Notification ในหน้าตั้งค่าก่อนครับ");
-      return;
-    }
-    
     const toastId = toast.loading("กำลังส่งแจ้งเตือน...");
     const customerName = booking.customers?.name || "ลูกค้า";
     const startTime = new Date(booking.start_time).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
     const message = `🔔 <b>แจ้งเตือนคิวงาน!</b>\n\n⏰ มีคิวคุณ ${customerName} เวลา ${startTime} น.\n<i>อย่าลืมเตรียมตัวนะคะ ✨</i>`;
 
     try {
-      const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
-      const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
-      
-      await Promise.all(chatIds.map(id => 
-        fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: id, text: message, parse_mode: "HTML" })
-        })
-      ));
+      await sendAdminTelegramNotification(message);
       
       toast.success("ส่งแจ้งเตือนเข้า Telegram เรียบร้อย!", { id: toastId });
     } catch (err) {
@@ -241,15 +228,9 @@ export default function CalendarPage() {
       
       const msgTelegram = `✅ <b>ยืนยันคิวแล้ว</b>\n\nสำหรับ ${booking.customers?.name || "ลูกค้า"}\n\u2702️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n💰 ราคา: ฿${confirmPrice.toLocaleString()}\n\n<i>รอเจอลูกค้าได้เลยค่ะ ✨</i>`;
 
-      if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
-        const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
-        const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
-        chatIds.forEach(id => fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: id, text: msgTelegram, parse_mode: "HTML" })
-        }).catch(() => {}));
-      }
+      await sendAdminTelegramNotification(msgTelegram).catch((error) => {
+        console.error("Telegram notification failed:", error);
+      });
 
       toast.success("ยืนยันคิวเรียบร้อย! ✓", { id: toastId });
       setShowConfirmDialog(null);
@@ -364,22 +345,16 @@ export default function CalendarPage() {
       const receiptUrl = `${origin}/receipt/${booking.id}`;
 
       // 5.1 หาแอดมิน (Telegram)
-      if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
+      {
         let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${booking.customers?.name}\n💰 ยอดชำระ: ฿${finalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
         if (selectedCoupon) {
           adminMsg += `\n🎟️ ใช้คูปอง: ${selectedCoupon.rewards?.title} (-฿${couponDiscount.toLocaleString()})`;
         }
         adminMsg += `\n\n📄 ดูใบเสร็จ: ${receiptUrl}`;
 
-        const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
-        const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
-        await Promise.all(chatIds.map(id => 
-          fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: "HTML" })
-          }).catch(() => {})
-        ));
+        await sendAdminTelegramNotification(adminMsg).catch((error) => {
+          console.error("Telegram notification failed:", error);
+        });
       }
 
 

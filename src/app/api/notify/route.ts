@@ -1,15 +1,32 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
+import { hasOwnerSession } from "@/lib/server/owner-auth";
+import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { sendTelegramMessage } from "@/lib/telegram";
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { message, imageUrl, to, messages: customMessages } = body;
+const notifySchema = z.object({
+  message: z.string().trim().min(1).max(4096).optional(),
+  imageUrl: z.string().url().max(2048).optional(),
+  to: z.string().trim().min(1).max(255).optional(),
+  messages: z.array(z.unknown()).min(1).max(5).optional(),
+}).refine((body) => Boolean(body.message || body.messages), {
+  message: "A message is required",
+});
 
-    if (!message && !customMessages) {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+export async function POST(request: Request) {
+  if (!(await hasOwnerSession())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const parsed = notifySchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid notification request" }, { status: 400 });
     }
+
+    const body = parsed.data;
+    const { message, imageUrl, to, messages: customMessages } = body;
 
     // 1. Fetch shop settings
     const { data: settingsData, error: settingsError } = await supabase
@@ -23,10 +40,11 @@ export async function POST(request: Request) {
     const settings = settingsToMap(settingsData);
 
     // 2. Telegram Logic (Always send to admin if configured)
-    const telegramToken = settings.telegram_bot_token;
-    const telegramChatId = settings.telegram_chat_id;
+    const telegramConfig = resolveTelegramConfig(settings);
+    const telegramToken = telegramConfig?.token;
+    const telegramChatId = telegramConfig?.chatIds;
 
-    const telegramResults = telegramToken && telegramChatId
+    const telegramResults = telegramToken && telegramChatId && message
       ? await sendTelegramMessage(telegramToken, telegramChatId, message)
       : [];
     const telegramFailed = telegramResults.some((result) => !result.ok);
@@ -37,7 +55,7 @@ export async function POST(request: Request) {
     }));
 
     // 3. LINE Logic
-    const channelToken = settings.line_channel_token;
+    const channelToken = settingString(settings, "line_channel_token");
     if (!channelToken) {
       return NextResponse.json(
         {
@@ -50,7 +68,7 @@ export async function POST(request: Request) {
     }
 
     // ผู้รับ: ถ้ามี 'to' (ส่งลูกค้า) แต่ถ้าไม่มี 'to' ให้ส่ง admin LINE (เฉพาะกรณีไม่มี Telegram)
-    const recipients = to ? [to] : (telegramToken ? [] : (settings.admin_line_uid || "").split(",").map((s: string) => s.trim()).filter(Boolean));
+    const recipients = to ? [to] : (telegramToken ? [] : settingString(settings, "admin_line_uid").split(",").map((s) => s.trim()).filter(Boolean));
 
     if (recipients.length === 0) {
       return NextResponse.json(
@@ -91,9 +109,10 @@ export async function POST(request: Request) {
           status: res.status,
           error: errorBody
         };
-      } catch (err: any) { 
-        console.error(`[LINE_FETCH_ERROR]`, err);
-        return { uid: target, ok: false, error: err.message || err }; 
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "LINE request failed";
+        console.error(`[LINE_FETCH_ERROR]`, { error: message });
+        return { uid: target, ok: false, error: message };
       }
     }));
 
@@ -112,10 +131,15 @@ export async function POST(request: Request) {
 }
 
 // Helper to flatten shop_settings table (since it's key-value pairs)
-function settingsToMap(data: any[]) {
-  const map: Record<string, any> = {};
+function settingsToMap(data: Array<{ key: string; value: unknown }>) {
+  const map: Record<string, unknown> = {};
   data.forEach(item => {
     map[item.key] = item.value;
   });
   return map;
+}
+
+function settingString(settings: Record<string, unknown>, key: string): string {
+  const value = settings[key];
+  return typeof value === "string" ? value.trim() : "";
 }

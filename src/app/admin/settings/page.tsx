@@ -6,6 +6,11 @@ import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/ty
 import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint, MessageCircle, CreditCard, Send, Trophy, CheckCircle2, Image as ImageIcon, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 
+const SERVER_MANAGED_SETTING_KEYS = new Set([
+  "telegram_bot_token",
+  "telegram_chat_id",
+]);
+
 const CATEGORIES = ["ทำเล็บมือ", "ทำเล็บเท้า", "ต่อเล็บ", "สปา", "ถอดเล็บ", "อื่นๆ"];
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -134,7 +139,10 @@ export default function SettingsPage() {
   async function fetchShopSettings() {
     const { data } = await supabase.from("shop_settings").select("*");
     if (data && data.length > 0) {
-      const settingsMap = settingsToMap(data as ShopSettings[]);
+      const browserSafeSettings = (data as ShopSettings[]).filter(
+        (setting) => !SERVER_MANAGED_SETTING_KEYS.has(setting.key),
+      );
+      const settingsMap = settingsToMap(browserSafeSettings);
       setShopSettings({ ...DEFAULT_SETTINGS, ...settingsMap });
       if (settingsMap.gallery_images) {
         try {
@@ -148,7 +156,9 @@ export default function SettingsPage() {
 
   async function saveShopSettings() {
     setSavingShop(true);
-    const entries = Object.entries(shopSettings);
+    const entries = Object.entries(shopSettings).filter(
+      ([key]) => !SERVER_MANAGED_SETTING_KEYS.has(key),
+    );
     for (const [key, value] of entries) {
       await supabase.from("shop_settings").upsert({ key, value }, { onConflict: "key" });
     }
@@ -603,26 +613,11 @@ export default function SettingsPage() {
 
               <div className="border-t border-pink-50 pt-4 md:col-span-2">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Telegram Notification (Admin)</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Bot Token</label>
-                    <input
-                      type="password"
-                      className="input-field"
-                      value={shopSettings.telegram_bot_token || ""}
-                      onChange={(e) => setShopSettings((s) => ({ ...s, telegram_bot_token: e.target.value }))}
-                      placeholder="0000000000:AAxxxxxxxx"
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Chat ID</label>
-                    <input
-                      className="input-field"
-                      value={shopSettings.telegram_chat_id || ""}
-                      onChange={(e) => setShopSettings((s) => ({ ...s, telegram_chat_id: e.target.value }))}
-                      placeholder="-100xxxxxxx"
-                    />
-                  </div>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-emerald-800">จัดการอย่างปลอดภัยบนเซิร์ฟเวอร์แล้ว</p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-700">
+                    Bot Token และ Chat ID จะไม่ถูกส่งมายังเบราว์เซอร์หรือบันทึกจากหน้านี้
+                  </p>
                 </div>
               </div>
             </div>

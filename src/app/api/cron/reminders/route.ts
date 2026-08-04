@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { LineClient } from "@/lib/line-client";
+import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { ShopSettings, settingsToMap } from "@/lib/types";
 
 const supabase = createClient(
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
     // 1. ดึง settings
     const { data: settingsData } = await supabase.from("shop_settings").select("*");
     const settings = settingsToMap(settingsData as ShopSettings[]);
+    const telegramConfig = resolveTelegramConfig(settings);
 
     // 2. ดึงคิวที่จะถึงใน 60-75 นาทีข้างหน้า และยังไม่ส่งแจ้งเตือน (แต่เราไม่ได้ทำคอลัมน์ reminder_sent ไว้)
     // วิธีแก้เบื้องต้น: เราเช็คว่าเริ่มใน 60-75 นาที (ถ้า cron รันทุก 15 นาที มันจะเจอคิวนี้แค่รอบเดียว)
@@ -45,10 +47,10 @@ export async function GET(req: NextRequest) {
       const startTime = new Date(booking.start_time).toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
       
       // 3. แจ้งแอดมินทาง Telegram
-      if (settings.telegram_bot_token && settings.telegram_chat_id) {
+      if (telegramConfig) {
         const adminMsg = `⏰ <b>อีก 1 ชั่วโมง!</b>\n\nคิวของคุณ ${customerName} เวลา ${startTime} น.\nเตรียมตัวได้เลยค่ะ ✨`;
-        const url = `https://api.telegram.org/bot${settings.telegram_bot_token}/sendMessage`;
-        const chatIds = String(settings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
+        const url = `https://api.telegram.org/bot${telegramConfig.token}/sendMessage`;
+        const chatIds = String(telegramConfig.chatIds).split(",").map(id => id.trim()).filter(Boolean);
         
         await Promise.all(chatIds.map(id => 
           fetch(url, {

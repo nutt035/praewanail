@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateUniqueBookingCode } from "@/lib/booking-code";
 import { Promotion, Service } from "@/lib/types";
+import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { sendTelegramMessage } from "@/lib/telegram";
 
 const supabase = createClient(
@@ -162,27 +163,31 @@ export async function POST(req: NextRequest) {
       const promoText = activePromotion ? `\n🎁 โปรโมชั่น: ${activePromotion.title}` : "";
       const message = `💅 <b>คิวใหม่! (Online)</b>\n\n👤 ${customerName}\n📞 ${phone}${promoText}\n✂️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n🆔 ${bookingCode}\n\n✨ <i>ยืนยันคิวในหน้าระบบได้เลยค่ะ</i>`;
 
-      const { data: telegramSettings, error: telegramSettingsError } = await supabase
-        .from("shop_settings")
-        .select("key,value")
-        .in("key", ["telegram_bot_token", "telegram_chat_id"]);
+      let telegramConfig = resolveTelegramConfig();
 
-      if (telegramSettingsError) {
-        throw new Error(`Could not load Telegram settings: ${telegramSettingsError.message}`);
+      if (!telegramConfig) {
+        const { data: telegramSettings, error: telegramSettingsError } = await supabase
+          .from("shop_settings")
+          .select("key,value")
+          .in("key", ["telegram_bot_token", "telegram_chat_id"]);
+
+        if (telegramSettingsError) {
+          throw new Error(`Could not load Telegram settings: ${telegramSettingsError.message}`);
+        }
+
+        telegramConfig = resolveTelegramConfig(
+          Object.fromEntries(
+            (telegramSettings || []).map((item) => [item.key, item.value]),
+          ),
+        );
       }
 
-      const settings = Object.fromEntries(
-        (telegramSettings || []).map((item) => [item.key, item.value]),
-      );
-      const telegramToken = settings.telegram_bot_token;
-      const telegramChatId = settings.telegram_chat_id;
-
-      if (!telegramToken || !telegramChatId) {
+      if (!telegramConfig) {
         console.warn("[TELEGRAM_NOT_CONFIGURED]");
       } else {
         const deliveries = await sendTelegramMessage(
-          String(telegramToken),
-          String(telegramChatId),
+          telegramConfig.token,
+          telegramConfig.chatIds,
           message,
         );
 
