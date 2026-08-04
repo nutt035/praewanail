@@ -203,7 +203,8 @@ function MemberContent() {
     }
     if (coupons) {
       coupons.forEach(c => {
-        history.push({ id: `cpn-${c.id}`, date: c.created_at, title: `แลกคูปอง: ${c.rewards?.title || "รางวัล"}`, points: -(c.rewards?.points_required || 0), type: "redeem" });
+        const couponReward = Array.isArray(c.rewards) ? c.rewards[0] : c.rewards;
+        history.push({ id: `cpn-${c.id}`, date: c.created_at, title: `แลกคูปอง: ${couponReward?.title || "รางวัล"}`, points: -(couponReward?.points_required || 0), type: "redeem" });
       });
     }
     setPointsHistory(history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -384,7 +385,7 @@ function MemberContent() {
 
       // 3. Update UI
       setCustomer({ ...customer, points: newPoints });
-      await fetchCustomerData(customer.id);
+      await fetchCustomerData(customer.id, newPoints, settings);
       toast.success("แลกคูปองสำเร็จ! ดูได้ที่ 'คูปองของฉัน'", { id: toastId });
     } catch (err) {
       toast.error("เกิดข้อผิดพลาดในการแลกคูปอง", { id: toastId });

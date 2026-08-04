@@ -21,7 +21,7 @@ export default function BookingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
 
-  const [settings, setSettings] = useState<ShopSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [promotionId, setPromotionId] = useState<string | null>(null);
   const [activePromotion, setActivePromotion] = useState<Promotion | null>(null);

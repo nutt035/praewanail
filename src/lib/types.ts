@@ -99,6 +99,7 @@ export interface Booking {
   customers?: Customer | null;
   services?: Service | null;
   booking_services?: BookingService[];
+  promotions?: Promotion | null;
 }
 
 export interface InventoryItem {

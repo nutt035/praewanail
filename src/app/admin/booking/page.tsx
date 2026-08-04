@@ -769,7 +769,7 @@ function BookingFormContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="form-label">เลือกโปรโมชั่น (ถ้ามี)</label>
-              <select value={selectedPromotionId || ""} onChange={(e) => setSelectedPromotionId(e.target.value || null)} className="input-field">
+              <select value={selectedPromotionId} onChange={(e) => setSelectedPromotionId(e.target.value)} className="input-field">
                 <option value="custom">-- ไม่มีโปรโมชั่น --</option>
                 {promotions.map(p => (
                   <option key={p.id} value={p.id}>
