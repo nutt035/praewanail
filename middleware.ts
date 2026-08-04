@@ -17,7 +17,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (url.pathname === '/login' && hasAdminAccess) {
+  const isOwnerSetup = url.searchParams.get('setup') === 'owner';
+  if (url.pathname === '/login' && hasAdminAccess && !isOwnerSetup) {
     return copySessionCookies(
       response,
       NextResponse.redirect(new URL('/admin', request.url)),
