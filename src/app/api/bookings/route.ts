@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateUniqueBookingCode } from "@/lib/booking-code";
 import { Promotion, Service } from "@/lib/types";
+import { sendTelegramMessage } from "@/lib/telegram";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,12 +162,34 @@ export async function POST(req: NextRequest) {
       const promoText = activePromotion ? `\n🎁 โปรโมชั่น: ${activePromotion.title}` : "";
       const message = `💅 <b>คิวใหม่! (Online)</b>\n\n👤 ${customerName}\n📞 ${phone}${promoText}\n✂️ ${svcNames}\n📅 ${dateStr} ${timeStr} น.\n🆔 ${bookingCode}\n\n✨ <i>ยืนยันคิวในหน้าระบบได้เลยค่ะ</i>`;
 
-      // เรียกใช้ notify route ภายใน server
-      await fetch(new URL("/api/notify", req.url), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, imageUrl: null })
-      });
+      const { data: telegramSettings, error: telegramSettingsError } = await supabase
+        .from("shop_settings")
+        .select("key,value")
+        .in("key", ["telegram_bot_token", "telegram_chat_id"]);
+
+      if (telegramSettingsError) {
+        throw new Error(`Could not load Telegram settings: ${telegramSettingsError.message}`);
+      }
+
+      const settings = Object.fromEntries(
+        (telegramSettings || []).map((item) => [item.key, item.value]),
+      );
+      const telegramToken = settings.telegram_bot_token;
+      const telegramChatId = settings.telegram_chat_id;
+
+      if (!telegramToken || !telegramChatId) {
+        console.warn("[TELEGRAM_NOT_CONFIGURED]");
+      } else {
+        const deliveries = await sendTelegramMessage(
+          String(telegramToken),
+          String(telegramChatId),
+          message,
+        );
+
+        if (deliveries.some((delivery) => !delivery.ok)) {
+          throw new Error("Telegram notification delivery failed");
+        }
+      }
     } catch (notifyErr) {
       console.error("[NOTIFY_ERROR]:", notifyErr);
     }

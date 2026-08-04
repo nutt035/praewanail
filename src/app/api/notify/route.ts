@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { sendTelegramMessage } from "@/lib/telegram";
 
 export async function POST(request: Request) {
   try {
@@ -25,33 +26,42 @@ export async function POST(request: Request) {
     const telegramToken = settings.telegram_bot_token;
     const telegramChatId = settings.telegram_chat_id;
 
-    if (telegramToken && telegramChatId) { 
-      const chatIds = String(telegramChatId).split(",").map((id: string) => id.trim()).filter(Boolean);
-      await Promise.all(chatIds.map(async (id) => {
-        const url = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
-        try {
-          await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: id,
-              text: message,
-              parse_mode: "HTML",
-              disable_web_page_preview: true
-            })
-          });
-        } catch (e) { console.error("Telegram error:", e); }
-      }));
-    }
+    const telegramResults = telegramToken && telegramChatId
+      ? await sendTelegramMessage(telegramToken, telegramChatId, message)
+      : [];
+    const telegramFailed = telegramResults.some((result) => !result.ok);
+    const telegramSummary = telegramResults.map(({ ok, status, error }) => ({
+      ok,
+      status,
+      ...(error ? { error } : {}),
+    }));
 
     // 3. LINE Logic
     const channelToken = settings.line_channel_token;
-    if (!channelToken) return NextResponse.json({ success: true, warning: "No LINE token configured" });
+    if (!channelToken) {
+      return NextResponse.json(
+        {
+          success: !telegramFailed,
+          telegram: telegramSummary,
+          warning: "No LINE token configured",
+        },
+        { status: telegramFailed ? 502 : 200 },
+      );
+    }
 
     // ผู้รับ: ถ้ามี 'to' (ส่งลูกค้า) แต่ถ้าไม่มี 'to' ให้ส่ง admin LINE (เฉพาะกรณีไม่มี Telegram)
     const recipients = to ? [to] : (telegramToken ? [] : (settings.admin_line_uid || "").split(",").map((s: string) => s.trim()).filter(Boolean));
 
-    if (recipients.length === 0) return NextResponse.json({ success: true, message: "Telegram sent, no LINE recipients needed" });
+    if (recipients.length === 0) {
+      return NextResponse.json(
+        {
+          success: !telegramFailed,
+          telegram: telegramSummary,
+          message: "No LINE recipients needed",
+        },
+        { status: telegramFailed ? 502 : 200 },
+      );
+    }
 
     const lineMessages = customMessages || [{ type: "text", text: message }];
     if (!customMessages && imageUrl) {
@@ -87,7 +97,13 @@ export async function POST(request: Request) {
       }
     }));
 
-    return NextResponse.json({ success: true, results });
+    const lineFailed = results.some((result) => !result.ok);
+    const failed = telegramFailed || lineFailed;
+
+    return NextResponse.json(
+      { success: !failed, telegram: telegramSummary, line: results },
+      { status: failed ? 502 : 200 },
+    );
 
   } catch (error) {
     console.error("Notify Dispatcher Error:", error);
