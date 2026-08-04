@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { EstimationHistory, DEFAULT_SETTINGS } from "@/lib/types";
 import { 
   UploadCloud, Settings2, Trash2, Loader2, Sparkles, Image as ImageIcon,

@@ -20,8 +20,10 @@ import {
   Menu,
   X,
   Gift,
+  LogOut,
 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 const navItems = [
   { href: "/admin", label: "ภาพรวม", icon: LayoutDashboard, exact: true },
@@ -53,6 +55,11 @@ export default function AdminLayout({
 
   const isActive = (href: string, exact: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
+
+  async function handleSignOut() {
+    await supabaseBrowser.auth.signOut();
+    window.location.assign("/login");
+  }
 
   return (
     <div className="flex h-screen bg-brand-pink overflow-hidden flex-col md:flex-row">
@@ -134,6 +141,14 @@ export default function AdminLayout({
             <Sparkles size={12} />
             <span>ดูหน้าลูกค้า →</span>
           </Link>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="mt-3 flex w-full items-center gap-2 text-xs text-slate-400 transition-colors hover:text-rose-500"
+          >
+            <LogOut size={12} />
+            <span>ออกจากระบบ</span>
+          </button>
         </div>
       </aside>
 

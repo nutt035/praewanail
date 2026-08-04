@@ -7,7 +7,7 @@ import {
   FileText, ChevronDown, Banknote, Plus, Trash2, Fingerprint, Tag, Heart, X, CheckCircle2, Trophy, Star,
   Sparkles, Gift, Users,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Booking } from "@/lib/types";
 import toast from "react-hot-toast";
 

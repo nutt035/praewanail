@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Transaction, BookingService } from "@/lib/types";
 import { TrendingUp, TrendingDown, DollarSign, ArrowUpRight, ArrowDownRight, Filter, Calendar, BarChart3, PieChart as PieIcon } from "lucide-react";
 import toast from "react-hot-toast";

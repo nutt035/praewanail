@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Booking, InventoryItem, Transaction } from "@/lib/types";
 import { TrendingUp, CalendarCheck, PackageSearch, ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";

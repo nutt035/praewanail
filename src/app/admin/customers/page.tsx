@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Customer, Booking } from "@/lib/types";
 import { Users, Search, Phone, StickyNote, ChevronRight, X, Clock, Scissors, CalendarDays, Trophy, Plus, Minus, Save, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";

@@ -1,5 +1,5 @@
 import { Sparkles, Clock, Fingerprint, Tag, Percent, Banknote, Megaphone, ChevronLeft } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Service, Promotion } from "@/lib/types";
 import Link from "next/link";
 

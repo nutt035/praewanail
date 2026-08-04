@@ -1,14 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Lock, Loader2, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Lock, Loader2, Eye, EyeOff, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { supabaseBrowser } from "@/lib/supabase-browser";
+
+const OWNER_EMAIL = "nuttakankhu@gmail.com";
 
 export default function LoginPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -18,23 +23,42 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+      const { error: signInError } = await supabaseBrowser.auth.signInWithPassword({
+        email: OWNER_EMAIL,
+        password,
       });
 
-      if (res.ok) {
+      if (!signInError) {
         router.push("/admin");
+        router.refresh();
       } else {
-        const data = await res.json();
-        setError(data.error || "รหัสผ่านไม่ถูกต้อง");
+        setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       }
     } catch {
       setError("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleMagicLink() {
+    setMagicLinkLoading(true);
+    setError("");
+
+    const { error: magicLinkError } = await supabaseBrowser.auth.signInWithOtp({
+      email: OWNER_EMAIL,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (magicLinkError) {
+      setError("ส่งลิงก์เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่");
+    } else {
+      setEmailSent(true);
+    }
+    setMagicLinkLoading(false);
   }
 
   return (
@@ -115,6 +139,28 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <div className="my-5 flex items-center gap-3 text-[10px] uppercase tracking-widest text-slate-300">
+            <span className="h-px flex-1 bg-pink-100" />
+            หรือ
+            <span className="h-px flex-1 bg-pink-100" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleMagicLink}
+            disabled={magicLinkLoading || emailSent}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-pink-200 px-4 py-3 text-sm font-semibold text-rose-500 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {magicLinkLoading ? <Loader2 size={17} className="animate-spin" /> : <Mail size={17} />}
+            {emailSent ? "ส่งลิงก์เข้าอีเมลแล้ว" : "ส่งลิงก์เข้าสู่ระบบทางอีเมล"}
+          </button>
+
+          {emailSent && (
+            <p className="mt-3 text-center text-xs leading-5 text-emerald-600">
+              เปิดอีเมล {OWNER_EMAIL} บนอุปกรณ์นี้ แล้วกดลิงก์เพื่อเข้าสู่ระบบ
+            </p>
+          )}
         </div>
 
         <p className="text-center text-xs text-slate-300 mt-6">

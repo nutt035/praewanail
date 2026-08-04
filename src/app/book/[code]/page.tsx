@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { settingsToMap, DEFAULT_SETTINGS, ShopSettings } from "@/lib/types";
 import { generatePromptPayPayload } from "@/lib/promptpay";
 import {

@@ -25,6 +25,8 @@ services:
       LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
       SLIPOK_API_KEY: ${SLIPOK_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      OWNER_EMAIL: ${OWNER_EMAIL}
+      LEGACY_ADMIN_AUTH_ENABLED: ${LEGACY_ADMIN_AUTH_ENABLED:-false}
     volumes:
       - ./uploads:/app/uploads
     networks:

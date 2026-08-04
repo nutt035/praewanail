@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS, isClosedDay, getOpenClose } from "@/lib/types";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 

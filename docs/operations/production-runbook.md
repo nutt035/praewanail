@@ -77,3 +77,7 @@ Use this order for `/office` and the Digital Employee:
 5. Enable allowlisted FAQ replies.
 6. Enable pending-booking tools.
 7. Enable higher-risk automation only after audit and error-rate review.
+
+## Owner-auth migration
+
+`LEGACY_ADMIN_AUTH_ENABLED=true` is permitted only during the controlled migration from the old admin cookie. Deploy Supabase Auth with the flag enabled, have the owner complete magic-link login, verify a refreshed Supabase session can access `/admin`, then set the flag to `false` and recreate the application container. Never leave the compatibility flag enabled as a permanent fallback.

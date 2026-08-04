@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { MessageSquare, Send, User, Bot, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 

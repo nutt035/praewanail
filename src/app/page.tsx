@@ -1,5 +1,5 @@
 import { Sparkles, MapPin, Camera, Star, BookOpen, CalendarHeart, Award, Search, HelpCircle, ChevronRight, Tag, Percent, Banknote, Megaphone } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
 import Link from "next/link";
 import CustomerCalendar from "@/components/CustomerCalendar";
