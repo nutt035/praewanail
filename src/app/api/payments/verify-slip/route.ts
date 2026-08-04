@@ -40,7 +40,13 @@ function hasExpectedImageSignature(buffer: Buffer, mimeType: AllowedMimeType): b
 /** POST: verify a customer's deposit slip for an existing booking. */
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch {
+      return errorResponse("รูปแบบคำขอไม่ถูกต้อง", 400);
+    }
+
     const slip = formData.get("slip");
     const parsedBookingCode = bookingCodeSchema.safeParse(formData.get("bookingCode"));
 
