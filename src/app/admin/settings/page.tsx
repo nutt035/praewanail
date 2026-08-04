@@ -11,6 +11,8 @@ const SERVER_MANAGED_SETTING_KEYS = new Set([
   "telegram_chat_id",
   "line_channel_token",
   "admin_line_uid",
+  "slipok_branch_id",
+  "slipok_api_key",
 ]);
 
 const CATEGORIES = ["ทำเล็บมือ", "ทำเล็บเท้า", "ต่อเล็บ", "สปา", "ถอดเล็บ", "อื่นๆ"];
@@ -725,28 +727,12 @@ export default function SettingsPage() {
               ตรวจสลิปอัตโนมัติ (SlipOK)
             </h3>
             <p className="text-[11px] text-slate-400 mb-4">ระบบจะตรวจสอบสลิปโอนเงินจากลูกค้าอัตโนมัติ · สมัครได้ที่ <a href="https://slipok.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">slipok.com</a></p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="form-label text-emerald-700">SlipOK Branch ID</label>
-                <input
-                  className="input-field border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400"
-                  value={shopSettings.slipok_branch_id || ""}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, slipok_branch_id: e.target.value }))}
-                  placeholder="เช่น 66157"
-                />
-              </div>
-              <div>
-                <label className="form-label text-emerald-700">SlipOK API Key</label>
-                <input
-                  type="password"
-                  className="input-field border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400"
-                  value={shopSettings.slipok_api_key || ""}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, slipok_api_key: e.target.value }))}
-                  placeholder="SLIPOKXXXXX"
-                />
-              </div>
+            <div className="rounded-xl border border-emerald-200 bg-white/80 px-4 py-3">
+              <p className="text-sm font-medium text-emerald-700">ตั้งค่าบนเซิร์ฟเวอร์แล้ว</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Branch ID และ API Key ถูกเก็บเป็นความลับฝั่งเซิร์ฟเวอร์ จึงไม่แสดงหรือแก้ไขผ่านหน้าเว็บ
+              </p>
             </div>
-            <p className="text-[10px] text-emerald-600 mt-3 italic">* ถ้าไม่ตั้งค่า SlipOK ระบบจะบันทึกสลิปและรอ admin ตรวจสอบเอง</p>
           </div>
 
           {/* Preview */}
