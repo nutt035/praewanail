@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { resolveSlipOkConfig } from "@/lib/server/slipok-config";
+import { storeBookingSlip } from "@/lib/server/slip-storage";
+import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { verifySlip } from "@/lib/slipok";
+import { sendTelegramPhoto } from "@/lib/telegram";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,6 +38,32 @@ function hasExpectedImageSignature(buffer: Buffer, mimeType: AllowedMimeType): b
   return buffer.length >= 12
     && buffer.subarray(0, 4).toString("ascii") === "RIFF"
     && buffer.subarray(8, 12).toString("ascii") === "WEBP";
+}
+
+async function notifyOwnerWithSlip(
+  imageBuffer: Buffer,
+  mimeType: AllowedMimeType,
+  bookingCode: string,
+  statusLine: string,
+): Promise<void> {
+  const telegramConfig = resolveTelegramConfig();
+  if (!telegramConfig) {
+    console.warn("[TELEGRAM_NOT_CONFIGURED_FOR_SLIP]");
+    return;
+  }
+
+  const caption = `🧾 <b>มีสลิปมัดจำเข้ามา</b>\n🆔 <code>${bookingCode}</code>\n${statusLine}`;
+  const deliveries = await sendTelegramPhoto(
+    telegramConfig.token,
+    telegramConfig.chatIds,
+    imageBuffer,
+    mimeType,
+    caption,
+  );
+
+  if (deliveries.some((delivery) => !delivery.ok)) {
+    console.error("[SLIP_TELEGRAM_DELIVERY_FAILED]");
+  }
 }
 
 /** POST: verify a customer's deposit slip for an existing booking. */
@@ -100,6 +129,8 @@ export async function POST(req: NextRequest) {
       return errorResponse("ไฟล์ที่แนบไม่ใช่รูปภาพสลิปที่รองรับ", 400);
     }
 
+    await storeBookingSlip(booking.id, imageBuffer, mimeType);
+
     const result = await verifySlip(
       imageBuffer,
       slipOkConfig.branchId,
@@ -109,12 +140,24 @@ export async function POST(req: NextRequest) {
 
     if (!result.success || !result.data) {
       console.warn("[SLIPOK_VERIFICATION_REJECTED]", result.message);
+      await notifyOwnerWithSlip(
+        imageBuffer,
+        mimeType,
+        bookingCode,
+        "⚠️ SlipOK ตรวจไม่ผ่าน — กรุณาตรวจสลิปด้วยตนเอง",
+      );
       return errorResponse("ตรวจสอบสลิปไม่สำเร็จ กรุณาตรวจสอบภาพแล้วลองใหม่", 400);
     }
 
     const transactionId = result.data.transRef.trim();
     if (!transactionId) {
       console.error("[SLIPOK_MISSING_TRANSACTION_ID]");
+      await notifyOwnerWithSlip(
+        imageBuffer,
+        mimeType,
+        bookingCode,
+        "⚠️ ข้อมูลจาก SlipOK ไม่สมบูรณ์ — กรุณาตรวจด้วยตนเอง",
+      );
       return errorResponse("ข้อมูลสลิปไม่สมบูรณ์ กรุณาติดต่อร้าน", 502);
     }
 
@@ -130,6 +173,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (existingPayment) {
+      await notifyOwnerWithSlip(
+        imageBuffer,
+        mimeType,
+        bookingCode,
+        "⚠️ สลิปซ้ำ — เคยใช้ยืนยันการชำระเงินแล้ว",
+      );
       return errorResponse("สลิปนี้ถูกใช้ยืนยันการชำระเงินแล้ว", 409);
     }
 
@@ -181,6 +230,15 @@ export async function POST(req: NextRequest) {
         throw new Error(`Could not record transaction: ${transactionError.message}`);
       }
     }
+
+    await notifyOwnerWithSlip(
+      imageBuffer,
+      mimeType,
+      bookingCode,
+      isAmountOk
+        ? `✅ SlipOK ยืนยันแล้ว — ฿${slipAmount.toLocaleString()}`
+        : `⚠️ ยอดไม่ครบ — โอน ฿${slipAmount.toLocaleString()} / ต้อง ฿${requiredAmount.toLocaleString()}`,
+    );
 
     return NextResponse.json({
       success: true,

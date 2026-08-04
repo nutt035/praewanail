@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
 import { sendAdminTelegramNotification } from "@/lib/notify-client";
 import { Booking, ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
-import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift, Tag, Loader2, Link as LinkIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Clock, User, Scissors, CheckCircle2, XCircle, Receipt, Printer, CreditCard, Banknote, Bell, Gift, Tag, Loader2, Link as LinkIcon, ImageIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
 const STATUS_LABELS = {
@@ -713,6 +713,14 @@ export default function CalendarPage() {
             </div>
 
             <div className="px-6 pb-5 flex flex-wrap gap-2">
+              <a
+                href={`/api/office/bookings/${selectedBooking.id}/slip`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-50 text-violet-700 text-sm font-medium hover:bg-violet-100 transition-colors border border-violet-200"
+              >
+                <ImageIcon size={15} /> ดูสลิป (ถ้ามี)
+              </a>
               {selectedBooking.status !== "completed" && (
                 <>
                   <button
