@@ -2,6 +2,10 @@
 -- FIX: Row Level Security (RLS) Policies
 -- รันใน Supabase Dashboard → SQL Editor → New query
 -- ============================================================
+-- DEPRECATED / DO NOT RUN IN PRODUCTION.
+-- This historical migration disables protection on customer, booking,
+-- payment, finance, and credential-bearing tables. Follow
+-- docs/security/api-and-rls-inventory.md for the replacement rollout.
 -- ปัญหา: Supabase เปิด RLS ไว้โดยไม่มี Policy → INSERT/UPDATE ไม่ผ่าน
 -- วิธีแก้: ปิด RLS ทุกตาราง (เหมาะสำหรับ internal admin app)
 
