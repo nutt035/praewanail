@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "health:production": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/production-health-check.ps1"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",
