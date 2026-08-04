@@ -1,20 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { saveChatMessage } from "@/lib/chat-service";
 import { LineClient } from "@/lib/line-client";
+import { resolveLineConfig } from "@/lib/server/line-config";
+import { hasOwnerSession } from "@/lib/server/owner-auth";
+
+const replySchema = z.object({
+  chatUserId: z.string().trim().min(1).max(100),
+  text: z.string().trim().min(1).max(5000),
+});
+
+async function loadLineConfig() {
+  const environmentConfig = resolveLineConfig();
+  if (environmentConfig) return environmentConfig;
+
+  const { data, error } = await supabase
+    .from("shop_settings")
+    .select("key,value")
+    .in("key", ["line_channel_token", "admin_line_uid"]);
+
+  if (error) throw new Error("Could not load LINE configuration");
+
+  return resolveLineConfig(
+    Object.fromEntries((data || []).map((item) => [item.key, item.value])),
+  );
+}
 
 export async function POST(req: NextRequest) {
+  if (!(await hasOwnerSession())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const parsed = replySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid reply request" }, { status: 400 });
+  }
+
   try {
-    const { chatUserId, text } = await req.json();
-
-    if (!chatUserId || !text) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    // 1. ดึงข้อมูล User
+    const { chatUserId, text } = parsed.data;
     const { data: user, error } = await supabase
       .from("chat_users")
-      .select("*")
+      .select("id,platform,platform_user_id")
       .eq("id", chatUserId)
       .single();
 
@@ -22,41 +49,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // 2. ส่งข้อความตาม Platform
     if (user.platform === "line") {
-      const { data: settingsData } = await supabase.from("shop_settings").select("*");
-      const settingsToMap = (data: any[]) => data.reduce((acc: any, item: any) => ({ ...acc, [item.key]: item.value }), {});
-      const settings = settingsToMap(settingsData || []);
-      
-      const channelToken = settings.line_channel_token || process.env.LINE_CHANNEL_ACCESS_TOKEN;
-      if (!channelToken) throw new Error("Missing LINE Token");
+      const lineConfig = await loadLineConfig();
+      if (!lineConfig) throw new Error("LINE is not configured");
 
-      const line = new LineClient(channelToken);
-      await line.pushMessage(user.platform_user_id, text);
-
+      const line = new LineClient(lineConfig.accessToken);
+      const delivered = await line.pushMessage(user.platform_user_id, text);
+      if (!delivered) throw new Error("LINE delivery failed");
     } else if (user.platform === "facebook") {
-      const PAGE_ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
-      if (!PAGE_ACCESS_TOKEN) throw new Error("Missing FB Token");
+      const pageAccessToken = process.env.FB_PAGE_ACCESS_TOKEN;
+      if (!pageAccessToken) throw new Error("Facebook is not configured");
 
-      await fetch(`https://graph.facebook.com/v18.0/me/messages?access_token=${PAGE_ACCESS_TOKEN}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipient: { id: user.platform_user_id },
-          message: { text }
-        })
-      });
+      const response = await fetch(
+        `https://graph.facebook.com/v18.0/me/messages?access_token=${pageAccessToken}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recipient: { id: user.platform_user_id },
+            message: { text },
+          }),
+        },
+      );
+      if (!response.ok) throw new Error("Facebook delivery failed");
+    } else {
+      return NextResponse.json({ error: "Unsupported chat platform" }, { status: 400 });
     }
 
-    // 3. บันทึกลง DB
     await saveChatMessage(chatUserId, "outbound", text);
-
-    // 4. บังคับให้เปลี่ยนสถานะเป็น human เพราะแอดมินพิมพ์เอง
-    await supabase.from("chat_sessions").update({ status: "human" }).eq("chat_user_id", chatUserId);
+    await supabase
+      .from("chat_sessions")
+      .update({ status: "human" })
+      .eq("chat_user_id", chatUserId);
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("[CHAT_REPLY_ERROR]:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error("[CHAT_REPLY_ERROR]", error);
+    return NextResponse.json({ error: "Could not send reply" }, { status: 500 });
   }
 }

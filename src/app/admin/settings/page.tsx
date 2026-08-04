@@ -9,6 +9,8 @@ import toast from "react-hot-toast";
 const SERVER_MANAGED_SETTING_KEYS = new Set([
   "telegram_bot_token",
   "telegram_chat_id",
+  "line_channel_token",
+  "admin_line_uid",
 ]);
 
 const CATEGORIES = ["ทำเล็บมือ", "ทำเล็บเท้า", "ต่อเล็บ", "สปา", "ถอดเล็บ", "อื่นๆ"];
@@ -588,26 +590,11 @@ export default function SettingsPage() {
 
               <div className="border-t border-pink-50 pt-4 md:col-span-2">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">LINE Messaging API (สำหรับส่งใบเสร็จ)</p>
-                <div className="space-y-4">
-                  <div>
-                    <label className="form-label">LINE Channel Access Token</label>
-                    <input
-                      type="password"
-                      className="input-field"
-                      value={shopSettings.line_channel_token || ""}
-                      onChange={(e) => setShopSettings((s) => ({ ...s, line_channel_token: e.target.value }))}
-                      placeholder="eyJhbGci..."
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Admin LINE User ID (รับแจ้งเตือนทาง LINE)</label>
-                    <input
-                      className="input-field"
-                      value={shopSettings.admin_line_uid || ""}
-                      onChange={(e) => setShopSettings((s) => ({ ...s, admin_line_uid: e.target.value }))}
-                      placeholder="Uxxxxxxxxxxxxxxx"
-                    />
-                  </div>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-emerald-800">จัดการอย่างปลอดภัยบนเซิร์ฟเวอร์แล้ว</p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-700">
+                    Channel Token และ Admin User ID จะไม่ถูกส่งมายังเบราว์เซอร์หรือบันทึกจากหน้านี้
+                  </p>
                 </div>
               </div>
 

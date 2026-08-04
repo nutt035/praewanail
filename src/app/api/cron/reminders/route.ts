@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { LineClient } from "@/lib/line-client";
+import { resolveLineConfig } from "@/lib/server/line-config";
 import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { ShopSettings, settingsToMap } from "@/lib/types";
 
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
     // 1. ดึง settings
     const { data: settingsData } = await supabase.from("shop_settings").select("*");
     const settings = settingsToMap(settingsData as ShopSettings[]);
+    const lineConfig = resolveLineConfig(settings);
     const telegramConfig = resolveTelegramConfig(settings);
 
     // 2. ดึงคิวที่จะถึงใน 60-75 นาทีข้างหน้า และยังไม่ส่งแจ้งเตือน (แต่เราไม่ได้ทำคอลัมน์ reminder_sent ไว้)
@@ -40,7 +42,7 @@ export async function GET(req: NextRequest) {
     }
 
     let notifiedCount = 0;
-    const lineClient = settings.line_channel_token ? new LineClient(settings.line_channel_token) : null;
+    const lineClient = lineConfig ? new LineClient(lineConfig.accessToken) : null;
 
     for (const booking of upcomingBookings) {
       const customerName = booking.customers?.name || "ลูกค้า";

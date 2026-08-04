@@ -467,7 +467,7 @@ function BookingFormContent() {
           if (freshCustomer?.line_id) lineIdToSend = freshCustomer.line_id;
         }
 
-        if (shopSettings.line_channel_token && lineIdToSend) {
+        if (lineIdToSend) {
           const pointsEarned = newPoints - currentPoints;
           const flexMessage = {
             type: "flex",

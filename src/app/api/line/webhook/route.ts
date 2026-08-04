@@ -1,18 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { LineClient } from "@/lib/line-client";
-import { verifySlip } from "@/lib/slipok";
-import { getOrCreateChatUser, getChatSessionStatus, saveChatMessage } from "@/lib/chat-service";
+import { getOrCreateChatUser, saveChatMessage } from "@/lib/chat-service";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
 );
 
+type LineWebhookEvent = {
+  type?: string;
+  source?: { userId?: string };
+  message?: { type?: string; text?: string };
+};
+
+function hasValidLineSignature(rawBody: string, signature: string | null): boolean {
+  const channelSecret = process.env.LINE_CHANNEL_SECRET;
+  if (!channelSecret || !signature) return false;
+
+  const expected = Buffer.from(
+    createHmac("sha256", channelSecret).update(rawBody).digest("base64"),
+  );
+  const received = Buffer.from(signature);
+
+  return expected.length === received.length && timingSafeEqual(expected, received);
+}
+
 /** LINE Webhook Handler */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    const signature = req.headers.get("x-line-signature");
+
+    if (!hasValidLineSignature(rawBody, signature)) {
+      return NextResponse.json({ error: "Invalid LINE signature" }, { status: 401 });
+    }
+
+    let body: { events?: LineWebhookEvent[] };
+    try {
+      body = JSON.parse(rawBody) as { events?: LineWebhookEvent[] };
+    } catch {
+      return NextResponse.json({ error: "Invalid LINE payload" }, { status: 400 });
+    }
+
     const events = body.events;
 
     if (!events || !Array.isArray(events)) {
@@ -32,8 +63,9 @@ export async function POST(req: NextRequest) {
       if (!userId) continue;
 
       // === Text Messages ===
-      if (event.type === "message" && event.message.type === "text") {
-        const text = event.message.text.trim();
+      if (event.type === "message" && event.message?.type === "text") {
+        const text = event.message.text?.trim();
+        if (!text) continue;
         
         // 1. จัดการระบบ Chat (เก็บข้อความ)
         const profile = await line.getProfile(userId).catch(() => null);
@@ -57,13 +89,13 @@ export async function POST(req: NextRequest) {
 
       // === Image Messages ===
       // ลูกค้าบอกว่าให้บอทตอบแค่รหัสจองพอ (เอา SlipOK และการจัดการรูปออกทั้งหมด)
-      if (event.type === "message" && event.message.type === "image") {
+      if (event.type === "message" && event.message?.type === "image") {
         continue;
       }
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
-  } catch (error: any) {
+  } catch (error) {
     console.error("[LINE_WEBHOOK_ERROR]:", error);
     return NextResponse.json({ message: "OK" }, { status: 200 });
   }
@@ -72,7 +104,7 @@ export async function POST(req: NextRequest) {
 /** ผูก LINE กับ booking */
 async function handleBookingLink(
   line: LineClient,
-  db: any,
+  db: SupabaseClient,
   userId: string,
   bookingCode: string
 ) {
@@ -112,7 +144,10 @@ async function handleBookingLink(
       .update({ has_line_linked: true })
       .eq("id", booking.id);
 
-    const customerName = booking.customers?.name || displayName;
+    const bookingCustomer = Array.isArray(booking.customers)
+      ? booking.customers[0]
+      : booking.customers;
+    const customerName = bookingCustomer?.name || displayName;
 
     if (booking.deposit_paid) {
       // ชำระแล้ว → ขอรูปแบบเล็บ
@@ -123,7 +158,7 @@ async function handleBookingLink(
         `สวัสดีค่ะ คุณ${customerName}! 💅\n\nยืนยันตัวตนเรียบร้อยแล้วค่ะ\n\nกรุณาชำระมัดจำก่อนนะคะ แล้วส่งรูปแบบเล็บที่ต้องการมาได้เลย ✨`
       );
     }
-  } catch (e: any) {
+  } catch (e) {
     console.error("[LINE_LINK_ERROR]:", e);
     await line.pushMessage(userId, "เกิดข้อผิดพลาด กรุณาแจ้งแอดมินค่ะ");
   }

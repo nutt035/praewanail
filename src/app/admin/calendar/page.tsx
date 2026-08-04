@@ -360,7 +360,7 @@ export default function CalendarPage() {
 
       // 5.2 หาลูกค้า (LINE) ถ้าลูกค้ามี line_id
       const customerLineId = (booking.customers as any)?.line_id;
-      if (shopSettings.line_channel_token && customerLineId) {
+      if (customerLineId) {
         const pointsEarned = newPoints - currentPoints;
         
         // ดีไซน์ Flex Message แบบเรียบง่าย (Safe Mode) เพื่อเลี่ยง Error

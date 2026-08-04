@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { hasOwnerSession } from "@/lib/server/owner-auth";
+import { resolveLineConfig } from "@/lib/server/line-config";
 import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { sendTelegramMessage } from "@/lib/telegram";
 
@@ -55,7 +56,8 @@ export async function POST(request: Request) {
     }));
 
     // 3. LINE Logic
-    const channelToken = settingString(settings, "line_channel_token");
+    const lineConfig = resolveLineConfig(settings);
+    const channelToken = lineConfig?.accessToken;
     if (!channelToken) {
       return NextResponse.json(
         {
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
     }
 
     // ผู้รับ: ถ้ามี 'to' (ส่งลูกค้า) แต่ถ้าไม่มี 'to' ให้ส่ง admin LINE (เฉพาะกรณีไม่มี Telegram)
-    const recipients = to ? [to] : (telegramToken ? [] : settingString(settings, "admin_line_uid").split(",").map((s) => s.trim()).filter(Boolean));
+    const recipients = to ? [to] : (telegramToken ? [] : (lineConfig?.adminUserIds || "").split(",").map((s) => s.trim()).filter(Boolean));
 
     if (recipients.length === 0) {
       return NextResponse.json(
@@ -137,9 +139,4 @@ function settingsToMap(data: Array<{ key: string; value: unknown }>) {
     map[item.key] = item.value;
   });
   return map;
-}
-
-function settingString(settings: Record<string, unknown>, key: string): string {
-  const value = settings[key];
-  return typeof value === "string" ? value.trim() : "";
 }
