@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { writeAuditLog } from "@/lib/server/audit-log";
+import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
 import { resolveSlipOkConfig } from "@/lib/server/slipok-config";
 import { storeBookingSlip } from "@/lib/server/slip-storage";
+import { createSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { verifySlip } from "@/lib/slipok";
 import { sendTelegramPhoto } from "@/lib/telegram";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-);
 
 const MAX_SLIP_BYTES = 8 * 1024 * 1024;
 const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -70,6 +66,19 @@ async function notifyOwnerWithSlip(
 /** POST: verify a customer's deposit slip for an existing booking. */
 export async function POST(req: NextRequest) {
   try {
+    if (!hasSameOrigin(req)) {
+      return errorResponse("คำขอมาจากเว็บไซต์ที่ไม่ได้รับอนุญาต", 403);
+    }
+
+    const rateLimit = takeRateLimit(req, "payment-slip", 8, 10 * 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, verified: false, error: "ส่งสลิปบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่" },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+      );
+    }
+
+    const supabase = createSupabaseAdminClient();
     let formData: FormData;
     try {
       formData = await req.formData();
@@ -103,21 +112,7 @@ export async function POST(req: NextRequest) {
       return errorResponse("การจองนี้ชำระมัดจำแล้ว", 409);
     }
 
-    let slipOkConfig = resolveSlipOkConfig();
-    if (!slipOkConfig) {
-      const { data: settings, error: settingsError } = await supabase
-        .from("shop_settings")
-        .select("key,value")
-        .in("key", ["slipok_branch_id", "slipok_api_key"]);
-
-      if (settingsError) {
-        throw new Error(`Could not load SlipOK settings: ${settingsError.message}`);
-      }
-
-      slipOkConfig = resolveSlipOkConfig(
-        Object.fromEntries((settings || []).map((item) => [item.key, item.value])),
-      );
-    }
+    const slipOkConfig = resolveSlipOkConfig();
 
     if (!slipOkConfig) {
       console.error("[SLIPOK_NOT_CONFIGURED]");
