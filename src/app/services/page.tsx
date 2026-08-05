@@ -1,4 +1,4 @@
-import { Sparkles, Clock, Fingerprint, Tag, Percent, Banknote, Megaphone, ChevronLeft } from "lucide-react";
+import { Sparkles, Clock, Fingerprint, Tag, Banknote, Megaphone, ChevronLeft } from "lucide-react";
 import { supabase } from "@/lib/supabase-browser";
 import { Service, Promotion } from "@/lib/types";
 import Link from "next/link";
@@ -84,8 +84,8 @@ export default async function ServicesPage() {
                       promo.promotion_type === "discount" ? "bg-violet-50" :
                       promo.promotion_type === "buffet" || promo.promotion_type === "bundle" ? "bg-emerald-50" : "bg-rose-50"
                     }`}>
-                      {promo.promotion_type === "discount" && <Percent size={16} className="text-violet-500" />}
-                      {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" && <Banknote size={16} className="text-emerald-500" />}
+                      {promo.promotion_type === "discount" && <Banknote size={16} className="text-violet-500" />}
+                      {(promo.promotion_type === "buffet" || promo.promotion_type === "bundle") && <Banknote size={16} className="text-emerald-500" />}
                       {promo.promotion_type !== "discount" && promo.promotion_type !== "buffet" && promo.promotion_type !== "bundle" && <Megaphone size={16} className="text-rose-400" />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -93,12 +93,12 @@ export default async function ServicesPage() {
                         <p className="font-bold text-sm text-brand-dark">{promo.title}</p>
                         {promo.promotion_type === "discount" && promo.price > 0 && (
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-600">
-                            ลด {promo.price}%
+                            ลด ฿{promo.price.toLocaleString("th-TH")}
                           </span>
                         )}
-                        {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" && promo.price > 0 && (
+                        {(promo.promotion_type === "buffet" || promo.promotion_type === "bundle") && promo.price > 0 && (
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600">
-                            ราคา ฿{promo.price}
+                            ราคา ฿{promo.price.toLocaleString("th-TH")}
                           </span>
                         )}
                       </div>

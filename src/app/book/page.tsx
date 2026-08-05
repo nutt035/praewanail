@@ -292,7 +292,9 @@ export default function BookingPage() {
                         {p.valid_to && <p className="text-[10px] text-amber-500">หมดเขต {new Date(p.valid_to).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</p>}
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-rose-500">฿{p.price}</span>
+                    <span className="text-sm font-bold text-rose-500">
+                      {p.promotion_type === "discount" ? "ลด " : "ราคา "}฿{p.price.toLocaleString("th-TH")}
+                    </span>
                   </button>
                 ))}
                 {promotions.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">ไม่มีโปรโมชั่นในขณะนี้</p>}
