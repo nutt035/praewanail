@@ -144,7 +144,7 @@ export default function LoginPage() {
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-400 to-pink-500 py-3 font-bold text-white shadow-lg shadow-rose-200/50 transition-all disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {verifying ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
-                {verifying ? "กำลังตรวจสอบ..." : "ยืนยันและเข้าสู่ Office"}
+                {verifying ? "กำลังตรวจสอบ..." : "ยืนยันและเข้าสู่หน้าจัดการ"}
               </button>
 
               <div className="mt-4 flex items-center justify-between gap-3 text-xs">
