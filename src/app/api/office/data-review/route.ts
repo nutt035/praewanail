@@ -26,8 +26,25 @@ function minutes(value: string) {
 function hasValidOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin) return true;
+
   try {
-    return new URL(origin).host === request.nextUrl.host;
+    const originHost = new URL(origin).host.toLowerCase();
+    const forwardedHost = request.headers.get("x-forwarded-host")
+      ?.split(",")[0]
+      ?.trim()
+      .toLowerCase();
+    const requestHost = request.headers.get("host")?.toLowerCase();
+    const configuredHost = process.env.NEXT_PUBLIC_SITE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SITE_URL).host.toLowerCase()
+      : null;
+    const browserReportsSameOrigin = request.headers.get("sec-fetch-site") === "same-origin";
+
+    return browserReportsSameOrigin || [
+      forwardedHost,
+      requestHost,
+      request.nextUrl.host.toLowerCase(),
+      configuredHost,
+    ].some((host) => Boolean(host) && host === originHost);
   } catch {
     return false;
   }
