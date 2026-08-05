@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabase-browser";
 
 type ChatUser = { id: string; platform: string; platform_user_id: string; display_name: string; picture_url: string; last_active: string };
-type ChatMessage = { id: string; chat_user_id: string; direction: "inbound" | "outbound"; content: string; created_at: string };
+type ChatMessage = { id: string; chat_user_id: string; direction: "inbound" | "outbound"; content: string; message_type?: string; image_url?: string; created_at: string };
 type Suggestion = { label: string; text: string };
 
 export default function AdminChatDashboard() {
@@ -106,7 +106,7 @@ export default function AdminChatDashboard() {
         {selected ? <main className="flex min-w-0 flex-col">
           <div className="flex items-center gap-3 border-b border-rose-100 px-4 py-3"><button className="rounded-full p-2 hover:bg-rose-50 md:hidden" onClick={() => setSelected(null)}><ChevronLeft /></button><div className="font-semibold text-slate-800">{selected.display_name || "ลูกค้า LINE"}</div><span className="ml-auto rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">LINE</span></div>
           <div className="flex-1 space-y-3 overflow-y-auto bg-[#FFFCFA] p-4 md:p-6">
-            {messages.map((message) => <div key={message.id} className={`flex ${message.direction === "outbound" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed md:max-w-[70%] ${message.direction === "outbound" ? "rounded-br-md bg-rose-500 text-white" : "rounded-bl-md border border-rose-100 bg-white text-slate-700 shadow-sm"}`}><p className="whitespace-pre-wrap">{message.content}</p><p className={`mt-1 text-right text-[10px] ${message.direction === "outbound" ? "text-rose-100" : "text-slate-400"}`}>{new Date(message.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</p></div></div>)}
+            {messages.map((message) => <div key={message.id} className={`flex ${message.direction === "outbound" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed md:max-w-[70%] ${message.direction === "outbound" ? "rounded-br-md bg-rose-500 text-white" : "rounded-bl-md border border-rose-100 bg-white text-slate-700 shadow-sm"}`}>{message.message_type === "image" && message.image_url && <img src={message.image_url} alt="รูปจากลูกค้า" className="mb-2 max-h-72 w-full rounded-xl object-contain" />}<p className="whitespace-pre-wrap">{message.content}</p><p className={`mt-1 text-right text-[10px] ${message.direction === "outbound" ? "text-rose-100" : "text-slate-400"}`}>{new Date(message.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</p></div></div>)}
             <div ref={endRef} />
           </div>
           <div className="border-t border-rose-100 bg-white p-4">
