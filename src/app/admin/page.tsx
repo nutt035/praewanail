@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-browser";
 import { Booking, InventoryItem } from "@/lib/types";
-import { TrendingUp, CalendarCheck, PackageSearch, ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle, LayoutDashboard } from "lucide-react";
+import { TrendingUp, CalendarCheck, PackageSearch, ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle, FileCheck2, CalendarDays, MessageCircle, WalletCards } from "lucide-react";
 import Link from "next/link";
 
 // ฟังก์ชันคำนวณ start/end ของวันนี้ (UTC)
@@ -122,14 +122,39 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
-          <Link href="/office" className="btn-ghost flex-1 justify-center bg-white sm:flex-none">
-            <LayoutDashboard size={16} />
-            <span>Digital Office</span>
+          <Link href="/admin/data-review" className="btn-ghost flex-1 justify-center bg-white sm:flex-none">
+            <FileCheck2 size={16} />
+            <span>ตรวจข้อมูลร้าน</span>
           </Link>
           <Link href="/admin/booking" className="btn-primary flex-1 justify-center sm:flex-none">
             <ArrowRight size={16} />
             <span>ลงคิวใหม่</span>
           </Link>
+        </div>
+      </div>
+
+      {/* Quick actions formerly shown on the separate Office page */}
+      <div className="card p-5 sm:p-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-rose-400">ทางลัด</p>
+          <h3 className="mt-1 text-lg font-semibold text-brand-dark">จัดการร้านจากหน้าภาพรวม</h3>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {[
+            { href: "/admin/data-review", label: "ตรวจข้อมูลร้าน", detail: "ราคา เวลา มัดจำ นโยบาย", icon: FileCheck2 },
+            { href: "/admin/booking", label: "ลงคิวใหม่", detail: "เพิ่มนัดให้ลูกค้า", icon: ArrowRight },
+            { href: "/admin/calendar", label: "ตารางคิว", detail: "ดูและจัดการนัด", icon: CalendarDays },
+            { href: "/admin/chat", label: "แชทลูกค้า", detail: "ตอบข้อความลูกค้า", icon: MessageCircle },
+            { href: "/admin/finance", label: "การเงิน", detail: "รายรับและรายจ่าย", icon: WalletCards },
+          ].map((action) => (
+            <Link key={action.href} href={action.href} className="group rounded-2xl border border-pink-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
+                <action.icon size={18} />
+              </div>
+              <p className="mt-3 text-sm font-semibold text-brand-dark">{action.label}</p>
+              <p className="mt-1 text-[11px] text-slate-400">{action.detail}</p>
+            </Link>
+          ))}
         </div>
       </div>
 

@@ -86,8 +86,8 @@ export default function DataReviewForm({ initialReview }: Props) {
         <header className="rounded-[1.75rem] bg-[#1A1A1A] px-5 py-6 text-white shadow-[0_24px_70px_rgba(30,20,22,0.16)] md:px-8 md:py-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <Link href="/office" className="inline-flex items-center gap-1.5 text-xs text-white/55 transition hover:text-white">
-                <ArrowLeft size={14} /> กลับ Office
+              <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs text-white/55 transition hover:text-white">
+                <ArrowLeft size={14} /> กลับหน้าภาพรวม
               </Link>
               <div className="mt-5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#D8A0A8]">
                 <FileCheck2 size={14} /> Data Review
