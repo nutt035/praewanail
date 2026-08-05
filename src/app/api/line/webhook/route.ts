@@ -6,6 +6,8 @@ import { getOrCreateChatUser, saveChatMessage } from "@/lib/chat-service";
 import { rememberLineReplyToken } from "@/lib/server/line-reply-cache";
 import { createSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { detectLineImageMime, storeLineImage } from "@/lib/server/line-image-storage";
+import { resolveTelegramConfig } from "@/lib/server/telegram-config";
+import { sendTelegramPhoto } from "@/lib/telegram";
 const MAX_LINE_IMAGE_BYTES = 10 * 1024 * 1024;
 
 type LineWebhookEvent = {
@@ -21,6 +23,10 @@ function hasValidLineSignature(rawBody: string, signature: string | null) {
   const expected = Buffer.from(createHmac("sha256", channelSecret).update(rawBody).digest("base64"));
   const received = Buffer.from(signature);
   return expected.length === received.length && timingSafeEqual(expected, received);
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 async function deliverText(line: LineClient, userId: string, replyToken: string | undefined, text: string) {
@@ -74,12 +80,47 @@ export async function POST(req: NextRequest) {
         const mimeType = detectLineImageMime(imageBuffer);
         const stored = await storeLineImage(chatUserId, imageBuffer, mimeType);
         await saveChatMessage(chatUserId, "inbound", "รูปอ้างอิงจากลูกค้า", "image", stored.url);
+        await notifyReferenceImage(
+          supabase,
+          userId,
+          profile?.displayName || "ลูกค้า LINE",
+          imageBuffer,
+          mimeType,
+        );
       }
     }
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[LINE_WEBHOOK_ERROR]", error);
     return NextResponse.json({ message: "OK" });
+  }
+}
+
+async function notifyReferenceImage(
+  db: SupabaseClient,
+  lineUserId: string,
+  displayName: string,
+  imageBuffer: Buffer,
+  mimeType: "image/jpeg" | "image/png" | "image/webp",
+) {
+  const telegram = resolveTelegramConfig();
+  if (!telegram) return;
+
+  const { data: account } = await db.from("line_accounts").select("customer_id")
+    .eq("line_user_id", lineUserId).maybeSingle();
+  const { data: booking } = account?.customer_id
+    ? await db.from("bookings").select("booking_code")
+        .eq("customer_id", account.customer_id)
+        .order("created_at", { ascending: false }).limit(1).maybeSingle()
+    : { data: null };
+  const caption = `🖼️ <b>ลูกค้าส่งรูปเข้ามาใหม่</b>\nลูกค้า: ${escapeHtml(displayName)}`
+    + `\nคิว: ${escapeHtml(booking?.booking_code || "ยังไม่พบคิวที่เชื่อม")}`
+    + "\n\nเปิดหน้า Admin → แชท เพื่อดูและตอบลูกค้า";
+  const deliveries = await sendTelegramPhoto(
+    telegram.token, telegram.chatIds, imageBuffer, mimeType, caption,
+  );
+  if (deliveries.some((delivery) => !delivery.ok)) {
+    console.error("[LINE_IMAGE_TELEGRAM_FAILED]");
   }
 }
 
