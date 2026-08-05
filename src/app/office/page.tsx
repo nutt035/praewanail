@@ -48,6 +48,7 @@ function auditLabel(action: string) {
     "payment.slip.duplicate": "ตรวจพบสลิปซ้ำ",
     "payment.deposit.verified": "ยืนยันมัดจำสำเร็จ",
     "payment.deposit.underpaid": "ยอดมัดจำไม่ครบ",
+    "shop.data_review.confirmed": "ยืนยันข้อมูลกลางของร้าน",
   };
   return labels[action] || action;
 }
