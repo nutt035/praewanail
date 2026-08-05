@@ -14,6 +14,7 @@ services:
     restart: always
     environment:
       UPLOAD_DIR: /app/uploads
+      PRIVATE_UPLOAD_DIR: /app/private_uploads
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
       NEXT_PUBLIC_LINE_LIFF_ID: ${NEXT_PUBLIC_LINE_LIFF_ID}
@@ -23,12 +24,19 @@ services:
       LINE_CHANNEL_ID: ${LINE_CHANNEL_ID}
       LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
       LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
+      LINE_ADMIN_USER_IDS: ${LINE_ADMIN_USER_IDS}
       SLIPOK_API_KEY: ${SLIPOK_API_KEY}
+      SLIPOK_BRANCH_ID: ${SLIPOK_BRANCH_ID}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       OWNER_EMAIL: ${OWNER_EMAIL}
+      OFFICE_ENABLED: ${OFFICE_ENABLED:-true}
       LEGACY_ADMIN_AUTH_ENABLED: ${LEGACY_ADMIN_AUTH_ENABLED:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      CRON_SECRET: ${CRON_SECRET}
     volumes:
       - ./uploads:/app/uploads
+      - ./private_uploads:/app/private_uploads
     networks:
       - web-network
 
