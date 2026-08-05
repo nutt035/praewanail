@@ -62,7 +62,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/office");
+      router.replace("/admin");
       router.refresh();
     } catch {
       setError("ตรวจสอบรหัสไม่สำเร็จ กรุณาลองใหม่");

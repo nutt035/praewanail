@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-browser";
-import { Booking, InventoryItem, Transaction } from "@/lib/types";
-import { TrendingUp, CalendarCheck, PackageSearch, ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Booking, InventoryItem } from "@/lib/types";
+import { TrendingUp, CalendarCheck, PackageSearch, ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 
 // ฟังก์ชันคำนวณ start/end ของวันนี้ (UTC)
@@ -36,6 +36,11 @@ const statusConfig = {
   cancelled: { label: "ยกเลิก", class: "badge-cancelled", icon: XCircle },
 };
 
+type DashboardTransaction = {
+  amount: number;
+  bookings: { payment_method: string | null } | Array<{ payment_method: string | null }> | null;
+};
+
 export default function AdminDashboard() {
   const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
   const [todayIncome, setTodayIncome] = useState(0);
@@ -43,12 +48,7 @@ export default function AdminDashboard() {
   const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
   async function fetchDashboardData() {
-    setLoading(true);
     const { start, end } = getTodayRange();
 
     // ดึงคิววันนี้ พร้อม join customers + services
@@ -68,11 +68,12 @@ export default function AdminDashboard() {
       .gte("created_at", start)
       .lt("created_at", end);
 
-    const trans = (transactions as any[]) || [];
+    const trans = (transactions as DashboardTransaction[]) || [];
     const total = trans.reduce((sum, t) => sum + t.amount, 0);
     const byMethod = trans.reduce((acc, t) => {
-      const method = t.bookings?.payment_method || "cash";
-      if (acc[method] !== undefined) acc[method] += t.amount;
+      const booking = Array.isArray(t.bookings) ? t.bookings[0] : t.bookings;
+      const method = booking?.payment_method;
+      if (method === "cash" || method === "promptpay" || method === "transfer") acc[method] += t.amount;
       else acc.transfer += t.amount;
       return acc;
     }, { cash: 0, promptpay: 0, transfer: 0 });
@@ -93,6 +94,12 @@ export default function AdminDashboard() {
     setLoading(false);
   }
 
+  useEffect(() => {
+    // The loader updates state only after its first asynchronous Supabase query resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchDashboardData();
+  }, []);
+
   const completedCount = todayBookings.filter((b) => b.status === "completed").length;
   const estimatedRevenue = todayBookings.reduce(
     (sum, b) => sum + (b.total_price || b.services?.price || 0),
@@ -102,7 +109,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="page-title">สวัสดี! วันนี้ร้านเป็นยังไงบ้าง ✨</h2>
           <p className="page-subtitle">
@@ -114,10 +121,16 @@ export default function AdminDashboard() {
             })}
           </p>
         </div>
-        <Link href="/admin/booking" className="btn-primary">
-          <ArrowRight size={16} />
-          <span>ลงคิวใหม่</span>
-        </Link>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Link href="/office" className="btn-ghost flex-1 justify-center bg-white sm:flex-none">
+            <LayoutDashboard size={16} />
+            <span>Digital Office</span>
+          </Link>
+          <Link href="/admin/booking" className="btn-primary flex-1 justify-center sm:flex-none">
+            <ArrowRight size={16} />
+            <span>ลงคิวใหม่</span>
+          </Link>
+        </div>
       </div>
 
       {/* Stat Cards */}
@@ -246,7 +259,7 @@ export default function AdminDashboard() {
               const customerName = booking.customers?.name || "ลูกค้า";
               
               const promoTitle = booking.promotions?.title;
-              const servicesList = booking.booking_services?.map((s: any) => s.service_name).join(", ");
+              const servicesList = booking.booking_services?.map((service) => service.service_name).join(", ");
               let serviceName = "-";
               if (promoTitle && servicesList) serviceName = `[${promoTitle}] ${servicesList}`;
               else if (promoTitle) serviceName = promoTitle;
