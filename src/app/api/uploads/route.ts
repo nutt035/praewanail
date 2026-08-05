@@ -6,6 +6,7 @@ import { getOwnerUser } from "@/lib/server/owner-auth";
 import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), "uploads");
 const MIME_EXTENSIONS: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -48,21 +49,14 @@ export async function POST(req: NextRequest) {
     
     // Generate unique filename
     const filename = `${crypto.randomBytes(16).toString("hex")}${extension}`;
-    
-    // Ensure public/uploads directory exists
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    try {
-      await fs.access(uploadsDir);
-    } catch {
-      await fs.mkdir(uploadsDir, { recursive: true });
-    }
+    const folderPath = path.join(UPLOAD_DIR, "gallery");
+    await fs.mkdir(folderPath, { recursive: true });
 
-    // Save to public/uploads
-    const filePath = path.join(uploadsDir, filename);
+    // Save to persistent storage mounted by Docker.
+    const filePath = path.join(folderPath, filename);
     await fs.writeFile(filePath, buffer);
 
-    // Return the public URL
-    const url = `/uploads/${filename}`;
+    const url = `/uploads/gallery/${filename}`;
 
     return NextResponse.json({ url, success: true });
   } catch (error: unknown) {
