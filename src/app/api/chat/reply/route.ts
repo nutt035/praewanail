@@ -7,6 +7,7 @@ import { writeAuditLog } from "@/lib/server/audit-log";
 import { resolveLineConfig } from "@/lib/server/line-config";
 import { getOwnerUser } from "@/lib/server/owner-auth";
 import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
+import { takeLineReplyToken } from "@/lib/server/line-reply-cache";
 
 const replySchema = z.object({
   chatUserId: z.string().trim().min(1).max(100),
@@ -62,8 +63,24 @@ export async function POST(req: NextRequest) {
       if (!lineConfig) throw new Error("LINE is not configured");
 
       const line = new LineClient(lineConfig.accessToken);
-      const delivered = await line.pushMessage(user.platform_user_id, text);
+      const replyToken = takeLineReplyToken(chatUserId);
+      let deliveryMode: "reply" | "push" = "push";
+      let delivered = false;
+      if (replyToken) {
+        delivered = await line.replyMessage(replyToken, text);
+        if (delivered) deliveryMode = "reply";
+      }
+      if (!delivered) delivered = await line.pushMessage(user.platform_user_id, text);
       if (!delivered) throw new Error("LINE delivery failed");
+
+      await saveChatMessage(chatUserId, "outbound", text);
+      await supabase.from("chat_sessions").update({ status: "human" }).eq("chat_user_id", chatUserId);
+      await writeAuditLog({
+        action: "chat.reply.sent", actorType: "owner", actorUserId: owner.id,
+        actorEmail: owner.email, entityType: "chat_user", entityId: chatUserId,
+        metadata: { platform: user.platform, messageLength: text.length, deliveryMode }, request: req,
+      });
+      return NextResponse.json({ success: true, deliveryMode });
     } else if (user.platform === "facebook") {
       const pageAccessToken = process.env.FB_PAGE_ACCESS_TOKEN;
       if (!pageAccessToken) throw new Error("Facebook is not configured");

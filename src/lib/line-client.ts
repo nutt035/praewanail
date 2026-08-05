@@ -15,8 +15,22 @@ export class LineClient {
     return this.pushMessages(userId, [{ type: "text", text }]);
   }
 
+  /** Reply tokens are short-lived, but reply messages do not consume the monthly quota. */
+  async replyMessage(replyToken: string, text: string) {
+    const res = await fetch("https://api.line.me/v2/bot/message/reply", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.channelToken}`,
+      },
+      body: JSON.stringify({ replyToken, messages: [{ type: "text", text }] }),
+    });
+    if (!res.ok) console.error("[LINE_REPLY_ERROR]:", await res.text());
+    return res.ok;
+  }
+
   /** ส่งหลายข้อความ */
-  async pushMessages(userId: string, messages: any[]) {
+  async pushMessages(userId: string, messages: Array<Record<string, unknown>>) {
     const res = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
       headers: {

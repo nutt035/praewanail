@@ -1,262 +1,121 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase-browser";
-import { MessageSquare, Send, User, Bot, RefreshCw } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Bot, ChevronLeft, Loader2, MessageSquare, RefreshCw, Send, Sparkles, User } from "lucide-react";
 import toast from "react-hot-toast";
+import { supabase } from "@/lib/supabase-browser";
 
-interface ChatUser {
-  id: string;
-  platform: string;
-  platform_user_id: string;
-  display_name: string;
-  picture_url: string;
-  last_active: string;
-}
-
-interface ChatMessage {
-  id: string;
-  chat_user_id: string;
-  direction: "inbound" | "outbound";
-  content: string;
-  created_at: string;
-}
-
-interface ChatSession {
-  status: "bot" | "human";
-}
+type ChatUser = { id: string; platform: string; platform_user_id: string; display_name: string; picture_url: string; last_active: string };
+type ChatMessage = { id: string; chat_user_id: string; direction: "inbound" | "outbound"; content: string; created_at: string };
+type Suggestion = { label: string; text: string };
 
 export default function AdminChatDashboard() {
-  const [platformTab, setPlatformTab] = useState<"line" | "facebook">("line");
   const [users, setUsers] = useState<ChatUser[]>([]);
-  const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
+  const [selected, setSelected] = useState<ChatUser | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessionStatus, setSessionStatus] = useState<"bot" | "human">("bot");
-  const [inputText, setInputText] = useState("");
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sending, setSending] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [currentTime, setCurrentTime] = useState(0);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetchUsers();
-    // Subscribe to new messages (optional Realtime)
-    const channel = supabase.channel('chat_updates')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, payload => {
-        if (selectedUser && payload.new.chat_user_id === selectedUser.id) {
-          setMessages(prev => [...prev, payload.new as ChatMessage]);
-        }
-        fetchUsers(); // Refresh list to update last_active order
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [platformTab, selectedUser]);
-
-  useEffect(() => {
-    if (selectedUser) {
-      fetchMessages(selectedUser.id);
-      fetchSession(selectedUser.id);
-    }
-  }, [selectedUser]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const fetchUsers = async () => {
+  async function fetchUsers() {
     setLoading(true);
-    const { data } = await supabase
-      .from("chat_users")
-      .select("*")
-      .eq("platform", platformTab)
-      .order("last_active", { ascending: false });
-    
-    if (data) setUsers(data);
+    const { data } = await supabase.from("chat_users").select("*").eq("platform", "line").order("last_active", { ascending: false });
+    setUsers(data ?? []);
     setLoading(false);
-  };
+  }
 
-  const fetchMessages = async (userId: string) => {
-    const { data } = await supabase
-      .from("chat_messages")
-      .select("*")
-      .eq("chat_user_id", userId)
-      .order("created_at", { ascending: true });
-    if (data) setMessages(data);
-  };
+  async function fetchMessages(userId: string) {
+    const { data } = await supabase.from("chat_messages").select("*").eq("chat_user_id", userId).order("created_at", { ascending: true });
+    setMessages(data ?? []);
+  }
 
-  const fetchSession = async (userId: string) => {
-    const { data } = await supabase
-      .from("chat_sessions")
-      .select("status")
-      .eq("chat_user_id", userId)
-      .single();
-    if (data) setSessionStatus(data.status as "bot" | "human");
-  };
+  // Fetching remote inbox state is intentionally initiated when the page/user changes.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void fetchUsers(); }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (selected) void fetchMessages(selected.id); }, [selected]);
+  useEffect(() => {
+    const updateClock = () => setCurrentTime(Date.now());
+    updateClock();
+    const timer = window.setInterval(updateClock, 5_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    const channel = supabase.channel("line_inbox_updates").on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
+      const message = payload.new as ChatMessage;
+      if (selected?.id === message.chat_user_id) setMessages((current) => [...current, message]);
+      void fetchUsers();
+    }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [selected]);
 
-  const toggleSessionStatus = async () => {
-    if (!selectedUser) return;
-    const newStatus = sessionStatus === "bot" ? "human" : "bot";
-    await supabase.from("chat_sessions").update({ status: newStatus }).eq("chat_user_id", selectedUser.id);
-    setSessionStatus(newStatus);
-    toast.success(`เปลี่ยนโหมดเป็น ${newStatus === 'bot' ? 'AI Bot 🤖' : 'แอดมินตอบเอง 👩‍💻'}`);
-  };
+  const lastInbound = [...messages].reverse().find((message) => message.direction === "inbound");
+  const likelyFree = Boolean(lastInbound && currentTime - new Date(lastInbound.created_at).getTime() < 50_000);
 
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim() || !selectedUser) return;
-
-    const textToSend = inputText.trim();
-    setInputText("");
-
-    // Optimistic UI
-    const tempMsg: ChatMessage = {
-      id: Date.now().toString(),
-      chat_user_id: selectedUser.id,
-      direction: "outbound",
-      content: textToSend,
-      created_at: new Date().toISOString()
-    };
-    setMessages(prev => [...prev, tempMsg]);
-
-    const res = await fetch("/api/chat/reply", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chatUserId: selectedUser.id, text: textToSend })
+  async function generateSuggestions() {
+    if (!selected) return;
+    setSuggesting(true);
+    setSuggestions([]);
+    const response = await fetch("/api/chat/suggestions", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatUserId: selected.id }),
     });
+    const result = await response.json().catch(() => ({}));
+    setSuggesting(false);
+    if (!response.ok) return toast.error("ยังสร้างคำตอบแนะนำไม่ได้ กรุณาลองอีกครั้ง");
+    setSuggestions(result.suggestions ?? []);
+  }
 
-    if (!res.ok) {
-      toast.error("ส่งข้อความไม่สำเร็จ");
-      fetchMessages(selectedUser.id); // Revert
-    }
-  };
+  async function sendMessage(event: FormEvent) {
+    event.preventDefault();
+    if (!selected || !input.trim() || sending) return;
+    const text = input.trim();
+    setSending(true);
+    const response = await fetch("/api/chat/reply", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chatUserId: selected.id, text }),
+    });
+    const result = await response.json().catch(() => ({}));
+    setSending(false);
+    if (!response.ok) return toast.error("ส่งข้อความไม่สำเร็จ");
+    setInput("");
+    setSuggestions([]);
+    await fetchMessages(selected.id);
+    toast.success(result.deliveryMode === "reply" ? "ส่งแล้ว · ไม่ใช้โควตา LINE" : "ส่งแล้ว · ใช้โควตา LINE 1 ข้อความ");
+  }
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] bg-slate-900 text-slate-200 font-sans rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
-      {/* Sidebar - Chat List */}
-      <div className="w-1/3 border-r border-slate-800 bg-slate-900/50 flex flex-col">
-        {/* Header Tabs */}
-        <div className="flex p-4 gap-2 border-b border-slate-800">
-          <button 
-            onClick={() => { setPlatformTab("line"); setSelectedUser(null); }}
-            className={`flex-1 py-2 rounded-lg font-medium transition-colors ${platformTab === "line" ? "bg-green-600/20 text-green-400 border border-green-500/30" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
-          >
-            LINE
-          </button>
-          <button 
-            onClick={() => { setPlatformTab("facebook"); setSelectedUser(null); }}
-            className={`flex-1 py-2 rounded-lg font-medium transition-colors ${platformTab === "facebook" ? "bg-blue-600/20 text-blue-400 border border-blue-500/30" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}
-          >
-            Facebook
-          </button>
-        </div>
-        
-        {/* User List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {loading ? (
-            <div className="text-center p-4 text-slate-500"><RefreshCw className="animate-spin mx-auto mb-2" /> กำลังโหลด...</div>
-          ) : users.length === 0 ? (
-            <div className="text-center p-4 text-slate-500 text-sm">ไม่มีประวัติการสนทนา</div>
-          ) : (
-            users.map(u => (
-              <div 
-                key={u.id} 
-                onClick={() => setSelectedUser(u)}
-                className={`p-3 rounded-xl cursor-pointer flex items-center gap-3 transition-colors ${selectedUser?.id === u.id ? 'bg-slate-800 border border-slate-700' : 'hover:bg-slate-800/50 border border-transparent'}`}
-              >
-                {u.picture_url ? (
-                  <img src={u.picture_url} alt="Profile" className="w-10 h-10 rounded-full border border-slate-700" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
-                    <User size={20} />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-slate-200 truncate">{u.display_name || "ลูกค้า"}</div>
-                  <div className="text-xs text-slate-500 truncate">{new Date(u.last_active).toLocaleString('th-TH')}</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+    <section className="overflow-hidden rounded-3xl border border-rose-100 bg-white shadow-sm">
+      <header className="border-b border-rose-100 bg-gradient-to-r from-rose-50 to-white px-5 py-4">
+        <div className="flex items-center gap-3"><div className="rounded-2xl bg-[#06C755] p-2.5 text-white"><MessageSquare size={20} /></div><div><h1 className="font-serif text-xl text-slate-900">กล่องข้อความ LINE</h1><p className="text-xs text-slate-500">AI ช่วยร่าง คุณตรวจและกดส่งเองทุกครั้ง</p></div></div>
+      </header>
+      <div className="grid h-[calc(100vh-13rem)] min-h-[560px] md:grid-cols-[300px_1fr]">
+        <aside className={`${selected ? "hidden md:flex" : "flex"} flex-col border-r border-rose-100 bg-[#FCFAF8]`}>
+          <div className="flex-1 space-y-1 overflow-y-auto p-3">
+            {loading ? <div className="py-12 text-center text-sm text-slate-400"><RefreshCw className="mx-auto mb-2 animate-spin" />กำลังโหลด...</div> : users.length === 0 ? <div className="py-12 text-center text-sm text-slate-400">ยังไม่มีข้อความจากลูกค้า</div> : users.map((user) => (
+              <button key={user.id} onClick={() => { setSelected(user); setSuggestions([]); }} className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${selected?.id === user.id ? "bg-white shadow-sm ring-1 ring-rose-100" : "hover:bg-white"}`}>
+                {user.picture_url ? <img src={user.picture_url} alt="" className="h-11 w-11 rounded-full object-cover" /> : <span className="grid h-11 w-11 place-items-center rounded-full bg-rose-100 text-rose-500"><User size={18} /></span>}
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-slate-800">{user.display_name || "ลูกค้า LINE"}</span><span className="block text-xs text-slate-400">{new Date(user.last_active).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</span></span>
+              </button>
+            ))}
+          </div>
+        </aside>
+        {selected ? <main className="flex min-w-0 flex-col">
+          <div className="flex items-center gap-3 border-b border-rose-100 px-4 py-3"><button className="rounded-full p-2 hover:bg-rose-50 md:hidden" onClick={() => setSelected(null)}><ChevronLeft /></button><div className="font-semibold text-slate-800">{selected.display_name || "ลูกค้า LINE"}</div><span className="ml-auto rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">LINE</span></div>
+          <div className="flex-1 space-y-3 overflow-y-auto bg-[#FFFCFA] p-4 md:p-6">
+            {messages.map((message) => <div key={message.id} className={`flex ${message.direction === "outbound" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed md:max-w-[70%] ${message.direction === "outbound" ? "rounded-br-md bg-rose-500 text-white" : "rounded-bl-md border border-rose-100 bg-white text-slate-700 shadow-sm"}`}><p className="whitespace-pre-wrap">{message.content}</p><p className={`mt-1 text-right text-[10px] ${message.direction === "outbound" ? "text-rose-100" : "text-slate-400"}`}>{new Date(message.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</p></div></div>)}
+            <div ref={endRef} />
+          </div>
+          <div className="border-t border-rose-100 bg-white p-4">
+            <div className="mb-3 flex items-center justify-between gap-2"><button type="button" onClick={generateSuggestions} disabled={suggesting} className="flex items-center gap-2 rounded-full bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-60">{suggesting ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}ข้อเสนอแนะคำตอบ</button><span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${likelyFree ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>{likelyFree ? "มีโอกาสตอบฟรี" : "อาจใช้โควตา LINE"}</span></div>
+            {suggestions.length > 0 && <div className="mb-3 grid gap-2 md:grid-cols-3">{suggestions.map((suggestion) => <button key={suggestion.label} type="button" onClick={() => setInput(suggestion.text)} className="rounded-2xl border border-rose-100 p-3 text-left hover:border-rose-300 hover:bg-rose-50"><span className="mb-1 flex items-center gap-1 text-xs font-semibold text-rose-600"><Bot size={13} />{suggestion.label}</span><span className="line-clamp-3 text-xs leading-relaxed text-slate-600">{suggestion.text}</span></button>)}</div>}
+            <form onSubmit={sendMessage} className="flex items-end gap-2"><textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} placeholder="เลือกคำตอบแนะนำ หรือพิมพ์ข้อความเอง..." className="min-h-12 flex-1 resize-none rounded-2xl border border-rose-200 px-4 py-3 text-sm outline-none focus:border-rose-400" /><button disabled={!input.trim() || sending} className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-40">{sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}</button></form>
+          </div>
+        </main> : <div className="hidden place-items-center bg-[#FFFCFA] text-center text-slate-400 md:grid"><div><MessageSquare className="mx-auto mb-3 text-rose-200" size={48} /><p>เลือกลูกค้าเพื่อดูบทสนทนา</p></div></div>}
       </div>
-
-      {/* Main Chat Area */}
-      {selectedUser ? (
-        <div className="flex-1 flex flex-col bg-[#0f172a]">
-          {/* Chat Header */}
-          <div className="h-16 border-b border-slate-800 px-6 flex items-center justify-between bg-slate-900/80 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <div className="font-medium text-lg text-white">{selectedUser.display_name}</div>
-              <span className={`px-2 py-1 text-xs rounded-full border ${platformTab === 'line' ? 'bg-green-900/30 text-green-400 border-green-800' : 'bg-blue-900/30 text-blue-400 border-blue-800'}`}>
-                {platformTab.toUpperCase()}
-              </span>
-            </div>
-            
-            {/* Toggle AI / Human */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400">โหมดการตอบ:</span>
-              <button 
-                onClick={toggleSessionStatus}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  sessionStatus === 'bot' 
-                  ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30' 
-                  : 'bg-rose-600/20 text-rose-400 border border-rose-500/30 hover:bg-rose-600/30'
-                }`}
-              >
-                {sessionStatus === 'bot' ? <Bot size={16} /> : <User size={16} />}
-                {sessionStatus === 'bot' ? 'AI Bot ทำงาน' : 'แอดมินตอบเอง'}
-              </button>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((msg, i) => {
-              const isOut = msg.direction === "outbound";
-              return (
-                <div key={msg.id || i} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[70%] p-3 rounded-2xl ${
-                    isOut 
-                    ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-br-none shadow-lg shadow-indigo-900/20' 
-                    : 'bg-slate-800 text-slate-200 rounded-bl-none border border-slate-700 shadow-lg'
-                  }`}>
-                    {msg.content}
-                    <div className={`text-[10px] mt-1 ${isOut ? 'text-indigo-200' : 'text-slate-500'} text-right`}>
-                      {new Date(msg.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Area */}
-          <form onSubmit={sendMessage} className="p-4 bg-slate-900 border-t border-slate-800">
-            <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-full pr-2 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
-              <input
-                type="text"
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                placeholder="พิมพ์ข้อความตอบกลับ..."
-                className="flex-1 bg-transparent border-none outline-none py-3 px-6 text-slate-200 placeholder-slate-500"
-              />
-              <button 
-                type="submit" 
-                disabled={!inputText.trim()}
-                className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:hover:bg-indigo-600 transition-colors"
-              >
-                <Send size={18} className="ml-0.5" />
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-[#0f172a]">
-          <MessageSquare size={48} className="mb-4 opacity-20" />
-          <p>เลือกผู้ติดต่อเพื่อเริ่มแชท</p>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }

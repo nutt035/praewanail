@@ -5,6 +5,7 @@ import { LineClient } from "@/lib/line-client";
 import { getOrCreateChatUser, saveChatMessage } from "@/lib/chat-service";
 import { getSharedShopSettings } from "@/lib/server/shop-context";
 import { getDepositAmount } from "@/lib/types";
+import { rememberLineReplyToken } from "@/lib/server/line-reply-cache";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +14,7 @@ const supabase = createClient(
 
 type LineWebhookEvent = {
   type?: string;
+  replyToken?: string;
   source?: { userId?: string };
   message?: { type?: string; text?: string };
 };
@@ -74,6 +76,7 @@ export async function POST(req: NextRequest) {
         const chatUserId = await getOrCreateChatUser("line", userId, profile?.displayName, profile?.pictureUrl);
         if (chatUserId) {
           await saveChatMessage(chatUserId, "inbound", text);
+          if (event.replyToken) rememberLineReplyToken(chatUserId, event.replyToken);
         }
 
         // 2. ระบบจองคิว
