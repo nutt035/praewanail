@@ -3,6 +3,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { LineClient } from "@/lib/line-client";
 import { getOrCreateChatUser, saveChatMessage } from "@/lib/chat-service";
+import { getSharedShopSettings } from "@/lib/server/shop-context";
+import { getDepositAmount } from "@/lib/types";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -154,8 +156,10 @@ async function handleBookingLink(
       await line.sendWelcomeDesignRequest(userId, customerName);
     } else {
       // ยังไม่ชำระ → แจ้งให้ชำระก่อน
+      const sharedSettings = await getSharedShopSettings();
+      const depositAmount = getDepositAmount(sharedSettings);
       await line.pushMessage(userId,
-        `สวัสดีค่ะ คุณ${customerName}! 💅\n\nยืนยันตัวตนเรียบร้อยแล้วค่ะ\n\nกรุณาชำระมัดจำก่อนนะคะ แล้วส่งรูปแบบเล็บที่ต้องการมาได้เลย ✨`
+        `สวัสดีค่ะ คุณ${customerName}! 💅\n\nยืนยันตัวตนเรียบร้อยแล้วค่ะ\n\nกรุณาชำระมัดจำ ฿${depositAmount.toLocaleString("th-TH")} ก่อนนะคะ แล้วส่งรูปแบบเล็บที่ต้องการมาได้เลย ✨${sharedSettings.booking_policy ? `\n\n${sharedSettings.booking_policy}` : ""}`
       );
     }
   } catch (e) {

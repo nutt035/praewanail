@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
+  FileCheck2,
   Inbox,
   LayoutDashboard,
   MessageCircle,
@@ -78,6 +79,7 @@ export default async function OfficePage() {
     : 0;
 
   const quickActions = [
+    { href: "/office/data-review", label: "ตรวจข้อมูลร้าน", detail: "ราคา เวลา มัดจำ นโยบาย", icon: FileCheck2, accent: "bg-[#F3E6E7] text-[#9C5964]" },
     { href: "/admin/booking", label: "ลงคิวใหม่", detail: "เพิ่มนัดให้ลูกค้า", icon: Plus, accent: "bg-[#1A1A1A] text-white" },
     { href: "/admin/calendar", label: "ตารางคิว", detail: "ดูและจัดการนัด", icon: CalendarDays, accent: "bg-[#F3E6E7] text-[#9C5964]" },
     { href: "/admin/chat", label: "แชทลูกค้า", detail: "ตอบแชทที่รับช่วง", icon: MessageCircle, accent: "bg-[#EDF3F0] text-[#4A7562]" },
@@ -150,7 +152,7 @@ export default async function OfficePage() {
             </div>
             <Link href="/admin" className="hidden items-center gap-1 text-xs font-semibold text-[#9C5964] sm:flex">เปิดระบบเต็ม <ArrowRight size={14} /></Link>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
             {quickActions.map((action) => (
               <Link key={action.href} href={action.href} className="group rounded-2xl border border-[#EFE9E5] p-3.5 transition hover:-translate-y-0.5 hover:border-[#DDBFC3] hover:shadow-md md:p-4">
                 <div className="flex items-start justify-between gap-2">

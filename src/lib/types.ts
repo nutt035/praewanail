@@ -189,6 +189,7 @@ export const PUBLIC_SHOP_SETTING_KEYS = [
   "weekend_open_time", "weekend_close_time",
   "closed_weekdays", "closed_dates",
   "weekday_max_bookings", "weekend_max_bookings", "max_bookings_per_day",
+  "deposit_amount", "booking_policy", "cancellation_policy", "walk_in_policy", "repair_policy",
   "shop_name", "shop_phone", "shop_line_id", "shop_ig", "shop_fb",
   "points_per_booking", "points_rate_amount", "membership_tiers",
   "redeem_5_points_value", "redeem_10_points_value",
@@ -212,6 +213,11 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   closed_dates: "",
   weekday_max_bookings: "8",
   weekend_max_bookings: "10",
+  deposit_amount: "50",
+  booking_policy: "",
+  cancellation_policy: "",
+  walk_in_policy: "",
+  repair_policy: "",
   shop_name: "Antonette Nail",
   shop_phone: "",
   shop_line_id: "",
@@ -229,6 +235,11 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   ai_pricing_rules: "ทาสีเจลพื้นฐาน (สีพื้น/ลูกแก้ว/แฟลช): 250 บาท\nงานเพ้นท์ลาย (Hand-drawn): เริ่มต้นนิ้วละ 30 - 50 บาท (ตามความยาก)\nงานปั้นนูน 3D / ขัดผง: นิ้วละ 50 บาท\nติดอะไหล่/เพชร: ชิ้นเล็ก 10 บาท, ชิ้นใหญ่/อะไหล่พรีเมียม 30 - 50 บาท",
   promptpay_id: "",
 };
+
+export function getDepositAmount(settings: Record<string, string>): number {
+  const amount = Number(settings.deposit_amount);
+  return Number.isFinite(amount) && amount >= 0 ? Math.round(amount) : 50;
+}
 
 /** ช่วยหาเวลาเปิด-ปิดตามวันของสัปดาห์ */
 export function getOpenClose(date: Date, settings: Record<string, string>) {

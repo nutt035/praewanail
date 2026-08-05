@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateUniqueBookingCode } from "@/lib/booking-code";
-import { Promotion, Service } from "@/lib/types";
+import { getDepositAmount, Promotion, Service } from "@/lib/types";
 import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { getSharedShopSettings } from "@/lib/server/shop-context";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -119,7 +120,8 @@ export async function POST(req: NextRequest) {
     const endObj = new Date(startObj.getTime() + (totalDuration || 60) * 60 * 1000);
 
     const bookingCode = await generateUniqueBookingCode(supabase);
-    const DEPOSIT_AMOUNT = 50;
+    const sharedSettings = await getSharedShopSettings();
+    const depositAmount = getDepositAmount(sharedSettings);
 
     const { data: booking, error: bookErr } = await supabase
       .from("bookings")
@@ -131,7 +133,7 @@ export async function POST(req: NextRequest) {
         total_price: totalPrice,
         promotion_id: promotionId || null,
         booking_code: bookingCode,
-        deposit_required: DEPOSIT_AMOUNT,
+        deposit_required: depositAmount,
         deposit_paid: false,
         deposit: 0,
         notes: notes || null,
@@ -203,7 +205,7 @@ export async function POST(req: NextRequest) {
       success: true,
       bookingCode,
       bookingId: booking.id,
-      depositRequired: DEPOSIT_AMOUNT,
+      depositRequired: depositAmount,
       totalPrice,
     }, { status: 201 });
 

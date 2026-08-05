@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase-browser";
-import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, getOpenClose, isClosedDay, PUBLIC_SHOP_SETTING_KEYS } from "@/lib/types";
+import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, getDepositAmount, getOpenClose, isClosedDay, PUBLIC_SHOP_SETTING_KEYS } from "@/lib/types";
 import {
   Sparkles, ChevronLeft, ChevronRight, Check, Clock,
   CalendarDays, User, Phone, FileText, Loader2, ArrowRight, AlertCircle
@@ -14,7 +14,6 @@ const STEPS = ["โปรโมชั่น", "วัน-เวลา", "ข้�
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 const THAI_DAYS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
-const DEPOSIT = 50; // มัดจำตายตัวทุกคน
 const DEFAULT_DURATION = 120; // 120 นาที เป็นค่าเริ่มต้นในการบล็อคปฏิทิน
 
 export default function BookingPage() {
@@ -36,6 +35,7 @@ export default function BookingPage() {
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [dayBookingCounts, setDayBookingCounts] = useState<Record<number, number>>({});
   const [blockedSlotsMap, setBlockedSlotsMap] = useState<Record<string, Set<string>>>({});
+  const depositAmount = getDepositAmount(settings);
 
   useEffect(() => {
     (async () => {
@@ -266,7 +266,9 @@ export default function BookingPage() {
               <div>
                 <p className="text-sm font-bold text-brand-dark">แจ้งเรื่องการจองคิว</p>
                 <p className="text-xs text-slate-600 mt-1">
-                  การจองคิวออนไลน์มีค่ามัดจำ <span className="font-bold text-rose-500">50 บาท</span> เพื่อเป็นการล็อคคิวนะคะ (ใช้ลดเป็นค่าทำเล็บหน้างาน) <br/><br/>
+                  การจองคิวออนไลน์มีค่ามัดจำ <span className="font-bold text-rose-500">{depositAmount.toLocaleString("th-TH")} บาท</span> เพื่อเป็นการล็อคคิวนะคะ (ใช้ลดเป็นค่าทำเล็บหน้างาน) <br/><br/>
+                  {settings.booking_policy && <>{settings.booking_policy}<br/><br/></>}
+                  {settings.cancellation_policy && <>{settings.cancellation_policy}<br/><br/></>}
                   ลูกค้าสามารถกดเลือกเวลาว่างที่ต้องการได้เลย หลังจากจองคิวแล้วให้ส่งรหัสจองและรูปลายเล็บที่ต้องการให้แอดมินทางไลน์ เพื่อประเมินราคาจริงค่ะ
                 </p>
               </div>
@@ -419,7 +421,7 @@ export default function BookingPage() {
                 <span className="text-sm text-rose-500 font-medium">มัดจำ
                   <span className="text-xs text-slate-400 font-normal ml-1">(ชำระก่อนจองคิว)</span>
                 </span>
-                <span className="text-lg font-black text-rose-500">฿{DEPOSIT}</span>
+                <span className="text-lg font-black text-rose-500">฿{depositAmount.toLocaleString("th-TH")}</span>
               </div>
             </div>
             {/* วัน-เวลา + ข้อมูลจอง */}
@@ -449,7 +451,7 @@ export default function BookingPage() {
             </button>
           )}
           <div className="flex-1 text-right">
-            {step === 3 && <p className="text-xs text-slate-400">มัดจำ <span className="font-bold text-rose-500">฿{DEPOSIT}</span></p>}
+            {step === 3 && <p className="text-xs text-slate-400">มัดจำ <span className="font-bold text-rose-500">฿{depositAmount.toLocaleString("th-TH")}</span></p>}
           </div>
           {step < 3 ? (
             <button onClick={() => setStep(s => s + 1)} disabled={!canNext}
