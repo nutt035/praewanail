@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-browser";
-import { Booking, InventoryItem } from "@/lib/types";
-import { TrendingUp, CalendarCheck, PackageSearch, ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle, FileCheck2, CalendarDays, MessageCircle, WalletCards } from "lucide-react";
+import { Booking } from "@/lib/types";
+import { TrendingUp, CalendarCheck, ArrowRight, Clock, CheckCircle2, XCircle, FileCheck2, CalendarDays, MessageCircle, WalletCards } from "lucide-react";
 import Link from "next/link";
 
 // ฟังก์ชันคำนวณ start/end ของวันนี้ (UTC)
@@ -45,7 +45,6 @@ export default function AdminDashboard() {
   const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
   const [todayIncome, setTodayIncome] = useState(0);
   const [incomeByMethod, setIncomeByMethod] = useState({ cash: 0, promptpay: 0, transfer: 0 });
-  const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   async function fetchDashboardData() {
@@ -78,19 +77,9 @@ export default function AdminDashboard() {
       return acc;
     }, { cash: 0, promptpay: 0, transfer: 0 });
 
-    // ดึงสินค้าใกล้หมด
-    const { data: inventory } = await supabase
-      .from("inventory")
-      .select("id, quantity, min_threshold");
-
     setTodayBookings((bookings as Booking[]) || []);
     setTodayIncome(total);
     setIncomeByMethod(byMethod);
-    setLowStockCount(
-      ((inventory as InventoryItem[]) || []).filter(
-        (item) => item.quantity <= item.min_threshold
-      ).length
-    );
     setLoading(false);
   }
 
@@ -159,7 +148,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {/* คิววันนี้ */}
         <div className="stat-card">
           <div className="flex items-start justify-between">
@@ -219,34 +208,6 @@ export default function AdminDashboard() {
           )}
           </div>
 
-          {/* สต็อกใกล้หมด */}
-        <div className="stat-card">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">สต็อกใกล้หมด</p>
-              {loading ? (
-                <div className="h-8 w-12 bg-pink-100 rounded animate-pulse mt-2" />
-              ) : (
-                <p className={`text-3xl font-bold mt-1 ${lowStockCount > 0 ? "text-rose-500" : "text-emerald-500"}`}>
-                  {lowStockCount}
-                  <span className="text-sm font-normal text-slate-400 ml-1">รายการ</span>
-                </p>
-              )}
-              <p className="text-xs text-slate-400 mt-1">
-                {lowStockCount > 0 ? "ต้องเติมสต็อก" : "สต็อกปกติ"}
-              </p>
-            </div>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${lowStockCount > 0 ? "bg-rose-50" : "bg-emerald-50"}`}>
-              <PackageSearch size={20} className={lowStockCount > 0 ? "text-rose-500" : "text-emerald-500"} />
-            </div>
-          </div>
-          {lowStockCount > 0 && (
-            <Link href="/admin/inventory" className="mt-3 flex items-center gap-1 text-xs text-rose-500 hover:underline font-medium">
-              <AlertCircle size={12} />
-              ดูรายการสต็อก →
-            </Link>
-          )}
-        </div>
       </div>
 
       {/* Today's Bookings */}
