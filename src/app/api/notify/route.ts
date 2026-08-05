@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { hasOwnerSession } from "@/lib/server/owner-auth";
 import { resolveLineConfig } from "@/lib/server/line-config";
 import { resolveTelegramConfig } from "@/lib/server/telegram-config";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
 
 const notifySchema = z.object({
   message: z.string().trim().min(1).max(4096).optional(),
@@ -15,9 +16,14 @@ const notifySchema = z.object({
   message: "A message is required",
 });
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   if (!(await hasOwnerSession())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!hasSameOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  const rate = takeRateLimit(request, "owner-notify", 30, 10 * 60 * 1000);
+  if (!rate.allowed) {
+    return NextResponse.json({ error: "Too many notification requests" }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
   }
 
   try {

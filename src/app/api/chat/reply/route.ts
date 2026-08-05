@@ -6,6 +6,7 @@ import { LineClient } from "@/lib/line-client";
 import { writeAuditLog } from "@/lib/server/audit-log";
 import { resolveLineConfig } from "@/lib/server/line-config";
 import { getOwnerUser } from "@/lib/server/owner-auth";
+import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
 
 const replySchema = z.object({
   chatUserId: z.string().trim().min(1).max(100),
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
   const owner = await getOwnerUser();
   if (!owner) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!hasSameOrigin(req)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  const rate = takeRateLimit(req, "owner-chat-reply", 60, 10 * 60 * 1000);
+  if (!rate.allowed) {
+    return NextResponse.json({ error: "Too many chat replies" }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
   }
 
   const parsed = replySchema.safeParse(await req.json().catch(() => null));

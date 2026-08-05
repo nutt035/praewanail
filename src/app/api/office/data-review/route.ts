@@ -3,6 +3,7 @@ import { z } from "zod";
 import { confirmDataReview, getDataReviewData } from "@/lib/server/data-review";
 import { getOwnerUser } from "@/lib/server/owner-auth";
 import { writeAuditLog } from "@/lib/server/audit-log";
+import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const policySchema = z.string().trim().min(10).max(2000);
@@ -23,33 +24,6 @@ function minutes(value: string) {
   return hours * 60 + minute;
 }
 
-function hasValidOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true;
-
-  try {
-    const originHost = new URL(origin).host.toLowerCase();
-    const forwardedHost = request.headers.get("x-forwarded-host")
-      ?.split(",")[0]
-      ?.trim()
-      .toLowerCase();
-    const requestHost = request.headers.get("host")?.toLowerCase();
-    const configuredHost = process.env.NEXT_PUBLIC_SITE_URL
-      ? new URL(process.env.NEXT_PUBLIC_SITE_URL).host.toLowerCase()
-      : null;
-    const browserReportsSameOrigin = request.headers.get("sec-fetch-site") === "same-origin";
-
-    return browserReportsSameOrigin || [
-      forwardedHost,
-      requestHost,
-      request.nextUrl.host.toLowerCase(),
-      configuredHost,
-    ].some((host) => Boolean(host) && host === originHost);
-  } catch {
-    return false;
-  }
-}
-
 export async function GET() {
   const owner = await getOwnerUser();
   if (!owner) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -65,7 +39,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const owner = await getOwnerUser();
   if (!owner) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!hasValidOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  if (!hasSameOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  const rate = takeRateLimit(request, "owner-data-review", 10, 10 * 60 * 1000);
+  if (!rate.allowed) {
+    return NextResponse.json({ error: "Too many Data Review requests" }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
+  }
 
   const parsed = confirmSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
