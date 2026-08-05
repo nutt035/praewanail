@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import { supabase } from "@/lib/supabase";
 import { getOwnerUser } from "@/lib/server/owner-auth";
 import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
 import { getSharedShopSettings } from "@/lib/server/shop-context";
+import { createSupabaseAdminClient } from "@/lib/server/supabase-admin";
 
 const schema = z.object({ chatUserId: z.string().uuid() });
 const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
   if (!rate.allowed) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success || !ai) return NextResponse.json({ error: "Suggestions unavailable" }, { status: 400 });
+
+  const supabase = createSupabaseAdminClient();
 
   const { data: messages } = await supabase.from("chat_messages")
     .select("direction,content,created_at")

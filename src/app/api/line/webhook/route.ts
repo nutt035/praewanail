@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { LineClient } from "@/lib/line-client";
 import { getOrCreateChatUser, saveChatMessage } from "@/lib/chat-service";
 import { getSharedShopSettings } from "@/lib/server/shop-context";
 import { getDepositAmount } from "@/lib/types";
 import { rememberLineReplyToken } from "@/lib/server/line-reply-cache";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-);
+import { createSupabaseAdminClient } from "@/lib/server/supabase-admin";
 
 type LineWebhookEvent = {
   type?: string;
@@ -34,6 +30,7 @@ function hasValidLineSignature(rawBody: string, signature: string | null): boole
 /** LINE Webhook Handler */
 export async function POST(req: NextRequest) {
   try {
+    const supabase = createSupabaseAdminClient();
     const rawBody = await req.text();
     const signature = req.headers.get("x-line-signature");
 

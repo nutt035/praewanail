@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { supabase } from "@/lib/supabase";
 import { saveChatMessage } from "@/lib/chat-service";
 import { LineClient } from "@/lib/line-client";
 import { writeAuditLog } from "@/lib/server/audit-log";
@@ -8,6 +7,7 @@ import { resolveLineConfig } from "@/lib/server/line-config";
 import { getOwnerUser } from "@/lib/server/owner-auth";
 import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
 import { takeLineReplyToken } from "@/lib/server/line-reply-cache";
+import { createSupabaseAdminClient } from "@/lib/server/supabase-admin";
 
 const replySchema = z.object({
   chatUserId: z.string().trim().min(1).max(100),
@@ -15,6 +15,7 @@ const replySchema = z.object({
 });
 
 async function loadLineConfig() {
+  const supabase = createSupabaseAdminClient();
   const environmentConfig = resolveLineConfig();
   if (environmentConfig) return environmentConfig;
 
@@ -47,6 +48,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const supabase = createSupabaseAdminClient();
     const { chatUserId, text } = parsed.data;
     const { data: user, error } = await supabase
       .from("chat_users")
