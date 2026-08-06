@@ -10,7 +10,13 @@ const prompt = Prompt({
 
 export const metadata: Metadata = {
   title: "Antonette Nail",
+  applicationName: "Antonette Nail",
   description: "ร้านทำเล็บ Antonette Nail — จองคิวออนไลน์ง่ายๆ",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Antonette Nail",
+  },
 };
 
 export default function RootLayout({

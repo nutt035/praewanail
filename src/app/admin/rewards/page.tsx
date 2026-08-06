@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Reward } from "@/lib/types";
 import { Plus, Edit2, Trash2, Gift, Save, X } from "lucide-react";
 import toast from "react-hot-toast";

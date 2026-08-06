@@ -1,14 +1,39 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
+import { hasOwnerSession } from "@/lib/server/owner-auth";
+import { resolveLineConfig } from "@/lib/server/line-config";
+import { resolveTelegramConfig } from "@/lib/server/telegram-config";
+import { sendTelegramMessage } from "@/lib/telegram";
+import { hasSameOrigin, takeRateLimit } from "@/lib/server/request-security";
 
-export async function POST(request: Request) {
+const notifySchema = z.object({
+  message: z.string().trim().min(1).max(4096).optional(),
+  imageUrl: z.string().url().max(2048).optional(),
+  to: z.string().trim().min(1).max(255).optional(),
+  messages: z.array(z.unknown()).min(1).max(5).optional(),
+}).refine((body) => Boolean(body.message || body.messages), {
+  message: "A message is required",
+});
+
+export async function POST(request: NextRequest) {
+  if (!(await hasOwnerSession())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!hasSameOrigin(request)) return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  const rate = takeRateLimit(request, "owner-notify", 30, 10 * 60 * 1000);
+  if (!rate.allowed) {
+    return NextResponse.json({ error: "Too many notification requests" }, { status: 429, headers: { "Retry-After": String(rate.retryAfterSeconds) } });
+  }
+
   try {
-    const body = await request.json();
-    const { message, imageUrl, to, messages: customMessages } = body;
-
-    if (!message && !customMessages) {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+    const parsed = notifySchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid notification request" }, { status: 400 });
     }
+
+    const body = parsed.data;
+    const { message, imageUrl, to, messages: customMessages } = body;
 
     // 1. Fetch shop settings
     const { data: settingsData, error: settingsError } = await supabase
@@ -22,36 +47,47 @@ export async function POST(request: Request) {
     const settings = settingsToMap(settingsData);
 
     // 2. Telegram Logic (Always send to admin if configured)
-    const telegramToken = settings.telegram_bot_token;
-    const telegramChatId = settings.telegram_chat_id;
+    const telegramConfig = resolveTelegramConfig(settings);
+    const telegramToken = telegramConfig?.token;
+    const telegramChatId = telegramConfig?.chatIds;
 
-    if (telegramToken && telegramChatId) { 
-      const chatIds = String(telegramChatId).split(",").map((id: string) => id.trim()).filter(Boolean);
-      await Promise.all(chatIds.map(async (id) => {
-        const url = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
-        try {
-          await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: id,
-              text: message,
-              parse_mode: "HTML",
-              disable_web_page_preview: true
-            })
-          });
-        } catch (e) { console.error("Telegram error:", e); }
-      }));
-    }
+    const telegramResults = telegramToken && telegramChatId && message
+      ? await sendTelegramMessage(telegramToken, telegramChatId, message)
+      : [];
+    const telegramFailed = telegramResults.some((result) => !result.ok);
+    const telegramSummary = telegramResults.map(({ ok, status, error }) => ({
+      ok,
+      status,
+      ...(error ? { error } : {}),
+    }));
 
     // 3. LINE Logic
-    const channelToken = settings.line_channel_token;
-    if (!channelToken) return NextResponse.json({ success: true, warning: "No LINE token configured" });
+    const lineConfig = resolveLineConfig(settings);
+    const channelToken = lineConfig?.accessToken;
+    if (!channelToken) {
+      return NextResponse.json(
+        {
+          success: !telegramFailed,
+          telegram: telegramSummary,
+          warning: "No LINE token configured",
+        },
+        { status: telegramFailed ? 502 : 200 },
+      );
+    }
 
     // ผู้รับ: ถ้ามี 'to' (ส่งลูกค้า) แต่ถ้าไม่มี 'to' ให้ส่ง admin LINE (เฉพาะกรณีไม่มี Telegram)
-    const recipients = to ? [to] : (telegramToken ? [] : (settings.admin_line_uid || "").split(",").map((s: string) => s.trim()).filter(Boolean));
+    const recipients = to ? [to] : (telegramToken ? [] : (lineConfig?.adminUserIds || "").split(",").map((s) => s.trim()).filter(Boolean));
 
-    if (recipients.length === 0) return NextResponse.json({ success: true, message: "Telegram sent, no LINE recipients needed" });
+    if (recipients.length === 0) {
+      return NextResponse.json(
+        {
+          success: !telegramFailed,
+          telegram: telegramSummary,
+          message: "No LINE recipients needed",
+        },
+        { status: telegramFailed ? 502 : 200 },
+      );
+    }
 
     const lineMessages = customMessages || [{ type: "text", text: message }];
     if (!customMessages && imageUrl) {
@@ -81,13 +117,20 @@ export async function POST(request: Request) {
           status: res.status,
           error: errorBody
         };
-      } catch (err: any) { 
-        console.error(`[LINE_FETCH_ERROR]`, err);
-        return { uid: target, ok: false, error: err.message || err }; 
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "LINE request failed";
+        console.error(`[LINE_FETCH_ERROR]`, { error: message });
+        return { uid: target, ok: false, error: message };
       }
     }));
 
-    return NextResponse.json({ success: true, results });
+    const lineFailed = results.some((result) => !result.ok);
+    const failed = telegramFailed || lineFailed;
+
+    return NextResponse.json(
+      { success: !failed, telegram: telegramSummary, line: results },
+      { status: failed ? 502 : 200 },
+    );
 
   } catch (error) {
     console.error("Notify Dispatcher Error:", error);
@@ -96,8 +139,8 @@ export async function POST(request: Request) {
 }
 
 // Helper to flatten shop_settings table (since it's key-value pairs)
-function settingsToMap(data: any[]) {
-  const map: Record<string, any> = {};
+function settingsToMap(data: Array<{ key: string; value: unknown }>) {
+  const map: Record<string, unknown> = {};
   data.forEach(item => {
     map[item.key] = item.value;
   });

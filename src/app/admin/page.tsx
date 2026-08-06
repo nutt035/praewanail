@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { Booking, InventoryItem, Transaction } from "@/lib/types";
-import { TrendingUp, CalendarCheck, PackageSearch, ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase-browser";
+import { Booking } from "@/lib/types";
+import { TrendingUp, CalendarCheck, ArrowRight, Clock, CheckCircle2, XCircle, FileCheck2, CalendarDays, MessageCircle, WalletCards } from "lucide-react";
 import Link from "next/link";
 
 // ฟังก์ชันคำนวณ start/end ของวันนี้ (UTC)
@@ -36,19 +36,18 @@ const statusConfig = {
   cancelled: { label: "ยกเลิก", class: "badge-cancelled", icon: XCircle },
 };
 
+type DashboardTransaction = {
+  amount: number;
+  bookings: { payment_method: string | null } | Array<{ payment_method: string | null }> | null;
+};
+
 export default function AdminDashboard() {
   const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
   const [todayIncome, setTodayIncome] = useState(0);
   const [incomeByMethod, setIncomeByMethod] = useState({ cash: 0, promptpay: 0, transfer: 0 });
-  const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
   async function fetchDashboardData() {
-    setLoading(true);
     const { start, end } = getTodayRange();
 
     // ดึงคิววันนี้ พร้อม join customers + services
@@ -68,30 +67,27 @@ export default function AdminDashboard() {
       .gte("created_at", start)
       .lt("created_at", end);
 
-    const trans = (transactions as any[]) || [];
+    const trans = (transactions as DashboardTransaction[]) || [];
     const total = trans.reduce((sum, t) => sum + t.amount, 0);
     const byMethod = trans.reduce((acc, t) => {
-      const method = t.bookings?.payment_method || "cash";
-      if (acc[method] !== undefined) acc[method] += t.amount;
+      const booking = Array.isArray(t.bookings) ? t.bookings[0] : t.bookings;
+      const method = booking?.payment_method;
+      if (method === "cash" || method === "promptpay" || method === "transfer") acc[method] += t.amount;
       else acc.transfer += t.amount;
       return acc;
     }, { cash: 0, promptpay: 0, transfer: 0 });
 
-    // ดึงสินค้าใกล้หมด
-    const { data: inventory } = await supabase
-      .from("inventory")
-      .select("id, quantity, min_threshold");
-
     setTodayBookings((bookings as Booking[]) || []);
     setTodayIncome(total);
     setIncomeByMethod(byMethod);
-    setLowStockCount(
-      ((inventory as InventoryItem[]) || []).filter(
-        (item) => item.quantity <= item.min_threshold
-      ).length
-    );
     setLoading(false);
   }
+
+  useEffect(() => {
+    // The loader updates state only after its first asynchronous Supabase query resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchDashboardData();
+  }, []);
 
   const completedCount = todayBookings.filter((b) => b.status === "completed").length;
   const estimatedRevenue = todayBookings.reduce(
@@ -102,7 +98,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="page-title">สวัสดี! วันนี้ร้านเป็นยังไงบ้าง ✨</h2>
           <p className="page-subtitle">
@@ -114,14 +110,45 @@ export default function AdminDashboard() {
             })}
           </p>
         </div>
-        <Link href="/admin/booking" className="btn-primary">
-          <ArrowRight size={16} />
-          <span>ลงคิวใหม่</span>
-        </Link>
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Link href="/admin/data-review" className="btn-ghost flex-1 justify-center bg-white sm:flex-none">
+            <FileCheck2 size={16} />
+            <span>ตรวจข้อมูลร้าน</span>
+          </Link>
+          <Link href="/admin/booking" className="btn-primary flex-1 justify-center sm:flex-none">
+            <ArrowRight size={16} />
+            <span>ลงคิวใหม่</span>
+          </Link>
+        </div>
+      </div>
+
+      {/* Quick actions formerly shown on the separate Office page */}
+      <div className="card p-5 sm:p-6">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-rose-400">ทางลัด</p>
+          <h3 className="mt-1 text-lg font-semibold text-brand-dark">จัดการร้านจากหน้าภาพรวม</h3>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {[
+            { href: "/admin/data-review", label: "ตรวจข้อมูลร้าน", detail: "ราคา เวลา มัดจำ นโยบาย", icon: FileCheck2 },
+            { href: "/admin/booking", label: "ลงคิวใหม่", detail: "เพิ่มนัดให้ลูกค้า", icon: ArrowRight },
+            { href: "/admin/calendar", label: "ตารางคิว", detail: "ดูและจัดการนัด", icon: CalendarDays },
+            { href: "/admin/chat", label: "แชทลูกค้า", detail: "ตอบข้อความลูกค้า", icon: MessageCircle },
+            { href: "/admin/finance", label: "การเงิน", detail: "รายรับและรายจ่าย", icon: WalletCards },
+          ].map((action) => (
+            <Link key={action.href} href={action.href} className="group rounded-2xl border border-pink-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-500">
+                <action.icon size={18} />
+              </div>
+              <p className="mt-3 text-sm font-semibold text-brand-dark">{action.label}</p>
+              <p className="mt-1 text-[11px] text-slate-400">{action.detail}</p>
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         {/* คิววันนี้ */}
         <div className="stat-card">
           <div className="flex items-start justify-between">
@@ -181,34 +208,6 @@ export default function AdminDashboard() {
           )}
           </div>
 
-          {/* สต็อกใกล้หมด */}
-        <div className="stat-card">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">สต็อกใกล้หมด</p>
-              {loading ? (
-                <div className="h-8 w-12 bg-pink-100 rounded animate-pulse mt-2" />
-              ) : (
-                <p className={`text-3xl font-bold mt-1 ${lowStockCount > 0 ? "text-rose-500" : "text-emerald-500"}`}>
-                  {lowStockCount}
-                  <span className="text-sm font-normal text-slate-400 ml-1">รายการ</span>
-                </p>
-              )}
-              <p className="text-xs text-slate-400 mt-1">
-                {lowStockCount > 0 ? "ต้องเติมสต็อก" : "สต็อกปกติ"}
-              </p>
-            </div>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${lowStockCount > 0 ? "bg-rose-50" : "bg-emerald-50"}`}>
-              <PackageSearch size={20} className={lowStockCount > 0 ? "text-rose-500" : "text-emerald-500"} />
-            </div>
-          </div>
-          {lowStockCount > 0 && (
-            <Link href="/admin/inventory" className="mt-3 flex items-center gap-1 text-xs text-rose-500 hover:underline font-medium">
-              <AlertCircle size={12} />
-              ดูรายการสต็อก →
-            </Link>
-          )}
-        </div>
       </div>
 
       {/* Today's Bookings */}
@@ -246,7 +245,7 @@ export default function AdminDashboard() {
               const customerName = booking.customers?.name || "ลูกค้า";
               
               const promoTitle = booking.promotions?.title;
-              const servicesList = booking.booking_services?.map((s: any) => s.service_name).join(", ");
+              const servicesList = booking.booking_services?.map((service) => service.service_name).join(", ");
               let serviceName = "-";
               if (promoTitle && servicesList) serviceName = `[${promoTitle}] ${servicesList}`;
               else if (promoTitle) serviceName = promoTitle;

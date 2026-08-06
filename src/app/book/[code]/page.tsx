@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { supabase } from "@/lib/supabase";
-import { settingsToMap, DEFAULT_SETTINGS, ShopSettings } from "@/lib/types";
+import { supabase } from "@/lib/supabase-browser";
+import { settingsToMap, DEFAULT_SETTINGS, PUBLIC_SHOP_SETTING_KEYS, ShopSettings } from "@/lib/types";
 import { generatePromptPayPayload } from "@/lib/promptpay";
 import {
   Sparkles, CheckCircle2, Clock, CalendarDays, Upload, Loader2,
@@ -39,7 +39,7 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
   }
 
   async function fetchSettings() {
-    const { data } = await supabase.from("shop_settings").select("*");
+    const { data } = await supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]);
     if (data && data.length > 0) setSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) });
   }
 

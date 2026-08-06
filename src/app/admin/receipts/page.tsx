@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import { Receipt, Search, X, Printer, Clock, User, Scissors, Banknote, CalendarDays, CreditCard } from "lucide-react";
 

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
+import { supabase } from "@/lib/supabase-browser";
+import { Booking, ShopSettings, settingsToMap, DEFAULT_SETTINGS, PUBLIC_SHOP_SETTING_KEYS } from "@/lib/types";
 import { CheckCircle2, Scissors, Calendar, Clock, CreditCard, Sparkles, MapPin, Phone, User, Star, Gift, ChevronLeft, Printer, Trophy } from "lucide-react";
 import Link from "next/link";
 
@@ -40,7 +40,7 @@ export default function PublicReceiptPage() {
   }
 
   async function fetchShopSettings() {
-    const { data } = await supabase.from("shop_settings").select("*");
+    const { data } = await supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]);
     if (data && data.length > 0) {
       setShopSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) });
     }

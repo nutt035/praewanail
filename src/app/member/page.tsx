@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Search, Trophy, Phone, User, Calendar, Star, Sparkles, ChevronLeft, CreditCard, Gift, Loader2, Clock, Plus } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
-import { Reward, CustomerCoupon, Customer, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
+import { Reward, CustomerCoupon, Customer, ShopSettings, settingsToMap, DEFAULT_SETTINGS, PUBLIC_SHOP_SETTING_KEYS, Review } from "@/lib/types";
 import liff from "@line/liff";
 
 function MemberContent() {
@@ -52,7 +52,7 @@ function MemberContent() {
     }
 
     (async () => {
-      const { data: setData } = await supabase.from("shop_settings").select("*");
+      const { data: setData } = await supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]);
       if (setData && setData.length > 0) setSettings({ ...DEFAULT_SETTINGS, ...settingsToMap(setData as ShopSettings[]) });
 
       const rewardsRes = await supabase.from("rewards").select("*").eq("is_active", true).order("points_required", { ascending: true });
@@ -125,7 +125,7 @@ function MemberContent() {
       if (existingCust) {
         // มีประวัติแล้ว เข้าสู่ระบบได้เลย
         setCustomer(existingCust);
-        const { data: latestSettings } = await supabase.from("shop_settings").select("*");
+        const { data: latestSettings } = await supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]);
         const settingsMap = latestSettings ? { ...DEFAULT_SETTINGS, ...settingsToMap(latestSettings) } : settings;
         fetchCustomerData(existingCust.id, existingCust.points, settingsMap);
 
@@ -203,7 +203,8 @@ function MemberContent() {
     }
     if (coupons) {
       coupons.forEach(c => {
-        history.push({ id: `cpn-${c.id}`, date: c.created_at, title: `แลกคูปอง: ${c.rewards?.title || "รางวัล"}`, points: -(c.rewards?.points_required || 0), type: "redeem" });
+        const couponReward = Array.isArray(c.rewards) ? c.rewards[0] : c.rewards;
+        history.push({ id: `cpn-${c.id}`, date: c.created_at, title: `แลกคูปอง: ${couponReward?.title || "รางวัล"}`, points: -(couponReward?.points_required || 0), type: "redeem" });
       });
     }
     setPointsHistory(history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -244,7 +245,7 @@ function MemberContent() {
         setCustomer(data);
         
         // ดึงข้อมูลการตั้งค่าล่าสุดด้วยเพื่อให้คำนวณประวัติแต้มถูก
-        const { data: latestSettings } = await supabase.from("shop_settings").select("*");
+        const { data: latestSettings } = await supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]);
         const settingsMap = latestSettings ? { ...DEFAULT_SETTINGS, ...settingsToMap(latestSettings) } : settings;
 
         fetchCustomerData(data.id, data.points, settingsMap);
@@ -384,7 +385,7 @@ function MemberContent() {
 
       // 3. Update UI
       setCustomer({ ...customer, points: newPoints });
-      await fetchCustomerData(customer.id);
+      await fetchCustomerData(customer.id, newPoints, settings);
       toast.success("แลกคูปองสำเร็จ! ดูได้ที่ 'คูปองของฉัน'", { id: toastId });
     } catch (err) {
       toast.error("เกิดข้อผิดพลาดในการแลกคูปอง", { id: toastId });

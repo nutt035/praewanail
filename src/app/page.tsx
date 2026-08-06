@@ -1,6 +1,6 @@
-import { Sparkles, MapPin, Camera, Star, BookOpen, CalendarHeart, Award, Search, HelpCircle, ChevronRight, Tag, Percent, Banknote, Megaphone } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, Review } from "@/lib/types";
+import { Sparkles, MapPin, Camera, Star, BookOpen, CalendarHeart, Award, Search, HelpCircle, ChevronRight, Banknote, Megaphone } from "lucide-react";
+import { supabase } from "@/lib/supabase-browser";
+import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, PUBLIC_SHOP_SETTING_KEYS, Review } from "@/lib/types";
 import Link from "next/link";
 import CustomerCalendar from "@/components/CustomerCalendar";
 
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 async function getSettings(): Promise<Record<string, string>> {
-  const { data } = await supabase.from("shop_settings").select("*");
+  const { data } = await supabase.from("shop_settings").select("*").in("key", [...PUBLIC_SHOP_SETTING_KEYS]);
   if (data && data.length > 0) return { ...DEFAULT_SETTINGS, ...settingsToMap(data as ShopSettings[]) };
   return DEFAULT_SETTINGS;
 }
@@ -109,17 +109,17 @@ export default async function Home() {
                       <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-inner ${promo.promotion_type === "discount" ? "bg-violet-100" :
                         promo.promotion_type === "buffet" || promo.promotion_type === "bundle" ? "bg-emerald-100" : "bg-rose-100"
                         }`}>
-                        {promo.promotion_type === "discount" && <Percent size={20} className="text-violet-600" />}
-                        {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" && <Banknote size={20} className="text-emerald-600" />}
+                        {promo.promotion_type === "discount" && <Banknote size={20} className="text-violet-600" />}
+                        {(promo.promotion_type === "buffet" || promo.promotion_type === "bundle") && <Banknote size={20} className="text-emerald-600" />}
                         {promo.promotion_type !== "discount" && promo.promotion_type !== "buffet" && promo.promotion_type !== "bundle" && <Megaphone size={20} className="text-rose-600" />}
                       </div>
                       <div>
                         <h3 className="font-bold text-gray-900 line-clamp-1">{promo.title}</h3>
                         {promo.promotion_type === "discount" && promo.price > 0 && (
-                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">ลด {promo.price}%</span>
+                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">ลด ฿{promo.price.toLocaleString("th-TH")}</span>
                         )}
-                        {promo.promotion_type === "buffet" || promo.promotion_type === "bundle" && promo.price > 0 && (
-                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">ราคา ฿{promo.price}</span>
+                        {(promo.promotion_type === "buffet" || promo.promotion_type === "bundle") && promo.price > 0 && (
+                          <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">ราคา ฿{promo.price.toLocaleString("th-TH")}</span>
                         )}
                       </div>
                     </div>

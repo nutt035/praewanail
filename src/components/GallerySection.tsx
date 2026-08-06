@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Image as ImageIcon, Search, X, ZoomIn, Heart } from "lucide-react";
 import Link from "next/link";
 

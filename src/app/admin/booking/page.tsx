@@ -7,7 +7,8 @@ import {
   FileText, ChevronDown, Banknote, Plus, Trash2, Fingerprint, Tag, Heart, X, CheckCircle2, Trophy, Star,
   Sparkles, Gift, Users,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
+import { sendAdminTelegramNotification } from "@/lib/notify-client";
 import { Service, Customer, Promotion, calcLineTotal, calcDiscountBaht, ShopSettings, settingsToMap, DEFAULT_SETTINGS, Booking } from "@/lib/types";
 import toast from "react-hot-toast";
 
@@ -445,22 +446,16 @@ function BookingFormContent() {
         const receiptUrl = `${origin}/receipt/${bookingId}`;
 
         // 2. Telegram Notification
-        if (shopSettings.telegram_bot_token && shopSettings.telegram_chat_id) {
+        {
           let adminMsg = `✨ <b>จบงานเรียบร้อย!</b>\n\n👤 ลูกค้า: ${formData.customerName}\n💰 ยอดชำระ: ฿${totalPrice.toLocaleString()}\n💳 วิธีชำระ: ${payLabel}`;
           if (discountBaht > 0) adminMsg += `\nลดไป: ฿${discountBaht.toLocaleString()}`;
           if (pointsDiscount > 0) adminMsg += `\nแลกแต้ม: -฿${pointsDiscount.toLocaleString()}`;
           if (couponDiscountBaht > 0) adminMsg += `\n🎟️ ใช้คูปอง: ${selectedCoupon?.rewards?.title} (-฿${couponDiscountBaht.toLocaleString()})`;
           adminMsg += `\n\n📄 ดูใบเสร็จ: ${receiptUrl}`;
 
-          const url = `https://api.telegram.org/bot${shopSettings.telegram_bot_token}/sendMessage`;
-          const chatIds = String(shopSettings.telegram_chat_id).split(",").map(id => id.trim()).filter(Boolean);
-          await Promise.all(chatIds.map(id => 
-            fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat_id: id, text: adminMsg, parse_mode: "HTML" })
-            }).catch(() => {})
-          ));
+          await sendAdminTelegramNotification(adminMsg).catch((error) => {
+            console.error("Telegram notification failed:", error);
+          });
         }
 
         // 3. LINE Receipt Notification
@@ -472,7 +467,7 @@ function BookingFormContent() {
           if (freshCustomer?.line_id) lineIdToSend = freshCustomer.line_id;
         }
 
-        if (shopSettings.line_channel_token && lineIdToSend) {
+        if (lineIdToSend) {
           const pointsEarned = newPoints - currentPoints;
           const flexMessage = {
             type: "flex",
@@ -769,7 +764,7 @@ function BookingFormContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="form-label">เลือกโปรโมชั่น (ถ้ามี)</label>
-              <select value={selectedPromotionId || ""} onChange={(e) => setSelectedPromotionId(e.target.value || null)} className="input-field">
+              <select value={selectedPromotionId} onChange={(e) => setSelectedPromotionId(e.target.value)} className="input-field">
                 <option value="custom">-- ไม่มีโปรโมชั่น --</option>
                 {promotions.map(p => (
                   <option key={p.id} value={p.id}>

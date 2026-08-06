@@ -1,27 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { copySessionCookies, refreshOwnerSession } from '@/lib/supabase-middleware';
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
+  const { response, isOwner } = await refreshOwnerSession(request);
+  const legacyAuthEnabled = process.env.LEGACY_ADMIN_AUTH_ENABLED === 'true';
+  const hasLegacySession = Boolean(request.cookies.get('admin_token')?.value);
+  const hasAdminAccess = isOwner || (legacyAuthEnabled && hasLegacySession);
 
-  // Admin routes: ต้องมี token
-  if (url.pathname.startsWith('/admin')) {
-    const token = request.cookies.get('admin_token')?.value;
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url));
+  if (url.pathname.startsWith('/admin') || url.pathname.startsWith('/office')) {
+    if (!hasAdminAccess) {
+      return copySessionCookies(
+        response,
+        NextResponse.redirect(new URL('/login', request.url)),
+      );
     }
   }
 
-  // Login page: ถ้ามี token แล้ว ไปหน้า admin เลย
-  if (url.pathname === '/login') {
-    const token = request.cookies.get('admin_token')?.value;
-    if (token) {
-      return NextResponse.redirect(new URL('/admin', request.url));
-    }
+  const isOwnerSetup = url.searchParams.get('setup') === 'owner';
+  if (url.pathname === '/login' && hasAdminAccess && !isOwnerSetup) {
+    return copySessionCookies(
+      response,
+      NextResponse.redirect(new URL('/admin', request.url)),
+    );
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/login'],
+  matcher: ['/admin/:path*', '/office/:path*', '/login'],
 };

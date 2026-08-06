@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Promotion, Service } from "@/lib/types";
 import {
   Plus, Pencil, Trash2, X, Tag, Calendar, ToggleLeft, ToggleRight,

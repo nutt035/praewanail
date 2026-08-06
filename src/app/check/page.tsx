@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Search, Loader2, CalendarDays } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 
 export default function CheckBookingPage() {
   const router = useRouter();

@@ -1,10 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase-browser";
 import { Service, ShopSettings, settingsToMap, DEFAULT_SETTINGS } from "@/lib/types";
 import { Plus, Pencil, Trash2, X, Settings, Clock, Tag, Scissors, Store, Save, Loader2, Sparkles, Fingerprint, MessageCircle, CreditCard, Send, Trophy, CheckCircle2, Image as ImageIcon, Upload } from "lucide-react";
 import toast from "react-hot-toast";
+
+const SERVER_MANAGED_SETTING_KEYS = new Set([
+  "telegram_bot_token",
+  "telegram_chat_id",
+  "line_channel_token",
+  "admin_line_uid",
+  "slipok_branch_id",
+  "slipok_api_key",
+]);
 
 const CATEGORIES = ["ทำเล็บมือ", "ทำเล็บเท้า", "ต่อเล็บ", "สปา", "ถอดเล็บ", "อื่นๆ"];
 
@@ -134,7 +143,10 @@ export default function SettingsPage() {
   async function fetchShopSettings() {
     const { data } = await supabase.from("shop_settings").select("*");
     if (data && data.length > 0) {
-      const settingsMap = settingsToMap(data as ShopSettings[]);
+      const browserSafeSettings = (data as ShopSettings[]).filter(
+        (setting) => !SERVER_MANAGED_SETTING_KEYS.has(setting.key),
+      );
+      const settingsMap = settingsToMap(browserSafeSettings);
       setShopSettings({ ...DEFAULT_SETTINGS, ...settingsMap });
       if (settingsMap.gallery_images) {
         try {
@@ -148,7 +160,9 @@ export default function SettingsPage() {
 
   async function saveShopSettings() {
     setSavingShop(true);
-    const entries = Object.entries(shopSettings);
+    const entries = Object.entries(shopSettings).filter(
+      ([key]) => !SERVER_MANAGED_SETTING_KEYS.has(key),
+    );
     for (const [key, value] of entries) {
       await supabase.from("shop_settings").upsert({ key, value }, { onConflict: "key" });
     }
@@ -578,51 +592,21 @@ export default function SettingsPage() {
 
               <div className="border-t border-pink-50 pt-4 md:col-span-2">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">LINE Messaging API (สำหรับส่งใบเสร็จ)</p>
-                <div className="space-y-4">
-                  <div>
-                    <label className="form-label">LINE Channel Access Token</label>
-                    <input
-                      type="password"
-                      className="input-field"
-                      value={shopSettings.line_channel_token || ""}
-                      onChange={(e) => setShopSettings((s) => ({ ...s, line_channel_token: e.target.value }))}
-                      placeholder="eyJhbGci..."
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Admin LINE User ID (รับแจ้งเตือนทาง LINE)</label>
-                    <input
-                      className="input-field"
-                      value={shopSettings.admin_line_uid || ""}
-                      onChange={(e) => setShopSettings((s) => ({ ...s, admin_line_uid: e.target.value }))}
-                      placeholder="Uxxxxxxxxxxxxxxx"
-                    />
-                  </div>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-emerald-800">จัดการอย่างปลอดภัยบนเซิร์ฟเวอร์แล้ว</p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-700">
+                    Channel Token และ Admin User ID จะไม่ถูกส่งมายังเบราว์เซอร์หรือบันทึกจากหน้านี้
+                  </p>
                 </div>
               </div>
 
               <div className="border-t border-pink-50 pt-4 md:col-span-2">
                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Telegram Notification (Admin)</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Bot Token</label>
-                    <input
-                      type="password"
-                      className="input-field"
-                      value={shopSettings.telegram_bot_token || ""}
-                      onChange={(e) => setShopSettings((s) => ({ ...s, telegram_bot_token: e.target.value }))}
-                      placeholder="0000000000:AAxxxxxxxx"
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label">Chat ID</label>
-                    <input
-                      className="input-field"
-                      value={shopSettings.telegram_chat_id || ""}
-                      onChange={(e) => setShopSettings((s) => ({ ...s, telegram_chat_id: e.target.value }))}
-                      placeholder="-100xxxxxxx"
-                    />
-                  </div>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-emerald-800">จัดการอย่างปลอดภัยบนเซิร์ฟเวอร์แล้ว</p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-700">
+                    Bot Token และ Chat ID จะไม่ถูกส่งมายังเบราว์เซอร์หรือบันทึกจากหน้านี้
+                  </p>
                 </div>
               </div>
             </div>
@@ -743,28 +727,12 @@ export default function SettingsPage() {
               ตรวจสลิปอัตโนมัติ (SlipOK)
             </h3>
             <p className="text-[11px] text-slate-400 mb-4">ระบบจะตรวจสอบสลิปโอนเงินจากลูกค้าอัตโนมัติ · สมัครได้ที่ <a href="https://slipok.com" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">slipok.com</a></p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="form-label text-emerald-700">SlipOK Branch ID</label>
-                <input
-                  className="input-field border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400"
-                  value={shopSettings.slipok_branch_id || ""}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, slipok_branch_id: e.target.value }))}
-                  placeholder="เช่น 66157"
-                />
-              </div>
-              <div>
-                <label className="form-label text-emerald-700">SlipOK API Key</label>
-                <input
-                  type="password"
-                  className="input-field border-emerald-200 focus:border-emerald-400 focus:ring-emerald-400"
-                  value={shopSettings.slipok_api_key || ""}
-                  onChange={(e) => setShopSettings((s) => ({ ...s, slipok_api_key: e.target.value }))}
-                  placeholder="SLIPOKXXXXX"
-                />
-              </div>
+            <div className="rounded-xl border border-emerald-200 bg-white/80 px-4 py-3">
+              <p className="text-sm font-medium text-emerald-700">ตั้งค่าบนเซิร์ฟเวอร์แล้ว</p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Branch ID และ API Key ถูกเก็บเป็นความลับฝั่งเซิร์ฟเวอร์ จึงไม่แสดงหรือแก้ไขผ่านหน้าเว็บ
+              </p>
             </div>
-            <p className="text-[10px] text-emerald-600 mt-3 italic">* ถ้าไม่ตั้งค่า SlipOK ระบบจะบันทึกสลิปและรอ admin ตรวจสอบเอง</p>
           </div>
 
           {/* Preview */}
