@@ -110,7 +110,7 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
             <Sparkles size={15} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-bold text-brand-dark">{settings.shop_name || "Praewa Nail"}</p>
+            <p className="text-sm font-bold text-brand-dark">{settings.shop_name || "Antoinette Nail"}</p>
             <p className="text-[10px] text-slate-400">ยืนยันการจอง</p>
           </div>
         </div>
@@ -255,7 +255,7 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
           </div>
         )}
 
-        <p className="text-center text-xs text-slate-300 pb-8">© 2025 {settings.shop_name || "Praewa Nail Studio"}</p>
+        <p className="text-center text-xs text-slate-300 pb-8">© 2025 {settings.shop_name || "Antoinette Nail Studio"}</p>
       </main>
     </div>
   );

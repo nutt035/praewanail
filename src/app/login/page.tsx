@@ -83,7 +83,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-pink-500 shadow-lg shadow-rose-200/50">
             <Sparkles size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Antonette Nail</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Antoinette Nail</h1>
           <p className="mt-1 text-sm text-slate-400">Digital Office</p>
         </div>
 
@@ -169,7 +169,7 @@ export default function LoginPage() {
           </p>
         </section>
 
-        <p className="mt-6 text-center text-xs text-slate-300">© 2026 Antonette Nail Studio</p>
+        <p className="mt-6 text-center text-xs text-slate-300">© 2026 Antoinette Nail Studio</p>
       </div>
     </main>
   );

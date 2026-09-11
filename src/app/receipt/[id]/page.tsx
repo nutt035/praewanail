@@ -116,7 +116,7 @@ export default function PublicReceiptPage() {
             <span className="text-[10px] font-black text-rose-400 uppercase tracking-[0.2em]">Official E-Receipt</span>
           </div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tighter italic">
-            Antonette<span className="text-rose-400">Nail</span>
+            Antoinette<span className="text-rose-400">Nail</span>
           </h1>
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Nail Studio & Spa</p>
         </div>
@@ -319,7 +319,7 @@ export default function PublicReceiptPage() {
           </div>
 
           <div className="text-center space-y-4">
-            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.4em]">Antonette Nail Studio</p>
+            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.4em]">Antoinette Nail Studio</p>
             <div className="flex items-center justify-center gap-2">
               <div className="h-px w-8 bg-rose-100" />
               <div className="w-2 h-2 rounded-full bg-rose-200" />

@@ -13,7 +13,7 @@ export default function HowToPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-800">วิธีการใช้งาน</h1>
-            <p className="text-sm text-gray-500 mt-1">คู่มือการใช้งานระบบจองคิวร้าน Antonette Nail</p>
+            <p className="text-sm text-gray-500 mt-1">คู่มือการใช้งานระบบจองคิวร้าน Antoinette Nail</p>
           </div>
         </div>
 
@@ -44,7 +44,7 @@ export default function HowToPage() {
                 <iframe
                   className="w-full h-full"
                   src="https://www.youtube.com/embed/OvTBX1JmNB4"
-                  title="วิธีการจองคิวทำเล็บ - Antonette Nail"
+                  title="วิธีการจองคิวทำเล็บ - Antoinette Nail"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                   loading="lazy"
@@ -72,7 +72,7 @@ export default function HowToPage() {
                 <iframe
                   className="w-full h-full"
                   src="https://www.youtube.com/embed/V5zH24eOy6k"
-                  title="ระบบสมาชิกและสะสมแต้ม - Antonette Nail"
+                  title="ระบบสมาชิกและสะสมแต้ม - Antoinette Nail"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                   loading="lazy"

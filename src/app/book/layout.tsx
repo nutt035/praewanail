@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "จองคิวออนไลน์",
-  description: "จองคิวทำเล็บ Antonette Nail ออนไลน์ เลือกวันเวลาว่าง ยืนยันการจองได้ทันที",
+  description: "จองคิวทำเล็บ Antoinette Nail ออนไลน์ เลือกวันเวลาว่าง ยืนยันการจองได้ทันที",
   alternates: { canonical: "/book" },
 };
 

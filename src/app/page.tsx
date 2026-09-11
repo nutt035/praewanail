@@ -58,13 +58,13 @@ export default async function Home() {
           <div className="w-30 h-30 rounded-[2rem] bg-gradient-to-tr from-rose-400 via-pink-500 to-fuchsia-500 p-[2px] shadow-xl shadow-pink-200/60 mb-6 group cursor-pointer transition-transform hover:scale-105">
             <div className="w-full h-full bg-white rounded-[1.9rem] flex items-center justify-center overflow-hidden">
               {/* 💡 แอดมินสามารถนำรูปโลโก้มาใส่ในโฟลเดอร์ public/ โค้ดด้านล่างนี้ได้เลย */}
-              <img src="/logo.png" alt="โลโก้ Antonette Nail ร้านทำเล็บ" className="w-full h-full object-cover" />
+              <img src="/logo.png" alt="โลโก้ Antoinette Nail ร้านทำเล็บ" className="w-full h-full object-cover" />
               <Sparkles size={40} className="text-pink-500 group-hover:animate-pulse" />
             </div>
           </div>
 
           <h1 className="text-3xl font-extrabold text-gray-900 mb-2 tracking-tight">
-            {settings.shop_name || "Antonette Nail"}
+            {settings.shop_name || "Antoinette Nail"}
           </h1>
           <p className="text-pink-600/80 font-medium text-sm max-w-xs mb-1">
             Nail Studio
@@ -232,7 +232,7 @@ export default async function Home() {
             </h2>
           </div>
           <iframe
-            title="แผนที่ร้าน Antonette Nail"
+            title="แผนที่ร้าน Antoinette Nail"
             src="https://www.google.com/maps?q=14.0419604,100.6657903&z=16&output=embed"
             width="100%"
             height="260"

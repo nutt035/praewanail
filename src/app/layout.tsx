@@ -9,22 +9,22 @@ const prompt = Prompt({
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://antonettenail.vercel.app";
-const title = "Antonette Nail | ร้านทำเล็บ จองคิวออนไลน์";
-const description = "Antonette Nail ร้านทำเล็บ ต่อเล็บ เพ้นท์ลาย จองคิวออนไลน์ง่ายๆ เช็คคิวว่างได้ทันที";
+const title = "Antoinette Nail | ร้านทำเล็บ จองคิวออนไลน์";
+const description = "Antoinette Nail ร้านทำเล็บ ต่อเล็บ เพ้นท์ลาย จองคิวออนไลน์ง่ายๆ เช็คคิวว่างได้ทันที";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: { default: title, template: "%s | Antonette Nail" },
-  applicationName: "Antonette Nail",
+  title: { default: title, template: "%s | Antoinette Nail" },
+  applicationName: "Antoinette Nail",
   description,
-  keywords: ["ร้านทำเล็บ", "ต่อเล็บ", "เพ้นท์เล็บ", "จองคิวทำเล็บ", "Antonette Nail", "nail studio"],
+  keywords: ["ร้านทำเล็บ", "ต่อเล็บ", "เพ้นท์เล็บ", "จองคิวทำเล็บ", "Antoinette Nail", "nail studio"],
   robots: { index: true, follow: true },
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "th_TH",
     url: siteUrl,
-    siteName: "Antonette Nail",
+    siteName: "Antoinette Nail",
     title,
     description,
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Antonette Nail",
+    title: "Antoinette Nail",
   },
 };
 
@@ -58,7 +58,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "NailSalon",
-              name: "Antonette Nail",
+              name: "Antoinette Nail",
               url: siteUrl,
               image: `${siteUrl}/og-image.png`,
               address: {

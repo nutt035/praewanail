@@ -408,7 +408,7 @@ export default function SettingsPage() {
                   className="input-field"
                   value={shopSettings.shop_name}
                   onChange={(e) => setShopSettings((s) => ({ ...s, shop_name: e.target.value }))}
-                  placeholder="Praewa Nail Studio"
+                  placeholder="Antoinette Nail Studio"
                 />
               </div>
               <div>

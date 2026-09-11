@@ -1,5 +1,5 @@
 // ============================================================
-// Supabase Database Types — Praewa Nail Studio
+// Supabase Database Types — Antoinette Nail Studio
 // ============================================================
 
 export interface Service {
@@ -218,7 +218,7 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   cancellation_policy: "",
   walk_in_policy: "",
   repair_policy: "",
-  shop_name: "Antonette Nail",
+  shop_name: "Antoinette Nail",
   shop_phone: "",
   shop_line_id: "",
   shop_ig: "",

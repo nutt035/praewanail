@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Antonette Nail",
-    short_name: "Antonette",
-    description: "ร้านทำเล็บ Antonette Nail — จองคิวออนไลน์ง่าย ๆ",
+    name: "Antoinette Nail",
+    short_name: "Antoinette",
+    description: "ร้านทำเล็บ Antoinette Nail — จองคิวออนไลน์ง่าย ๆ",
     start_url: "/",
     display: "standalone",
     background_color: "#FFF8F7",

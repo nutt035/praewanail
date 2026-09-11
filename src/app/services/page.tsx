@@ -9,7 +9,7 @@ export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "บริการและราคา",
-  description: "ราคาบริการทำเล็บ Antonette Nail — ต่อเล็บ เพ้นท์ลาย ออมเบร์ และโปรโมชั่นล่าสุด",
+  description: "ราคาบริการทำเล็บ Antoinette Nail — ต่อเล็บ เพ้นท์ลาย ออมเบร์ และโปรโมชั่นล่าสุด",
   alternates: { canonical: "/services" },
 };
 

@@ -376,7 +376,7 @@ export default function CalendarPage() {
               contents: [
                 {
                   type: "text",
-                  text: shopSettings.shop_name || "Antonette Nail",
+                  text: shopSettings.shop_name || "Antoinette Nail",
                   color: "#ffffff",
                   weight: "bold",
                   size: "lg"

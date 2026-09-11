@@ -95,7 +95,7 @@ export default function GallerySection() {
             >
               <img
                 src={img.url}
-                alt={img.tags && img.tags.length > 0 ? `ผลงานทำเล็บลาย ${img.tags.join(', ')} - Antonette Nail` : "ผลงานทำเล็บ Antonette Nail"}
+                alt={img.tags && img.tags.length > 0 ? `ผลงานทำเล็บลาย ${img.tags.join(', ')} - Antoinette Nail` : "ผลงานทำเล็บ Antoinette Nail"}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 loading="lazy"
               />

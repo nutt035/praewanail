@@ -234,7 +234,7 @@ export default function BookingPage() {
             <ChevronLeft size={18} />
           </Link>
           <div className="flex-1">
-            <p className="text-sm font-bold text-brand-dark">{settings.shop_name || "Praewa Nail"}</p>
+            <p className="text-sm font-bold text-brand-dark">{settings.shop_name || "Antoinette Nail"}</p>
             <p className="text-[10px] text-slate-400">จองคิวออนไลน์</p>
           </div>
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center shadow-sm">

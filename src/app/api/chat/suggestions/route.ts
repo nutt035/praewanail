@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     .order("created_at", { ascending: false }).limit(12);
   const settings = await getSharedShopSettings();
   const history = [...(messages ?? [])].reverse().map((m) => `${m.direction === "inbound" ? "ลูกค้า" : "ร้าน"}: ${m.content}`).join("\n");
-  const prompt = `คุณเป็นผู้ช่วยร่างคำตอบของร้านทำเล็บ Antonette Nail ให้เจ้าของร้านตรวจแล้วกดส่งเอง
+  const prompt = `คุณเป็นผู้ช่วยร่างคำตอบของร้านทำเล็บ Antoinette Nail ให้เจ้าของร้านตรวจแล้วกดส่งเอง
 ตอบภาษาไทย โทนอบอุ่น เป็นผู้หญิง สุภาพ พรีเมียม และไม่รับปากข้อมูลที่ไม่มีหลักฐาน
 ข้อมูลร้านที่ยืนยันแล้ว: ${JSON.stringify(settings)}
 บทสนทนาล่าสุด:\n${history}

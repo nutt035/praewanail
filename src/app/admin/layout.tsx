@@ -69,7 +69,7 @@ export default function AdminLayout({
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center shadow-sm">
             <Sparkles size={16} className="text-white" />
           </div>
-          <p className="font-bold text-brand-dark leading-none">Antonette Nail</p>
+          <p className="font-bold text-brand-dark leading-none">Antoinette Nail</p>
         </div>
         <button
           onClick={() => setMobileMenuOpen(true)}
@@ -100,7 +100,7 @@ export default function AdminLayout({
               <Sparkles size={16} className="text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-brand-dark leading-none">Antonette Nail</p>
+              <p className="text-sm font-bold text-brand-dark leading-none">Antoinette Nail</p>
               <p className="text-[10px] text-brand-slate mt-0.5">Studio Management</p>
             </div>
           </div>
