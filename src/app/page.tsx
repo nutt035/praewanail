@@ -58,7 +58,7 @@ export default async function Home() {
           <div className="w-30 h-30 rounded-[2rem] bg-gradient-to-tr from-rose-400 via-pink-500 to-fuchsia-500 p-[2px] shadow-xl shadow-pink-200/60 mb-6 group cursor-pointer transition-transform hover:scale-105">
             <div className="w-full h-full bg-white rounded-[1.9rem] flex items-center justify-center overflow-hidden">
               {/* 💡 แอดมินสามารถนำรูปโลโก้มาใส่ในโฟลเดอร์ public/ โค้ดด้านล่างนี้ได้เลย */}
-              <img src="/logo.png" alt="Shop Logo" className="w-full h-full object-cover" />
+              <img src="/logo.png" alt="โลโก้ Antonette Nail ร้านทำเล็บ" className="w-full h-full object-cover" />
               <Sparkles size={40} className="text-pink-500 group-hover:animate-pulse" />
             </div>
           </div>
@@ -85,10 +85,19 @@ export default async function Home() {
               )}
             </div>
           </div>
+          <a
+            href="https://maps.app.goo.gl/4i5Ga8vDcKhKrSWd8"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-rose-500 hover:text-rose-600 transition-colors"
+          >
+            <MapPin size={14} />
+            ดูแผนที่ / นำทางมาร้าน
+          </a>
         </div>
       </div>
 
-      <main className="max-w-md mx-auto px-5 py-8 space-y-10">
+      <main className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-8 space-y-10">
 
         {/* 2. Promotions (เอามาไว้หน้าแรกตามรีเควสต์) */}
         {promotions.length > 0 && (
@@ -222,10 +231,23 @@ export default async function Home() {
               แผนที่ร้าน
             </h2>
           </div>
-          <div className="p-8 bg-gray-50 flex flex-col items-center justify-center text-center">
-             <MapPin size={32} className="text-gray-300 mb-2" />
-             <p className="text-sm font-medium text-gray-500">รออัพเดทแผนที่</p>
-          </div>
+          <iframe
+            title="แผนที่ร้าน Antonette Nail"
+            src="https://www.google.com/maps?q=14.0419604,100.6657903&z=16&output=embed"
+            width="100%"
+            height="260"
+            loading="lazy"
+            className="border-0 block"
+          />
+          <a
+            href="https://maps.app.goo.gl/4i5Ga8vDcKhKrSWd8"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 py-3 text-sm font-bold text-rose-500 hover:bg-rose-50 transition-colors"
+          >
+            <MapPin size={14} />
+            เปิดใน Google Maps
+          </a>
         </section>
 
         {/* 6. Reviews Section */}
@@ -257,7 +279,7 @@ export default async function Home() {
                         </div>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-600 italic flex-1">"{review.comment}"</p>
+                    <p className="text-xs text-gray-600 italic flex-1">&ldquo;{review.comment}&rdquo;</p>
                     <p className="text-[9px] text-gray-400 mt-3 text-right">
                       {new Date(review.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })}
                     </p>

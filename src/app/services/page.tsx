@@ -2,9 +2,16 @@ import { Sparkles, Clock, Fingerprint, Tag, Banknote, Megaphone, ChevronLeft } f
 import { supabase } from "@/lib/supabase-browser";
 import { Service, Promotion } from "@/lib/types";
 import Link from "next/link";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+export const metadata: Metadata = {
+  title: "บริการและราคา",
+  description: "ราคาบริการทำเล็บ Antonette Nail — ต่อเล็บ เพ้นท์ลาย ออมเบร์ และโปรโมชั่นล่าสุด",
+  alternates: { canonical: "/services" },
+};
 
 async function getServices(): Promise<Service[]> {
   const { data } = await supabase
@@ -53,7 +60,7 @@ export default async function ServicesPage() {
     <div className="min-h-screen bg-[#FDF2F8]">
       {/* Header */}
       <header className="bg-white/95 backdrop-blur-md border-b border-pink-100 sticky top-0 z-50 isolate">
-        <div className="max-w-xl mx-auto px-5 py-4 flex items-center gap-3">
+        <div className="max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-4 flex items-center gap-3">
           <Link href="/" className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-rose-400 hover:bg-pink-100 transition-colors">
             <ChevronLeft size={18} />
           </Link>
@@ -67,7 +74,7 @@ export default async function ServicesPage() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 py-8 space-y-10 pb-32">
+      <main className="max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-8 space-y-10 pb-32">
         {/* โปรโมชั่น */}
         {promotions.length > 0 && (
           <section id="promotions">
@@ -178,7 +185,7 @@ export default async function ServicesPage() {
       
       {/* Fixed bottom booking button */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-pink-100 z-40">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto">
           <Link href="/book" className="w-full flex justify-center items-center gap-2 py-3.5 bg-brand-dark text-white rounded-2xl font-bold shadow-md hover:bg-slate-800 transition-colors">
             <Sparkles size={18} />
             จองคิวตอนนี้

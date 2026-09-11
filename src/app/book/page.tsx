@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
 import { ShopSettings, Promotion, settingsToMap, DEFAULT_SETTINGS, getDepositAmount, getOpenClose, isClosedDay, PUBLIC_SHOP_SETTING_KEYS } from "@/lib/types";
 import {
@@ -228,10 +229,10 @@ export default function BookingPage() {
       <Toaster position="top-center" toastOptions={{ className: "text-sm font-medium" }} />
       {/* Header */}
       <header className="bg-white/95 backdrop-blur-md border-b border-pink-100 sticky top-0 z-50 isolate">
-        <div className="max-w-xl mx-auto px-5 py-4 flex items-center gap-3">
-          <a href="/" className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-rose-400 hover:bg-pink-100 transition-colors">
+        <div className="max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-4 flex items-center gap-3">
+          <Link href="/" className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-rose-400 hover:bg-pink-100 transition-colors">
             <ChevronLeft size={18} />
-          </a>
+          </Link>
           <div className="flex-1">
             <p className="text-sm font-bold text-brand-dark">{settings.shop_name || "Praewa Nail"}</p>
             <p className="text-[10px] text-slate-400">จองคิวออนไลน์</p>
@@ -242,7 +243,7 @@ export default function BookingPage() {
         </div>
       </header>
 
-      <main className="max-w-xl mx-auto px-5 py-6 pb-32">
+      <main className="max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-6 pb-32">
         {/* Progress */}
         <div className="flex items-center gap-1 mb-6">
           {STEPS.map((s, i) => (
@@ -444,7 +445,7 @@ export default function BookingPage() {
 
       {/* Bottom Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-pink-100 p-4 z-20">
-        <div className="max-w-xl mx-auto flex items-center gap-3">
+        <div className="max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto flex items-center gap-3">
           {step > 0 && (
             <button onClick={() => setStep(s => s - 1)} className="px-5 py-3 rounded-xl border border-pink-200 text-slate-600 text-sm font-medium hover:bg-pink-50 transition-all">
               <ChevronLeft size={16} className="inline" /> ย้อนกลับ

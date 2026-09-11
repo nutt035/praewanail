@@ -85,7 +85,7 @@ export default function GallerySection() {
       </div>
 
       {/* 📸 Feed Layout */}
-      <div className="grid grid-cols-1 gap-10 pb-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-10">
         {displayedImages.map(img => (
           <div key={img.id} className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-pink-50">
             {/* Image Container with aspect ratio and zoom */}
@@ -93,9 +93,9 @@ export default function GallerySection() {
               className="relative aspect-[4/5] bg-gray-50 cursor-pointer group"
               onClick={() => setLightboxImage(img.url)}
             >
-              <img 
-                src={img.url} 
-                alt="Nail Art" 
+              <img
+                src={img.url}
+                alt={img.tags && img.tags.length > 0 ? `ผลงานทำเล็บลาย ${img.tags.join(', ')} - Antonette Nail` : "ผลงานทำเล็บ Antonette Nail"}
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 loading="lazy"
               />
@@ -128,7 +128,7 @@ export default function GallerySection() {
       {displayedImages.length === 0 && (
         <div className="text-center py-16 text-slate-400">
           <Search size={40} className="mx-auto mb-4 opacity-20" />
-          <p className="text-base font-medium">ไม่พบรูปภาพในหมวดหมู่ "{filterTag}"</p>
+          <p className="text-base font-medium">ไม่พบรูปภาพในหมวดหมู่ &ldquo;{filterTag}&rdquo;</p>
         </div>
       )}
 

@@ -3,15 +3,14 @@ import "server-only";
 import crypto from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { extensionByMimeType, privateUploadsRoot } from "./private-uploads";
 
 export type LineImageMime = "image/jpeg" | "image/png" | "image/webp";
 
-const extensionByMime: Record<LineImageMime, string> = {
-  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
-};
+const extensionByMime = extensionByMimeType;
 
 function root() {
-  return path.join(process.env.PRIVATE_UPLOAD_DIR?.trim() || path.join(process.cwd(), "private_uploads"), "line-chat");
+  return path.join(privateUploadsRoot(), "line-chat");
 }
 
 export function detectLineImageMime(buffer: Buffer): LineImageMime {

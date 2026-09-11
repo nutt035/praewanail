@@ -1,4 +1,5 @@
 import "server-only";
+import { clean } from "./config-utils";
 
 export type LineConfig = {
   accessToken: string;
@@ -10,10 +11,6 @@ type LineFallbackSettings = {
   line_channel_token?: unknown;
   admin_line_uid?: unknown;
 };
-
-function clean(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 export function resolveLineConfig(fallback?: LineFallbackSettings): LineConfig | null {
   const environmentToken = clean(process.env.LINE_CHANNEL_ACCESS_TOKEN);

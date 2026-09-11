@@ -140,7 +140,7 @@ export default function RewardsAdminPage() {
           <div className="col-span-full py-10 text-center text-slate-400">กำลังโหลดข้อมูล...</div>
         ) : rewards.length === 0 ? (
           <div className="col-span-full py-10 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-pink-200">
-            ยังไม่มีของรางวัล กด "สร้างคูปองใหม่" เพื่อเริ่มต้น
+            ยังไม่มีของรางวัล กด &ldquo;สร้างคูปองใหม่&rdquo; เพื่อเริ่มต้น
           </div>
         ) : (
           rewards.map((r) => (

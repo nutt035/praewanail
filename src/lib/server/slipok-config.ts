@@ -1,4 +1,5 @@
 import "server-only";
+import { clean } from "./config-utils";
 
 export type SlipOkConfig = {
   branchId: string;
@@ -10,10 +11,6 @@ type SlipOkFallbackSettings = {
   slipok_branch_id?: unknown;
   slipok_api_key?: unknown;
 };
-
-function clean(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 export function resolveSlipOkConfig(
   fallback?: SlipOkFallbackSettings,

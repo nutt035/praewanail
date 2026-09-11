@@ -12,7 +12,7 @@ export default function GalleryPage() {
         <h1 className="font-bold text-gray-900 text-lg">พอร์ตผลงาน (Gallery)</h1>
       </div>
       
-      <main className="max-w-md mx-auto px-5 py-8 space-y-6">
+      <main className="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto px-5 py-8 space-y-6">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-black text-gray-900">Nail Art Gallery ✨</h2>
           <p className="text-sm text-gray-500 mt-1">รวมผลงานทำเล็บสวยๆ จากทางร้าน</p>

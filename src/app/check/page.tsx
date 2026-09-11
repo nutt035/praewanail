@@ -56,7 +56,7 @@ export default function CheckBookingPage() {
     <div className="min-h-screen bg-[#FDF2F8] p-5">
       <Toaster position="top-center" />
       
-      <header className="max-w-md mx-auto flex items-center gap-3 mb-8 pt-4">
+      <header className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto flex items-center gap-3 mb-8 pt-4">
         <button onClick={() => router.push('/')} className="w-10 h-10 rounded-xl bg-white border border-pink-100 flex items-center justify-center text-rose-400 hover:bg-pink-50 transition-colors shadow-sm">
           <ChevronLeft size={20} />
         </button>
@@ -66,7 +66,7 @@ export default function CheckBookingPage() {
         </div>
       </header>
 
-      <main className="max-w-md mx-auto">
+      <main className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto">
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-pink-100 text-center">
           <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
             <CalendarDays size={28} className="text-rose-400" />

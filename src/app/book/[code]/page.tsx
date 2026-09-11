@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
 import { settingsToMap, DEFAULT_SETTINGS, PUBLIC_SHOP_SETTING_KEYS, ShopSettings } from "@/lib/types";
 import { generatePromptPayPayload } from "@/lib/promptpay";
@@ -87,7 +88,7 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
           <AlertCircle size={48} className="text-rose-300 mx-auto mb-4" />
           <h2 className="text-lg font-bold text-slate-700 mb-2">ไม่พบการจอง</h2>
           <p className="text-sm text-slate-400">กรุณาตรวจสอบรหัสการจองอีกครั้ง</p>
-          <a href="/book" className="mt-6 inline-block px-6 py-3 bg-rose-400 text-white font-bold rounded-xl">จองใหม่</a>
+          <Link href="/book" className="mt-6 inline-block px-6 py-3 bg-rose-400 text-white font-bold rounded-xl">จองใหม่</Link>
         </div>
       </div>
     );
@@ -104,7 +105,7 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
     <div className="min-h-screen bg-[#FDF2F8]">
       {/* Header */}
       <header className="bg-white/95 backdrop-blur-md border-b border-pink-100 sticky top-0 z-50 isolate">
-        <div className="max-w-lg mx-auto px-5 py-4 flex items-center gap-3">
+        <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-4 flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-400 to-pink-500 flex items-center justify-center shadow-sm">
             <Sparkles size={15} className="text-white" />
           </div>
@@ -115,7 +116,7 @@ export default function BookingConfirmPage({ params }: { params: Promise<{ code:
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-5 py-6 space-y-5">
+      <main className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-6 space-y-5">
         {/* Success Banner */}
         <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-6 text-white text-center shadow-lg">
           <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">

@@ -3,14 +3,9 @@ import "server-only";
 import crypto from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
+import { extensionByMimeType, privateUploadsRoot, type ImageMimeType } from "./private-uploads";
 
-export type SlipMimeType = "image/jpeg" | "image/png" | "image/webp";
-
-const extensionByMimeType: Record<SlipMimeType, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
+export type SlipMimeType = ImageMimeType;
 
 const mimeTypeByExtension: Record<string, SlipMimeType> = {
   ".jpg": "image/jpeg",
@@ -18,12 +13,8 @@ const mimeTypeByExtension: Record<string, SlipMimeType> = {
   ".webp": "image/webp",
 };
 
-function storageRoot(): string {
-  return process.env.PRIVATE_UPLOAD_DIR?.trim() || path.join(process.cwd(), "private_uploads");
-}
-
 function bookingDirectory(bookingId: string): string {
-  return path.join(storageRoot(), "slips", bookingId);
+  return path.join(privateUploadsRoot(), "slips", bookingId);
 }
 
 export async function storeBookingSlip(

@@ -385,7 +385,7 @@ function BookingFormContent() {
       };
 
       let bookingId = editId;
-      let newStatus = mode === "confirm" ? "confirmed" : (mode === "checkout" ? "completed" : "confirmed");
+      const newStatus = mode === "confirm" ? "confirmed" : (mode === "checkout" ? "completed" : "confirmed");
       
       if (editId) {
         // ถ้าเป็น edit ปกติ ไม่เปลี่ยน status ยกเว้นมีการระบุ mode
@@ -419,7 +419,7 @@ function BookingFormContent() {
         }
 
         // 1. ระบบสะสมแต้ม
-        let currentPoints = existingCustomer?.points || 0;
+        const currentPoints = existingCustomer?.points || 0;
         let newPoints = currentPoints;
         const pointsPerBooking = Number(shopSettings.points_per_booking || 1);
         const pointsRate = Number(shopSettings.points_rate_amount || 0);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { KeyRound, Loader2, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { supabase } from "@/lib/supabase-browser";
 
 const OWNER_EMAIL = "nuttakankhu@gmail.com";
 
@@ -20,7 +20,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { error: sendError } = await supabaseBrowser.auth.signInWithOtp({
+      const { error: sendError } = await supabase.auth.signInWithOtp({
         email: OWNER_EMAIL,
         options: {
           shouldCreateUser: false,
@@ -50,14 +50,14 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { data, error: verifyError } = await supabaseBrowser.auth.verifyOtp({
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
         email: OWNER_EMAIL,
         token: otp,
         type: "email",
       });
 
       if (verifyError || data.user?.email?.toLowerCase() !== OWNER_EMAIL) {
-        await supabaseBrowser.auth.signOut();
+        await supabase.auth.signOut();
         setError("รหัสไม่ถูกต้องหรือหมดอายุ กรุณาใช้รหัสล่าสุดจากอีเมล");
         return;
       }

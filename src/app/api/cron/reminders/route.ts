@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
       // 4. แจ้งลูกค้าทาง LINE (ถ้าลูกค้าเคยผูก LINE)
       const customerLineId = booking.customers?.line_id;
       if (lineClient && customerLineId) {
-        const custMsg = `🔔 แจ้งเตือนคิวทำเล็บค่ะ!\n\nคุณ ${customerName} มีคิวทำเล็บเวลา ${startTime} น. นี้นะคะ\nร้านเราอยู่ [รออัพเดทแผนที่] \nเดินทางมาปลอดภัยนะคะ 💕`;
+        const custMsg = `🔔 แจ้งเตือนคิวทำเล็บค่ะ!\n\nคุณ ${customerName} มีคิวทำเล็บเวลา ${startTime} น. นี้นะคะ\nแผนที่ร้าน: https://maps.app.goo.gl/4i5Ga8vDcKhKrSWd8\nเดินทางมาปลอดภัยนะคะ 💕`;
         await lineClient.pushMessage(customerLineId, custMsg).catch(() => {});
       }
 

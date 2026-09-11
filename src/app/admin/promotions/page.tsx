@@ -221,7 +221,7 @@ export default function PromotionsPage() {
         <div className="card p-16 text-center text-slate-400">
           <Tag size={36} className="mx-auto mb-3 text-pink-200" />
           <p className="text-sm font-medium">ยังไม่มีโปรโมชั่น</p>
-          <p className="text-xs mt-1">กด "เพิ่มโปรโมชั่น" เพื่อสร้างโปรแรก</p>
+          <p className="text-xs mt-1">กด &ldquo;เพิ่มโปรโมชั่น&rdquo; เพื่อสร้างโปรแรก</p>
           <button onClick={openAdd} className="mt-4 text-rose-400 text-sm font-medium hover:underline">
             + เพิ่มโปรโมชั่น
           </button>
@@ -431,7 +431,7 @@ export default function PromotionsPage() {
                 <div className="space-y-2">
                   <label className="form-label flex items-center gap-1.5">
                     <Scissors size={14} className="text-rose-400" />
-                    บริการที่ "ไม่รวม" ในบุฟเฟต์ (ต้องจ่ายเพิ่ม)
+                    บริการที่ &ldquo;ไม่รวม&rdquo; ในบุฟเฟต์ (ต้องจ่ายเพิ่ม)
                   </label>
                   <div className="max-h-40 overflow-y-auto border border-pink-100 rounded-xl p-2 space-y-1 bg-pink-50/30">
                     {services.length === 0 ? (

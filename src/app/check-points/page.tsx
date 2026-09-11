@@ -46,7 +46,7 @@ export default function CheckPointsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Trophy className="text-pink-500 w-10 h-10" />

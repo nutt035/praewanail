@@ -23,7 +23,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { Toaster } from "react-hot-toast";
-import { supabaseBrowser } from "@/lib/supabase-browser";
+import { supabase } from "@/lib/supabase-browser";
 
 const navItems = [
   { href: "/admin", label: "ภาพรวม", icon: LayoutDashboard, exact: true },
@@ -57,7 +57,7 @@ export default function AdminLayout({
     exact ? pathname === href : pathname.startsWith(href);
 
   async function handleSignOut() {
-    await supabaseBrowser.auth.signOut();
+    await supabase.auth.signOut();
     window.location.assign("/login");
   }
 

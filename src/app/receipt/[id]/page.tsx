@@ -108,7 +108,7 @@ export default function PublicReceiptPage() {
 
   return (
     <div className="min-h-screen bg-[#FDF2F8] py-8 px-5 font-sans">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md md:max-w-xl mx-auto">
         {/* Luxury Top Branding */}
         <div className="text-center mb-8 animate-fade-in">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/60 backdrop-blur-sm border border-rose-100 rounded-full mb-3">

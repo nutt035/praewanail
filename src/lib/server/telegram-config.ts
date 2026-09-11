@@ -1,4 +1,5 @@
 import "server-only";
+import { clean } from "./config-utils";
 
 export type TelegramConfig = {
   token: string;
@@ -10,10 +11,6 @@ type TelegramFallbackSettings = {
   telegram_bot_token?: unknown;
   telegram_chat_id?: unknown;
 };
-
-function clean(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 export function resolveTelegramConfig(
   fallback?: TelegramFallbackSettings,

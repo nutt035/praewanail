@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase-browser";
 import { Search, Trophy, Phone, User, Calendar, Star, Sparkles, ChevronLeft, CreditCard, Gift, Loader2, Clock, Plus } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
@@ -424,8 +425,8 @@ function MemberContent() {
   let tier = "Classic";
   let tierColor = "from-rose-300 via-pink-400 to-rose-400";
   let textColor = "text-rose-900";
-  let badgeColor = "bg-rose-100 text-rose-700";
-  let iconColor = "text-rose-100";
+  const badgeColor = "bg-rose-100 text-rose-700";
+  const iconColor = "text-rose-100";
 
   try {
     const tiers = JSON.parse(settings.membership_tiers || "[]");
@@ -455,10 +456,10 @@ function MemberContent() {
       
       {/* Header */}
       <header className="bg-white/95 backdrop-blur-md border-b border-pink-100 sticky top-0 z-50 isolate">
-        <div className="max-w-md mx-auto px-5 py-4 flex items-center gap-3">
-          <a href="/" className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-rose-400 hover:bg-pink-100 transition-colors">
+        <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-4 flex items-center gap-3">
+          <Link href="/" className="w-8 h-8 rounded-xl bg-pink-50 flex items-center justify-center text-rose-400 hover:bg-pink-100 transition-colors">
             <ChevronLeft size={18} />
-          </a>
+          </Link>
           <div className="flex-1">
             <p className="text-sm font-bold text-brand-dark">ระบบสมาชิก</p>
             <p className="text-[10px] text-slate-400">เช็คแต้มสะสม & สิทธิพิเศษ</p>
@@ -469,7 +470,7 @@ function MemberContent() {
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-5 py-8">
+      <main className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-8">
         
         {isRegistering || isUpdatingInfo ? (
           <div className="space-y-6 animate-slide-up">
